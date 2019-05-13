@@ -78,14 +78,14 @@ struct FlowRule{
 };
 
 class HashFunction_FlowRule { 
-    public: 
-        size_t operator()(const FlowRule& f) const{ 
-            return (std::hash<uint32_t>()(f.sourcePort)) 
-                 ^ (std::hash<uint32_t>()(f.destinationPort))
-                 ^ (std::hash<uint32_t>()(f.sourceIp))
-                 ^ (std::hash<uint32_t>()(f.destinationIp))
-                 ^ (std::hash<uint32_t>()(f.protocol)); 
-        } 
+  public: 
+    size_t operator()(const FlowRule& f) const{ 
+        return (std::hash<uint32_t>()(f.sourcePort)) 
+            ^ (std::hash<uint32_t>()(f.destinationPort))
+            ^ (std::hash<uint32_t>()(f.sourceIp))
+            ^ (std::hash<uint32_t>()(f.destinationIp))
+            ^ (std::hash<uint32_t>()(f.protocol)); 
+    } 
 }; 
 
 

@@ -18,13 +18,14 @@ class Link:
         self.dest = dest
 
 class Flow:
-    def __init__(self, src, srcip, dest, destip, nbytes, start_time, packets_sent, lost_packets, randomly_lost_packets):
+    def __init__(self, src, srcip, dest, destip, nbytes, start_time_ms, finish_time_ms, packets_sent, lost_packets, randomly_lost_packets):
         self.src = src
         self.srcip = srcip
         self.dest = dest
         self.destip = destip
         self.nbytes = nbytes
-        self.start_time = start_time
+        self.start_time_ms = start_time_ms
+        self.finish_time_ms = finish_time_ms
         self.packets_sent = packets_sent
         self.lost_packets = lost_packets
         self.randomly_lost_packets = randomly_lost_packets
@@ -44,23 +45,26 @@ class Flow:
 
     def set_reverse_path_taken(self, p):
         self.reverse_path_taken = p
-    
-    def printinfo(self):
-        print("Flowid=", self.src, self.dest, self.nbytes, self.start_time, self.packets_sent, self.lost_packets, self.randomly_lost_packets)
+
+    def print_flow_metrics(self, outfile):
+        print("Flowid=", self.src, self.dest, self.nbytes, self.start_time_ms, self.finish_time_ms, self.packets_sent, self.lost_packets, self.randomly_lost_packets, file=outfile)
+
+    def printinfo(self, outfile):
+        self.print_flow_metrics(outfile)
         for p in self.paths:
             s = "flowpath"
             if p == self.path_taken:
                 s += "_taken"
             for n in p:
                 s += " " + str(n)
-            print(s)
+            print(s, file=outfile)
         for p in self.reverse_paths:
             s = "flowpath_reverse"
             if p == self.reverse_path_taken:
                 s += "_taken"
             for n in p:
                 s += " " + str(n)
-            print(s)
+            print(s, file=outfile)
             
 
     
@@ -69,6 +73,8 @@ def convert_path(p, hostip_to_host, linkip_to_link, host_switch_ip):
     assert (len(p) >= 1)
     srchost = p[0]
     destrack = p[-1]
+    if (not (srchost in hostip_to_host and destrack in host_switch_ip)):
+        print(p)
     assert (srchost in hostip_to_host and destrack in host_switch_ip)
     for i in range(1, len(p)-1):
         link = linkip_to_link[p[i]]
@@ -78,7 +84,7 @@ def convert_path(p, hostip_to_host, linkip_to_link, host_switch_ip):
     return path
 
 
-def process_logfile(filename):
+def process_logfile(filename, max_start_time_ms, outfilename):
     flows = []
     start_simulation = False
     linkip_to_link = dict()
@@ -88,11 +94,12 @@ def process_logfile(filename):
     flow_route_taken = dict()
     curr_flow = None
     recording = False
+    outfile = open(outfilename,"w+")
     with open(filename, encoding = "ISO-8859-1") as f:
         flow = None
         for line in f.readlines():
             if "Failing_link" in line:
-                print(line.rstrip());
+                print(line.rstrip(), file=outfile);
                 continue
             tokens = line.split()
             if (not start_simulation) and ("Start Simulation.." in line):
@@ -136,19 +143,23 @@ def process_logfile(filename):
                 srcport = int(tokens[5])
                 destport = int(tokens[6])
                 nbytes = int(tokens[7])
-                start_time = float(tokens[8].strip('+ns'))
-                packets_sent = int(tokens[9])
-                lost_packets = int(tokens[10])
-                randomly_lost_packets = int(tokens[11])
+                start_time_ms = float(tokens[8].strip('+ns')) * 1.0e-6
+                finish_time_ms = float(tokens[9].strip('+ns')) * 1.0e-6
+                packets_sent = int(tokens[10])
+                lost_packets = int(tokens[11])
+                randomly_lost_packets = int(tokens[12])
                 if (curr_flow != None and len(curr_flow.paths) > 0 and recording):
                     flows.append(curr_flow)
-                curr_flow = Flow(src, srcip, dest, destip, nbytes, start_time, packets_sent, lost_packets, randomly_lost_packets)
+                curr_flow = Flow(src, srcip, dest, destip, nbytes, start_time_ms, finish_time_ms, packets_sent, lost_packets, randomly_lost_packets)
                 flow_tuple = (srcip, destip, srcport, destport)
                 reverse_flow_tuple = (destip, srcip, destport, srcport)
-                if flow_tuple not in flow_route_taken or reverse_flow_tuple not in flow_route_taken:
-                    print("Ignoring: ", flow_tuple)
+                #if flow_tuple not in flow_route_taken or reverse_flow_tuple not in flow_route_taken or 
+                if start_time_ms >= max_start_time_ms or packets_sent==0:
+                    print("Ignoring flow", end=" ")
+                    curr_flow.printinfo(sys.stdout)
                     recording = False
                     continue
+                assert(flow_tuple in flow_route_taken and reverse_flow_tuple in flow_route_taken)
                 recording = True
                 curr_flow.set_path_taken(flow_route_taken[flow_tuple])
                 curr_flow.set_reverse_path_taken(flow_route_taken[reverse_flow_tuple])
@@ -175,11 +186,15 @@ def process_logfile(filename):
         for flow in flows:
             flow.set_path_taken(convert_path(flow.path_taken, hostip_to_host, linkip_to_link, host_switch_ip))
             flow.set_reverse_path_taken(convert_path(flow.reverse_path_taken, hostip_to_host, linkip_to_link, host_switch_ip))
-            flow.printinfo()
+            flow.printinfo(outfile)
+            if flow.lost_packets > 0:
+                flow.printinfo(sys.stdout)
 
 #return {'failed_links':failed_links, 'flows':flows, 'links':links, 'inverse_links':inverse_links, 'link_statistics':link_statistics}
 
 if __name__ == '__main__':
     filename = sys.argv[1]
-    process_logfile(filename)
+    max_start_time_sec = float(sys.argv[2])
+    outfilename = sys.argv[3]
+    process_logfile(filename, max_start_time_sec * 1000.0, outfilename)
 

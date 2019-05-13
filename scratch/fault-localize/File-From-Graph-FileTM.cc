@@ -133,7 +133,7 @@ int main(int argc, char *argv[])
 
 
 // Fail some links, by setting loss rates
-    int nfails = 2;
+    int nfails = 1;
     topology.chooseFailedLinks(nfails);
     double silent_drop_rate = 0.001;
 	
@@ -180,7 +180,7 @@ int main(int argc, char *argv[])
       //cout<<"row.size(): "<<topology.serverTM[i].size()<<endl;
       max_traffic = max(max_traffic, *std::max_element(topology.serverTM[i].begin(),topology.serverTM[i].end()));
    }
-   double traffic_wt = 0.1;
+   double traffic_wt = 1.0;
    cout<<"Max Traffic: "<<max_traffic<<", Weighted: "<<max_traffic * traffic_wt<<endl;
 
    ApplicationContainer** flow_app = new ApplicationContainer*[topology.total_host];

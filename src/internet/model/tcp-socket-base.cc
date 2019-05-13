@@ -191,14 +191,16 @@ TcpSocketBase::TcpSocketBase (void)
     m_rcvScaleFactor (0),
     m_timestampEnabled (false),
     m_timestampToEcho (0),
+    m_sentPackets(0),
     m_lostPackets(0),
     m_randomlyLostPackets(0),
-    m_sentPackets(0)
+    m_finishTime(0)
 
 {
   NS_LOG_FUNCTION (this);
   m_rxBuffer = CreateObject<TcpRxBuffer> ();
   m_txBuffer = CreateObject<TcpTxBuffer> ();
+
 }
 
 TcpSocketBase::TcpSocketBase (const TcpSocketBase& sock)
@@ -240,7 +242,11 @@ TcpSocketBase::TcpSocketBase (const TcpSocketBase& sock)
     m_sndScaleFactor (sock.m_sndScaleFactor),
     m_rcvScaleFactor (sock.m_rcvScaleFactor),
     m_timestampEnabled (sock.m_timestampEnabled),
-    m_timestampToEcho (sock.m_timestampToEcho)
+    m_timestampToEcho (sock.m_timestampToEcho),
+    m_sentPackets (m_sentPackets),
+    m_lostPackets (sock.m_lostPackets),
+    m_randomlyLostPackets(m_randomlyLostPackets),
+    m_finishTime (sock.m_finishTime)
 
 {
   NS_LOG_FUNCTION (this);
@@ -1334,6 +1340,7 @@ TcpSocketBase::ProcessSynRcvd (Ptr<Packet> packet, const TcpHeader& tcpHeader,
     }
   else if (tcpflags == (TcpHeader::FIN | TcpHeader::ACK))
     {
+
       if (tcpHeader.GetSequenceNumber () == m_rxBuffer->NextRxSequence ())
         { // In-sequence FIN before connection complete. Set up connection and close.
           m_connected = true;
@@ -1627,6 +1634,7 @@ void
 TcpSocketBase::SendEmptyPacket (uint8_t flags)
 {
   //std::cout<<"Empty packet"<<std::endl;
+
   NS_LOG_FUNCTION (this << (uint32_t)flags);
   Ptr<Packet> p = Create<Packet> ();
   TcpHeader header;
@@ -2444,6 +2452,7 @@ TcpSocketBase::TimeWait ()
 {
   NS_LOG_INFO (TcpStateName[m_state] << " -> TIME_WAIT");
   m_state = TIME_WAIT;
+  m_finishTime = Simulator::Now();
   CancelAllTimers ();
   // Move from TIME_WAIT to CLOSED after 2*MSL. Max segment lifetime is 2 min
   // according to RFC793, p.28
@@ -2787,6 +2796,12 @@ uint32_t
 TcpSocketBase::GetRandomlyLostPackets (void) const
 {
   return m_randomlyLostPackets;
+}
+
+Time
+TcpSocketBase::GetFinishTime (void) const
+{
+  return m_finishTime;
 }
 
 uint32_t

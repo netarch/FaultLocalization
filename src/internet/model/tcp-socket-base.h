@@ -191,6 +191,7 @@ public:
   uint32_t GetLostPackets(void) const; // returns m_lostPackets
   uint32_t GetRandomlyLostPackets(void) const; // returns m_randomlyLostPackets
   uint32_t GetSentPackets(void) const; // returns m_sentPackets
+  Time GetFinishTime(void) const; // returns m_finishTime
   uint32_t GetLocalPort(void) const; // return m_endPoint->GetLocalPort()
   uint32_t GetPeerPort(void) const; // return m_endPoint->GetPeerPort()
   Ipv4Address GetLocalAddress(void) const; // return m_endPoint->GetLocalAddress()
@@ -734,9 +735,10 @@ protected:
   Time              m_cnTimeout;       //!< Timeout for connection retry
   RttHistory_t      m_history;         //!< List of sent packet
 
+  uint32_t m_sentPackets; //!< Number of sent packets
   uint32_t m_lostPackets; //!< Number of lost packets
   uint32_t m_randomlyLostPackets; //!< Number of lost packets that were detected as random loss
-  uint32_t m_sentPackets; //!< Number of sent packets
+  Time m_finishTime; //!< Time when connection was closed
 
   // Connections to other layers of TCP/IP
   Ipv4EndPoint*       m_endPoint;   //!< the IPv4 endpoint

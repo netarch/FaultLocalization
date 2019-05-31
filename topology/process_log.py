@@ -84,7 +84,7 @@ def convert_path(p, hostip_to_host, linkip_to_link, host_switch_ip):
     return path
 
 
-def process_logfile(filename, max_start_time_ms, outfilename):
+def process_logfile(filename, min_start_time_ms, max_start_time_ms, outfilename):
     flows = []
     start_simulation = False
     linkip_to_link = dict()
@@ -95,6 +95,8 @@ def process_logfile(filename, max_start_time_ms, outfilename):
     curr_flow = None
     recording = False
     outfile = open(outfilename,"w+")
+    nignored = 0
+    nviolated = 0
     with open(filename, encoding = "ISO-8859-1") as f:
         flow = None
         for line in f.readlines():
@@ -154,10 +156,17 @@ def process_logfile(filename, max_start_time_ms, outfilename):
                 flow_tuple = (srcip, destip, srcport, destport)
                 reverse_flow_tuple = (destip, srcip, destport, srcport)
                 #if flow_tuple not in flow_route_taken or reverse_flow_tuple not in flow_route_taken or 
-                if start_time_ms >= max_start_time_ms or packets_sent==0:
+                if start_time_ms < min_start_time_ms or start_time_ms >= max_start_time_ms or packets_sent==0:
                     print("Ignoring flow", end=" ")
                     curr_flow.printinfo(sys.stdout)
                     recording = False
+                    nignored += 1
+                    continue
+                if not(flow_tuple in flow_route_taken and reverse_flow_tuple in flow_route_taken):
+                    print("Violating flow", end=" ")
+                    curr_flow.printinfo(sys.stdout)
+                    recording = False
+                    nviolated += 1
                     continue
                 assert(flow_tuple in flow_route_taken and reverse_flow_tuple in flow_route_taken)
                 recording = True
@@ -180,6 +189,7 @@ def process_logfile(filename, max_start_time_ms, outfilename):
             else:
                 pass
                 #print("Unrecognized log statement: ", line)
+        print("Ignored", nignored, "Violated", nviolated)
         if curr_flow != None and len(curr_flow.paths)>0: #log the previous flow
             if curr_flow.packets_sent > 0:
                 flows.append(curr_flow)
@@ -187,14 +197,15 @@ def process_logfile(filename, max_start_time_ms, outfilename):
             flow.set_path_taken(convert_path(flow.path_taken, hostip_to_host, linkip_to_link, host_switch_ip))
             flow.set_reverse_path_taken(convert_path(flow.reverse_path_taken, hostip_to_host, linkip_to_link, host_switch_ip))
             flow.printinfo(outfile)
-            if flow.lost_packets > 0:
-                flow.printinfo(sys.stdout)
+            #if flow.lost_packets > 0:
+            #    flow.printinfo(sys.stdout)
 
 #return {'failed_links':failed_links, 'flows':flows, 'links':links, 'inverse_links':inverse_links, 'link_statistics':link_statistics}
 
 if __name__ == '__main__':
     filename = sys.argv[1]
-    max_start_time_sec = float(sys.argv[2])
-    outfilename = sys.argv[3]
-    process_logfile(filename, max_start_time_sec * 1000.0, outfilename)
+    min_start_time_sec = float(sys.argv[2])
+    max_start_time_sec = float(sys.argv[3])
+    outfilename = sys.argv[4]
+    process_logfile(filename, min_start_time_sec * 1000.0, max_start_time_sec * 1000.0, outfilename)
 

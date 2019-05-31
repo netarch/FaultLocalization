@@ -11,7 +11,7 @@ import numpy as np
 from scipy.optimize import minimize
 
 CONSIDER_REVERSE_PATH = False
-PATH_KNOWN = False
+PATH_KNOWN = True
 VERBOSE = False
 
 link_speed_pps = 833333
@@ -83,6 +83,9 @@ class Flow:
             return [self.path_taken]
         else:
             return self.paths
+    
+    def get_drop_rate(self):
+        return float(self.num_lost)/self.num_sent
 
     def get_reverse_paths(self):
         if PATH_KNOWN or self.traceroute_flow:
@@ -125,6 +128,7 @@ def get_data_from_logfile(filename):
     inverse_links = []
     link_statistics = dict()
     ctr = 0
+    num_flows_with_retransmission = 0
     with open(filename, encoding = "ISO-8859-1") as f:
     #with open(filename) as f:
         flow = None
@@ -136,9 +140,9 @@ def get_data_from_logfile(filename):
                 src = int(tokens[1])
                 dst = int(tokens[2])
                 failparam = float(tokens[3])
-                #failed_links[(src, dst)] = failparam
-                #!TODO: ultaaa???
-                failed_links[(dst, src)] = failparam
+                failed_links[(src, dst)] = failparam
+                if VERBOSE:
+                    print("Failed link ", src, dst, failparam)
             elif "Flowid=" in line:
                 #Flowid= 3 2 10000000 1078.309922 1086.700814 10096 0 0
                 if flow != None and len(flow.paths)>0: #log the previous flow
@@ -147,6 +151,8 @@ def get_data_from_logfile(filename):
                     assert (flow.reverse_path_taken != None)
                     if flow.num_sent > 0 and flow.flow_finished():
                         #print(flow.starttime_ms)
+                        if flow.num_lost > 0:
+                            num_flows_with_retransmission += 1
                         flows.append(flow)
                 #Flowid= 3 157 31302 1073.072934 21 0 0
                 src = int(tokens[1])
@@ -159,8 +165,7 @@ def get_data_from_logfile(filename):
                 num_randomly_lost = int(tokens[8])
                 avgrtt = 0.0
                 flow = Flow(src, dest, num_sent, num_lost, num_randomly_lost, avgrtt, start_time_ms, finish_time_ms, flowbytes)
-                if flow.num_lost > 0:
-                    flow.printinfo(sys.stdout)
+
 
             elif "flowpath_reverse" in line:
                 #flowpath_reverse_taken 14 6 10
@@ -226,8 +231,13 @@ def get_data_from_logfile(filename):
             assert (flow.path_taken != None)
             assert (flow.reverse_path_taken != None)
             if flow.num_sent > 0 and flow.flow_finished():
+                if flow.num_lost > 0:
+                    num_flows_with_retransmission += 1
+                    #flow.printinfo(sys.stdout)
                 #print(flow.starttime_ms)
                 flows.append(flow)
+        #print("Num flows with retransmission", num_flows_with_retransmission)
+
     return {'failed_links':failed_links, 'flows':flows, 'links':links, 'inverse_links':inverse_links, 'link_statistics':link_statistics}
 
 
@@ -275,7 +285,7 @@ def get_data_structures_from_logfile(filename):
     link_statistics = logdata['link_statistics']
     if VERBOSE:
         print("Read all log files in ", time.time() - start_time, "seconds")
-    print("num flows: ", len(flows))
+    #print("num flows: ", len(flows))
     #print("num links: ", len(inverse_links))
     #print("num linkstats: ", len(link_statistics))
     start_time = time.time()
@@ -284,7 +294,7 @@ def get_data_structures_from_logfile(filename):
     if CONSIDER_REVERSE_PATH:
         reverse_flows_by_link = get_reverse_flows_by_link(flows, inverse_links)
     flows_by_link = get_flows_by_link(forward_flows_by_link, reverse_flows_by_link, inverse_links)
-    return flows, inverse_links, flows_by_link, forward_flows_by_link, reverse_flows_by_link, link_statistics, failed_links
+    return flows, links, inverse_links, flows_by_link, forward_flows_by_link, reverse_flows_by_link, link_statistics, failed_links
 
 
 def calc_alpha(score, expected_score):

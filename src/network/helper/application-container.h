@@ -209,8 +209,11 @@ public:
    */
   void Stop (Time stop);
 
+  Time GetStartTime() const;
+
 private:
   std::vector<Ptr<Application> > m_applications; //!< Applications smart pointers
+  Time m_startTime;                              //!< Start time of all applications
 };
 
 } // namespace ns3

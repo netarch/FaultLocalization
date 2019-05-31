@@ -68,9 +68,6 @@ def compute_lossrate_scores():
 def estimate_lossrate_combine():
    #construct random equations with large number of flows to minimize variance 
    prob = 0.05
-   nequations = 10 * len(inverse_links)
-   A = np.zeros(shape=(nequations, len(inverse_links)))
-   Y = np.zeros(nequations)
    print("prob: ", prob)
    print("num equations: ", nequations)
    for flowid in range(len(flows)):

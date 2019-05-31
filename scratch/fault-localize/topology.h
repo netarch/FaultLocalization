@@ -70,11 +70,18 @@ class Topology{
 
     void compute_all_pair_shortest_pathlens();
 
+    void print_flow_path(int srchost, int desthost);
+
     void print_flow_info(int srchost, int desthost, int bytes, ApplicationContainer& flowApp);
 
     void print_ip_addresses();
 
+    void snapshot_flow(int srchost, int desthost, int bytes, ApplicationContainer& flowApp, Time startTime, Time snapshotTime);
+
     void adapt_network();
+private:
+    Ptr<TcpSocketBase> getSocketFromBulkSendApp(Ptr<Application> app);
+    Ptr<TcpSocketBase> getSocketFromOnOffApp(Ptr<Application> app);
 };
 
 

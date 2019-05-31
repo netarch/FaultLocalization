@@ -87,13 +87,34 @@ void echo_progress(double delay_seconds){
     cout<<"Finished: "<<Simulator::Now ().GetSeconds ()<<" seconds"<<endl;
 }
 
+void snapshot_flows(Topology* topology, ApplicationContainer** flow_app, double snapshot_period_seconds){
+    Simulator::Schedule (Seconds(snapshot_period_seconds), &snapshot_flows, topology, flow_app, snapshot_period_seconds);
+    double curr_time_seconds = Simulator::Now().GetSeconds();
+    double next_snapshot_time = curr_time_seconds + snapshot_period_seconds;
+    //!TODO Hack for the fault localization to analyse trends
+    //Time mid = Time::FromDouble((curr_time_seconds + next_snapshot_time)/2, Time::S);
+    for (int i=0;i<topology->total_host;i++){
+        for (int j=0;j<topology->total_host;j++){
+            int bytes = truncateBytes((int)(topology->serverTM[i][j]));
+            if(bytes < 1 || flow_app[i][j].GetStartTime().GetSeconds() >= curr_time_seconds) continue;
+            //cout<<"Recording snapshot "<<" "<<flow_app[i][j].GetStartTime().GetSeconds()<<" "<<curr_time_seconds<<" "<<snapshot_period_seconds<<endl;
+            topology->snapshot_flow(i, j, bytes, flow_app[i][j], flow_app[i][j].GetStartTime(), Simulator::Now());
+            if(flow_app[i][j].GetStartTime().GetSeconds() + snapshot_period_seconds >= curr_time_seconds){
+                //Print path information for the first time
+                topology->print_flow_path(i, j);
+            }
+        }
+    }
+}
 
 int main(int argc, char *argv[])
 {
-   int nreqarg = 5;
+   //For fast I/O
+   ios_base::sync_with_stdio(false);
+   int nreqarg = 7;
    if(argc <= nreqarg){
       cout<<nreqarg-1<<" arguments required, "<<argc-1<<" given."<<endl;
-      cout<<"Usage> <exec> <topology_file> <tm_file> <result_file> <drop queue limit(e.g. 100 for a limit of 100 packets)> <data rate for on/off (e.g. 10 for 10 Mbps) >"<<endl;
+      cout<<"Usage> <exec> <topology_file> <tm_file> <result_file> <drop queue limit(e.g. 100 for a limit of 100 packets)> <data rate for on/off (e.g. 10 for 10 Kbps)> <nfails> <failparam> <seed>"<<endl;
       exit(0);
    }
    string topology_filename = argv[1];
@@ -101,7 +122,12 @@ int main(int argc, char *argv[])
    string result_filename = argv[3];
    int drop_queue_limit = atoi(argv[4]);
    string on_off_datarate = argv[5];
-
+   int nfails = atoi(argv[6]);
+   double failparam = atof(argv[7]);
+   int seed = atoi(argv[8]);
+   RngSeedManager::SetSeed (seed);
+   RngSeedManager::SetRun (seed);
+   srand(seed);
 
    cout<<"Running topology: "<<topology_filename<<", output result to "<<result_filename<<endl;
    cout<<"Setting drop queue limit: "<<drop_queue_limit<<endl;
@@ -109,9 +135,9 @@ int main(int argc, char *argv[])
   Config::SetDefault ("ns3::DropTailQueue::MaxPackets", UintegerValue (drop_queue_limit));
 
 //==== Simulation Parameters ====//
-   double simTimeInSec = 0.1;
+   double simTimeInSec = 1.0;
    double warmupTimeInSec = 1.0;
-   bool onOffApplication = false;	
+   bool onOffApplication = true;	
 
 //=========== Define topology  ===========//
 //
@@ -123,7 +149,7 @@ int main(int argc, char *argv[])
 //
 	int port = 9; //port for background app
 	int packetSizeBytes = 1500;
-	string dataRate_OnOff = on_off_datarate + "Mbps"; //"1Mbps";
+	string dataRate_OnOff = on_off_datarate + "Kbps"; 
 	//char maxBytes [] = "0" ; //"50000"; // "0"; // unlimited
 
 // Initialize parameters for PointToPoint protocol
@@ -133,9 +159,8 @@ int main(int argc, char *argv[])
 
 
 // Fail some links, by setting loss rates
-    int nfails = 1;
     topology.chooseFailedLinks(nfails);
-    double silent_drop_rate = 0.001;
+    double silent_drop_rate = failparam;
 	
 // Output some useful information
 //	
@@ -189,7 +214,7 @@ int main(int argc, char *argv[])
    int nflows = 0;
    long long total_bytes=0;
 
-   double onTime = 10000.000, offTime = 0.000;
+   double onTime = 1000000.000, offTime = 0.000;
    Ptr<ExponentialRandomVariable> rvOn = CreateObject<ExponentialRandomVariable> ();
    rvOn->SetAttribute ("Mean", DoubleValue (onTime));
    rvOn->SetAttribute ("Bound", DoubleValue (0.0));
@@ -218,7 +243,7 @@ int main(int argc, char *argv[])
             oo.SetAttribute("DataRate",StringValue (dataRate_OnOff));      
             oo.SetAttribute("PacketSize",UintegerValue (packetSizeBytes));
             //oo.SetAttribute ("Remote", Address(InetSocketAddress(Ipv4Address(remote_ip), port)));
-            oo.SetAttribute("OnTime", StringValue ("ns3::ConstantRandomVariable[Constant=1000.0]"));
+            oo.SetAttribute("OnTime", StringValue ("ns3::ConstantRandomVariable[Constant=1000000.0]"));
             oo.SetAttribute("OffTime", StringValue ("ns3::ConstantRandomVariable[Constant=0.0]"));
             oo.SetAttribute("MaxBytes",StringValue (bytes_c));
          }
@@ -293,6 +318,10 @@ int main(int argc, char *argv[])
 
     Simulator::Schedule (Seconds(warmupTimeInSec), &echo_progress, simTimeInSec/100.0);
 
+    double snapshot_period_seconds = simTimeInSec/50.0;
+    Simulator::Schedule (Seconds(warmupTimeInSec + snapshot_period_seconds), &snapshot_flows, &topology, flow_app, snapshot_period_seconds);
+
+
     //Check if ECMP routing is working 
     //Config::SetDefault("ns3::Ipv4GlobalRouting::FlowEcmpRouting", BooleanValue(true));
     cout<<"Populating routing tables:"<<endl;
@@ -308,6 +337,8 @@ int main(int argc, char *argv[])
          int bytes = truncateBytes((int)(topology.serverTM[i][j] * traffic_wt));
          if(bytes < 1) continue;
 		   //flow_app[i][j].Start (Seconds (warmupTimeInSec));
+           //add some small random delay to unsynchronize    
+		   //flow_app[i][j].Start (Seconds (warmupTimeInSec + rand() * simTimeInSec * 0.001/RAND_MAX)); 
 		   flow_app[i][j].Start (Seconds (warmupTimeInSec + rand() * simTimeInSec/RAND_MAX));
   		   flow_app[i][j].Stop (Seconds (warmupTimeInSec + simTimeInSec));
       }
@@ -334,7 +365,7 @@ int main(int argc, char *argv[])
         for (int j=0;j<topology.total_host;j++){
             int bytes = truncateBytes((int)(topology.serverTM[i][j] * traffic_wt));
             if(bytes < 1) continue;
-            topology.print_flow_info(i, j, bytes, flow_app[i][j]);
+            //topology.print_flow_info(i, j, bytes, flow_app[i][j]);
         }
     }
 

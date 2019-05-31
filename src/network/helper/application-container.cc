@@ -83,12 +83,20 @@ ApplicationContainer::Add (std::string name)
 void 
 ApplicationContainer::Start (Time start)
 {
+  m_startTime = start;
   for (Iterator i = Begin (); i != End (); ++i)
     {
       Ptr<Application> app = *i;
       app->SetStartTime (start);
     }
 }
+
+Time
+ApplicationContainer::GetStartTime () const
+{
+  return m_startTime;
+}
+
 void 
 ApplicationContainer::Stop (Time stop)
 {

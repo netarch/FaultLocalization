@@ -14,6 +14,7 @@
 #include "ns3/point-to-point-module.h"
 #include "ns3/point-to-point-net-device.h"
 #include "ns3/bulk-send-application.h"
+#include "ns3/onoff-application.h"
 #include "topology.h"
 
 using namespace ns3;
@@ -234,23 +235,46 @@ void Topology::connect_switches_and_switches(PointToPointHelper &p2p, Ptr<RateEr
         ss[i].resize(networkLinks[i].size());
         ipSsContainer[i].resize(networkLinks[i].size());
     }
+    double max_drop_rate_correct_link = 0.0001;
+    double min_drop_rate_failed_link = 0.001;
+    double max_drop_rate_failed_link = 0.01;
     for (int i=0;i<num_tor;i++){
         for (int h=0;h<networkLinks[i].size();h++){
             int nbr = networkLinks[i][h];
             if (nbr < i) continue;
+            //random drop rate b/w 0 and 10^-4
+            double silent_drop_rate1 = drand48() * max_drop_rate_correct_link;
+            double silent_drop_rate2 = drand48() * max_drop_rate_correct_link;
             ss[i][h] = p2p.Install(tors.Get(i), tors.Get(nbr));
             if(failedLinks.find(pair<int, int>(i, nbr)) != failedLinks.end()){
-                Ptr<NetDevice> device =  ss[i][h].Get(1);
-                Ptr<PointToPointNetDevice> p2pDevice = device->GetObject<PointToPointNetDevice> ();;
-                p2pDevice->SetAttribute ("ReceiveErrorModel", PointerValue (rem));
-                std::cout<<"Failing_link "<<i<<" "<<nbr<<" "<<failparam<<endl;
+                //failparam is appropriately set, so use that
+                if (failparam > max_drop_rate_correct_link) silent_drop_rate1 = failparam;
+                else silent_drop_rate1 = min_drop_rate_failed_link + (drand48() * (max_drop_rate_failed_link - min_drop_rate_failed_link));
+                std::cout<<"Failing_link "<<i<<" "<<nbr<<" "<<silent_drop_rate1<<endl;
             }
             if(failedLinks.find(pair<int, int>(nbr, i)) != failedLinks.end()){
-                Ptr<NetDevice> device =  ss[i][h].Get(0);
-                Ptr<PointToPointNetDevice> p2pDevice = device->GetObject<PointToPointNetDevice> ();;
-                p2pDevice->SetAttribute ("ReceiveErrorModel", PointerValue (rem));
-                std::cout<<"Failing_link "<<nbr<<" "<<i<<" "<<failparam<<endl;
+                //failparam is appropriately set, so use that
+                if (failparam > max_drop_rate_correct_link) silent_drop_rate2 = failparam;
+                else silent_drop_rate2 = min_drop_rate_failed_link + (drand48() * (max_drop_rate_failed_link - min_drop_rate_failed_link));
+                std::cout<<"Failing_link "<<nbr<<" "<<i<<" "<<silent_drop_rate2<<endl;
             }
+
+            //i --> nbr
+            Ptr<RateErrorModel> rem1 = CreateObjectWithAttributes<RateErrorModel> (
+                                "ErrorRate", DoubleValue (silent_drop_rate1),
+                                "ErrorUnit", EnumValue (RateErrorModel::ERROR_UNIT_PACKET));
+            Ptr<NetDevice> device =  ss[i][h].Get(1);
+            Ptr<PointToPointNetDevice> p2pDevice = device->GetObject<PointToPointNetDevice> ();;
+            p2pDevice->SetAttribute ("ReceiveErrorModel", PointerValue (rem1));
+
+            //nbr --> i
+            Ptr<RateErrorModel> rem2 = CreateObjectWithAttributes<RateErrorModel> (
+                                "ErrorRate", DoubleValue (silent_drop_rate2),
+                                "ErrorUnit", EnumValue (RateErrorModel::ERROR_UNIT_PACKET));
+            device =  ss[i][h].Get(0);
+            p2pDevice = device->GetObject<PointToPointNetDevice> ();;
+            p2pDevice->SetAttribute ("ReceiveErrorModel", PointerValue (rem2));
+
             //Assign subnet
             pair<char* , char*> subnet_base = getLinkBaseIpAddress(i, h);
             char *subnet = subnet_base.first;
@@ -305,19 +329,7 @@ void Topology::compute_all_pair_shortest_pathlens(){
     cout<<"Finished floyd warshall"<<endl;
 }
 
-void Topology::print_flow_info(int srchost, int desthost, int bytes, ApplicationContainer& flowApp){
-    assert (flowApp.GetN() == 1);
-    Ptr<Application> app = flowApp.Get(0);
-    Ptr<BulkSendApplication> bulkSendApp = app->GetObject<BulkSendApplication> ();
-    Ptr<Socket> socket = bulkSendApp->GetSocket();
-    Ptr<TcpSocketBase> tcp_socket_base = socket->GetObject<TcpSocketBase>();
-    cout<<"Flowid "<<srchost<<" "<<desthost<<" "<<getHostIpAddress(srchost)
-        <<" "<<getHostIpAddress(desthost)<<" "<<tcp_socket_base->GetLocalPort()
-        <<" "<<tcp_socket_base->GetPeerPort()<<" "<<bytes<<" "
-        <<app->GetStartTime()<<" "<<tcp_socket_base->GetFinishTime()
-        <<" "<<tcp_socket_base->GetSentPackets()<<" "
-        <<tcp_socket_base->GetLostPackets()<<" "
-        <<tcp_socket_base->GetRandomlyLostPackets()<<endl;
+void Topology::print_flow_path(int srchost, int desthost){
     vector<vector<int> > paths = getPaths(srchost, desthost);
     for (vector<int>& p: paths){
        cout<<"flowpath ";
@@ -334,6 +346,20 @@ void Topology::print_flow_info(int srchost, int desthost, int bytes, Application
        }
        cout<<endl;
     }
+}
+
+void Topology::print_flow_info(int srchost, int desthost, int bytes, ApplicationContainer& flowApp){
+    assert (flowApp.GetN() == 1);
+    Ptr<Application> app = flowApp.Get(0);
+    Ptr<TcpSocketBase> tcp_socket_base = getSocketFromBulkSendApp(app);
+    cout<<"Flowid "<<srchost<<" "<<desthost<<" "<<getHostIpAddress(srchost)
+        <<" "<<getHostIpAddress(desthost)<<" "<<tcp_socket_base->GetLocalPort()
+        <<" "<<tcp_socket_base->GetPeerPort()<<" "<<bytes<<" "
+        <<app->GetStartTime()<<" "<<tcp_socket_base->GetFinishTime()
+        <<" "<<tcp_socket_base->GetSentPackets()<<" "
+        <<tcp_socket_base->GetLostPackets()<<" "
+        <<tcp_socket_base->GetRandomlyLostPackets()<<endl;
+    print_flow_path(srchost, desthost);
 }
 
 void Topology::print_ip_addresses(){
@@ -363,6 +389,33 @@ void Topology::print_ip_addresses(){
         Ipv4Address address2 = address.NewAddress();
         cout<<"host_ip "<<address1<<" "<<address2<<" "<<i<<" "<<rack<<endl;
     }
+}
+
+Ptr<TcpSocketBase> Topology::getSocketFromBulkSendApp(Ptr<Application> app){
+    Ptr<BulkSendApplication> bulkSendApp = app->GetObject<BulkSendApplication> ();
+    Ptr<Socket> socket = bulkSendApp->GetSocket();
+    Ptr<TcpSocketBase> tcp_socket_base = socket->GetObject<TcpSocketBase>();
+    return tcp_socket_base;
+}
+
+Ptr<TcpSocketBase> Topology::getSocketFromOnOffApp(Ptr<Application> app){
+    Ptr<OnOffApplication> onOffApp = app->GetObject<OnOffApplication> ();
+    Ptr<Socket> socket = onOffApp->GetSocket();
+    Ptr<TcpSocketBase> tcp_socket_base = socket->GetObject<TcpSocketBase>();
+    return tcp_socket_base;
+}
+
+void Topology::snapshot_flow(int srchost, int desthost, int bytes, ApplicationContainer& flowApp, Time startTime, Time snapshotTime){
+    assert (flowApp.GetN() == 1);
+    Ptr<Application> app = flowApp.Get(0);
+    Ptr<TcpSocketBase> tcp_socket_base = getSocketFromOnOffApp(app);
+    cout<<"Flowid "<<srchost<<" "<<desthost<<" "<<getHostIpAddress(srchost)
+        <<" "<<getHostIpAddress(desthost)<<" "<<tcp_socket_base->GetLocalPort()
+        <<" "<<tcp_socket_base->GetPeerPort()<<" "<<bytes<<" "
+        <<startTime<<" "<<snapshotTime
+        <<" "<<tcp_socket_base->GetSentPackets()<<" "
+        <<tcp_socket_base->GetLostPackets()<<" "
+        <<tcp_socket_base->GetRandomlyLostPackets()<<endl;
 }
 
 void Topology::adapt_network(){

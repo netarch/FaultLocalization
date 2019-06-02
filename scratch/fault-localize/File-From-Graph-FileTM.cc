@@ -128,6 +128,8 @@ int main(int argc, char *argv[])
    RngSeedManager::SetSeed (seed);
    RngSeedManager::SetRun (seed);
    srand(seed);
+   srand48(seed);
+
 
    cout<<"Running topology: "<<topology_filename<<", output result to "<<result_filename<<endl;
    cout<<"Setting drop queue limit: "<<drop_queue_limit<<endl;

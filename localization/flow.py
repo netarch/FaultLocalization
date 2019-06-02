@@ -106,7 +106,6 @@ class Flow:
     def flow_finished(self):
         return (self.finish_time_ms > 0)
 
-    #flow_label_weights_func: a function which assigns two weights to each flow : (good_weight, bad_weight)
     def update_snapshot_ptr(self, max_finish_time_ms):
         ptr = self.snapshot_ptr
         assert(ptr==-1 or self.snapshots[ptr][0] < max_finish_time_ms)
@@ -131,6 +130,7 @@ class Flow:
     def traceroute_flow(self, max_finish_time_ms):
         return (PATH_KNOWN or self.get_packets_lost_before_finish_time(max_finish_time_ms) > 0)
 
+    #flow_label_weights_func: a function which assigns two weights to each flow : (good_weight, bad_weight)
     def label_weights_func(self, max_finish_time_ms):
         self.update_snapshot_ptr(max_finish_time_ms)
         gw = 0

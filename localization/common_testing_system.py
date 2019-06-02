@@ -15,28 +15,27 @@ from plot_utils import *
 
 def get_precision_recall_estimator(filename, min_start_time_ms, max_finish_time_ms, estimator_func, params, nprocesses):
     #print("Time to partition flows by link: ", time.time() - start_time_ms, "seconds")
-    flows, links, inverse_links, flows_by_link, forward_flows_by_link, reverse_flows_by_link, link_statistics, failed_links = get_data_structures_from_logfile(filename)
+    logdata = get_data_from_logfile(filename) 
+    flows, links, inverse_links, flows_by_link, forward_flows_by_link, reverse_flows_by_link, link_statistics, failed_links = get_data_structures_from_logdata(logdata, max_finish_time_ms)
     if utils.VERBOSE:
-        numflows = sum([1 for flow in flows if flow.start_time_ms >= min_start_time_ms and flow.finish_time_ms<= max_finish_time_ms])
-        active_probes = sum([1 for flow in flows if flow.start_time_ms >= min_start_time_ms and flow.finish_time_ms<= max_finish_time_ms and flow.traceroute_flow])
+        numflows = sum([1 for flow in flows if flow.start_time_ms >= min_start_time_ms and flow.any_snapshot_before(max_finish_time_ms)])
+        active_probes = sum([1 for flow in flows if flow.start_time_ms >= min_start_time_ms and flow.any_snapshot_before(max_finish_time_ms) and flow.traceroute_flow(max_finish_time_ms)])
         print("Num flows", numflows)
         print("Active probes", active_probes)
     return estimator_func(flows, links, inverse_links, flows_by_link, forward_flows_by_link, reverse_flows_by_link, failed_links, link_statistics, min_start_time_ms, max_finish_time_ms, params, nprocesses)
    
 def get_precision_recall_trend_file(filename, min_start_time_ms, max_finish_time_ms, step, estimator_func, params):
-    flows, links, inverse_links, flows_by_link, forward_flows_by_link, reverse_flows_by_link, link_statistics, failed_links = get_data_structures_from_logfile(filename)
+    logdata = get_data_from_logfile(filename) 
     precision_recalls = []
     last_print_time = min_start_time_ms
     retinfo = []
     for finish_time_ms in np.arange(min_start_time_ms, max_finish_time_ms, step):
+        flows, links, inverse_links, flows_by_link, forward_flows_by_link, reverse_flows_by_link, link_statistics, failed_links = get_data_structures_from_logdata(logdata, finish_time_ms)
         if (finish_time_ms - last_print_time >= 1 * step):
             last_print_time = min_start_time_ms
-            #active_flows = sum([1.0 for flow in flows if flow.traceroute_flow and flow.start_time_ms >= min_start_time_ms and flow.finish_time_ms <= max_finish_time_ms])
-            print(filename, finish_time_ms)
-        #!TODO: HACK HACK for ns3 logs
-        f_t = int(finish_time_ms/1000.0)
-        s_t = f_t - 1
-        p_r, info = estimator_func(flows, links, inverse_links, flows_by_link, forward_flows_by_link, reverse_flows_by_link, failed_links, link_statistics, s_t*1000.0, f_t*1000.0, params, 1)
+            active_flows = sum([1 for flow in flows if flow.start_time_ms >= min_start_time_ms and flow.any_snapshot_before(finish_time_ms) and flow.traceroute_flow(finish_time_ms)])
+            print(filename, active_flows, finish_time_ms)
+        p_r, info = estimator_func(flows, links, inverse_links, flows_by_link, forward_flows_by_link, reverse_flows_by_link, failed_links, link_statistics, min_start_time_ms, finish_time_ms, params, 1)
         p, r = p_r
         #print(p_r, info, s_t, f_t):w
         if finish_time_ms + step >= max_finish_time_ms:

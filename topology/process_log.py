@@ -18,17 +18,19 @@ class Link:
         self.dest = dest
 
 class Flow:
-    def __init__(self, src, srcip, dest, destip, nbytes, start_time_ms, finish_time_ms, packets_sent, lost_packets, randomly_lost_packets):
+    # Initialize flow along with one snapshot
+    def __init__(self, src, srcip, srcport, dest, destip, destport, nbytes, start_time_ms, snapshot_time_ms, packets_sent, lost_packets, randomly_lost_packets):
         self.src = src
         self.srcip = srcip
+        self.srcport = srcport
         self.dest = dest
         self.destip = destip
+        self.destport = destport
         self.nbytes = nbytes
         self.start_time_ms = start_time_ms
-        self.finish_time_ms = finish_time_ms
-        self.packets_sent = packets_sent
-        self.lost_packets = lost_packets
-        self.randomly_lost_packets = randomly_lost_packets
+        #Each snapshot is a (snapshot_time, packets_sent, lost_packets, randomly_lost_packets)
+        snapshot = [snapshot_time_ms, packets_sent, lost_packets, randomly_lost_packets]
+        self.snapshots = [snapshot]
         self.paths = []
         self.reverse_paths = []
         self.path_taken = None
@@ -46,11 +48,32 @@ class Flow:
     def set_reverse_path_taken(self, p):
         self.reverse_path_taken = p
 
+    def get_latest_packets_sent(self):
+        if len(self.snapshots) == 0:
+            return 0
+        else:
+            return self.snapshots[-1][1]
+
+    def add_snapshot(self, snapshot_time_ms, packets_sent, lost_packets, randomly_lost_packets):
+        if (len(self.snapshots) > 0):
+            assert(snapshot_time_ms > self.snapshots[-1][0])
+        snapshot = [snapshot_time_ms, packets_sent, lost_packets, randomly_lost_packets]
+        self.snapshots.append(snapshot)
+
+    def print_flow_snapshots(self, outfile):
+        for snapshot in self.snapshots:
+            snapshot_time_ms = snapshot[0]
+            packets_sent = snapshot[1]
+            lost_packets = snapshot[2]
+            randomly_lost_packets = snapshot[3]
+            print("Snapshot ", snapshot_time_ms, packets_sent, lost_packets, randomly_lost_packets, file=outfile)
+
     def print_flow_metrics(self, outfile):
-        print("Flowid=", self.src, self.dest, self.nbytes, self.start_time_ms, self.finish_time_ms, self.packets_sent, self.lost_packets, self.randomly_lost_packets, file=outfile)
+        print("Flowid=", self.src, self.dest, self.nbytes, self.start_time_ms, file=outfile)
 
     def printinfo(self, outfile):
         self.print_flow_metrics(outfile)
+        self.print_flow_snapshots(outfile)
         for p in self.paths:
             s = "flowpath"
             if p == self.path_taken:
@@ -68,13 +91,15 @@ class Flow:
             
 
     
-def convert_path(p, hostip_to_host, linkip_to_link, host_switch_ip):
+def convert_path(p, hostip_to_host, linkip_to_link, host_switch_ip, flow):
     path = []
     assert (len(p) >= 1)
     srchost = p[0]
     destrack = p[-1]
     if (not (srchost in hostip_to_host and destrack in host_switch_ip)):
         print(p)
+        flow.printinfo(sys.stdout)
+        return False
     assert (srchost in hostip_to_host and destrack in host_switch_ip)
     for i in range(1, len(p)-1):
         link = linkip_to_link[p[i]]
@@ -85,7 +110,7 @@ def convert_path(p, hostip_to_host, linkip_to_link, host_switch_ip):
 
 
 def process_logfile(filename, min_start_time_ms, max_start_time_ms, outfilename):
-    flows = []
+    flows = dict()
     start_simulation = False
     linkip_to_link = dict()
     hostip_to_host = dict()
@@ -93,7 +118,6 @@ def process_logfile(filename, min_start_time_ms, max_start_time_ms, outfilename)
     host_switch_ip = dict()
     flow_route_taken = dict()
     curr_flow = None
-    recording = False
     outfile = open(outfilename,"w+")
     nignored = 0
     nviolated = 0
@@ -146,59 +170,69 @@ def process_logfile(filename, min_start_time_ms, max_start_time_ms, outfilename)
                 destport = int(tokens[6])
                 nbytes = int(tokens[7])
                 start_time_ms = float(tokens[8].strip('+ns')) * 1.0e-6
-                finish_time_ms = float(tokens[9].strip('+ns')) * 1.0e-6
+                snapshot_time_ms = float(tokens[9].strip('+ns')) * 1.0e-6
                 packets_sent = int(tokens[10])
                 lost_packets = int(tokens[11])
                 randomly_lost_packets = int(tokens[12])
-                if (curr_flow != None and len(curr_flow.paths) > 0 and recording):
-                    flows.append(curr_flow)
-                curr_flow = Flow(src, srcip, dest, destip, nbytes, start_time_ms, finish_time_ms, packets_sent, lost_packets, randomly_lost_packets)
+                if (curr_flow != None and len(curr_flow.paths)>0):
+                    flow_tuple = (curr_flow.srcip, curr_flow.destip, curr_flow.srcport, curr_flow.destport)
+                    flows[flow_tuple] = curr_flow
                 flow_tuple = (srcip, destip, srcport, destport)
-                reverse_flow_tuple = (destip, srcip, destport, srcport)
-                #if flow_tuple not in flow_route_taken or reverse_flow_tuple not in flow_route_taken or 
-                if start_time_ms < min_start_time_ms or start_time_ms >= max_start_time_ms or packets_sent==0:
-                    print("Ignoring flow", end=" ")
-                    curr_flow.printinfo(sys.stdout)
-                    recording = False
-                    nignored += 1
-                    continue
-                if not(flow_tuple in flow_route_taken and reverse_flow_tuple in flow_route_taken):
-                    print("Violating flow", end=" ")
-                    curr_flow.printinfo(sys.stdout)
-                    recording = False
-                    nviolated += 1
-                    continue
-                assert(flow_tuple in flow_route_taken and reverse_flow_tuple in flow_route_taken)
-                recording = True
-                curr_flow.set_path_taken(flow_route_taken[flow_tuple])
-                curr_flow.set_reverse_path_taken(flow_route_taken[reverse_flow_tuple])
+                if flow_tuple in flows:
+                    #Entry already exsist, simply add one snapshot entry
+                    flows[flow_tuple].add_snapshot(snapshot_time_ms, packets_sent, lost_packets, randomly_lost_packets)
+                    curr_flow = None
+                else:
+                    #Create a new flow entry
+                    curr_flow = Flow(src, srcip, srcport, dest, destip, destport, nbytes, start_time_ms, snapshot_time_ms, packets_sent, lost_packets, randomly_lost_packets)
+                    if start_time_ms < min_start_time_ms or start_time_ms >= max_start_time_ms:
+                        print("Ignoring flow", end=" ")
+                        curr_flow.printinfo(sys.stdout)
+                        nignored += 1
+                        continue
             elif "flowpath_reverse" in line:
                 #flowpath_reverse 0 2 1
                 path = []
                 for i in range(1, len(tokens)):
                     path.append(int(tokens[i]))
-                if(len(path) > 0 and recording):
+                if(len(path) > 0):
                     curr_flow.add_reverse_path(path)
             elif "flowpath" in line:
                 #flowpath 0 2 1
                 path = []
                 for i in range(1, len(tokens)):
                     path.append(int(tokens[i]))
-                if(len(path) > 0 and recording):
+                if(len(path) > 0):
                     curr_flow.add_path(path)
             else:
                 pass
                 #print("Unrecognized log statement: ", line)
-        print("Ignored", nignored, "Violated", nviolated)
         if curr_flow != None and len(curr_flow.paths)>0: #log the previous flow
-            if curr_flow.packets_sent > 0:
-                flows.append(curr_flow)
-        for flow in flows:
-            flow.set_path_taken(convert_path(flow.path_taken, hostip_to_host, linkip_to_link, host_switch_ip))
-            flow.set_reverse_path_taken(convert_path(flow.reverse_path_taken, hostip_to_host, linkip_to_link, host_switch_ip))
-            flow.printinfo(outfile)
+            flow_tuple = (curr_flow.srcip, curr_flow.destip, curr_flow.srcport, curr_flow.destport)
+            flows[flow_tuple] = curr_flow
+        nsetup_failed = 0
+        for flow_tuple in flows:
+            flow = flows[flow_tuple]
+            reverse_flow_tuple = (flow.destip, flow.srcip, flow.destport, flow.srcport)
+            #if flow_tuple not in flow_route_taken or reverse_flow_tuple not in flow_route_taken or 
+            #Less than 4 packets sent implies connection not been set up fully as first 3 are connection setup packets, ignore flow
+            if not(flow_tuple in flow_route_taken and reverse_flow_tuple in flow_route_taken) or flow.get_latest_packets_sent() <= 0:
+                print("Violating flow", end=" ")
+                flow.print_flow_metrics(sys.stdout)
+                nviolated += 1
+                continue
+            flow.set_path_taken(flow_route_taken[flow_tuple])
+            flow.set_reverse_path_taken(flow_route_taken[reverse_flow_tuple])
+            flow.set_path_taken(convert_path(flow.path_taken, hostip_to_host, linkip_to_link, host_switch_ip, flow))
+            reverse_path = convert_path(flow.reverse_path_taken, hostip_to_host, linkip_to_link, host_switch_ip, flow)
+            if (reverse_path != False):
+                flow.set_reverse_path_taken(reverse_path)
+                flow.printinfo(outfile)
+            else:
+                nsetup_failed += 1
             #if flow.lost_packets > 0:
             #    flow.printinfo(sys.stdout)
+        print("Ignored", nignored, "Violated", nviolated, "SetupFailed", nsetup_failed)
 
 #return {'failed_links':failed_links, 'flows':flows, 'links':links, 'inverse_links':inverse_links, 'link_statistics':link_statistics}
 

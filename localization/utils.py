@@ -9,9 +9,11 @@ from joblib import Parallel, delayed
 import random
 import numpy as np
 from scipy.optimize import minimize
+import flow as FlowStruct
+from flow import *
 
 CONSIDER_REVERSE_PATH = False
-PATH_KNOWN = True
+PATH_KNOWN = FlowStruct.PATH_KNOWN
 VERBOSE = False
 
 link_speed_pps = 833333
@@ -45,83 +47,8 @@ class LinkStats:
     def max_avg_qlen_ms(self):
         return self.max_qlen_reading * 1000.0/(packet_size_bytes * link_speed_pps)
 
-
-
-class Flow:
-    def __init__(self, src, dest, num_sent, num_lost, num_randomly_lost, avgrtt_ms, start_time_ms=0.0, finish_time_ms=0.0, flowbytes=0):
-        self.src = src
-        self.dest = dest
-        self.num_sent = num_sent
-        self.num_lost = num_lost
-        self.num_randomly_lost = num_randomly_lost
-        self.avgrtt_ms = avgrtt_ms
-        self.start_time_ms = start_time_ms
-        self.finish_time_ms = finish_time_ms
-        self.flowbytes = flowbytes
-
-        self.paths = []
-        self.reverse_paths = []
-        self.path_taken = None
-        self.reverse_path_taken = None
-        self.traceroute_flow = False
-        #self.traceroute_flow = (np.random.binomial(n=1, p= 0.01) == 1):
-        if self.num_lost > 0 or PATH_KNOWN:
-            self.traceroute_flow = True
-
-    def add_path(self, path, path_taken=False):
-        self.paths.append(path)
-        if path_taken:
-            self.path_taken = path
-
-    def add_reverse_path(self, path, reverse_path_taken=False):
-        self.reverse_paths.append(path)
-        if reverse_path_taken:
-            self.reverse_path_taken = path
-
-    def get_paths(self):
-        if PATH_KNOWN or self.traceroute_flow:
-            return [self.path_taken]
-        else:
-            return self.paths
-    
-    def get_drop_rate(self):
-        return float(self.num_lost)/self.num_sent
-
-    def get_reverse_paths(self):
-        if PATH_KNOWN or self.traceroute_flow:
-            return [self.reverse_path_taken]
-        else:
-            return self.reverse_paths
-
-    def print_flow_metrics(self, outfile):
-        print("Flowid=", self.src, self.dest, self.flowbytes, self.start_time_ms, self.finish_time_ms, self.num_sent, self.num_lost, self.num_randomly_lost, file=outfile)
-
-    def printinfo(self, outfile):
-        self.print_flow_metrics(outfile)
-        for p in self.paths:
-            s = "flowpath"
-            if p == self.path_taken:
-                s += "_taken"
-            for n in p:
-                s += " " + str(n)
-            print(s, file=outfile)
-        for p in self.reverse_paths:
-            s = "flowpath_reverse"
-            if p == self.reverse_path_taken:
-                s += "_taken"
-            for n in p:
-                s += " " + str(n)
-            print(s, file=outfile)
-    def flow_finished(self):
-        return (self.finish_time_ms > 0)
-
-#flow_label_weights_func: a function which assigns two weights to each flow : (good_weight, bad_weight)
-def flow_label_weights_func(flow):
-    gw = flow.num_sent - flow.num_lost
-    bw = flow.num_lost
-    return (gw, bw)
-
 def get_data_from_logfile(filename):
+    get_data_start_time = time.time()
     failed_links = dict()
     flows = []
     links = dict()
@@ -146,33 +73,33 @@ def get_data_from_logfile(filename):
             elif "Flowid=" in line:
                 #Flowid= 3 2 10000000 1078.309922 1086.700814 10096 0 0
                 if flow != None and len(flow.paths)>0: #log the previous flow
-                    #flow.printinfo(sys.stdout)
                     assert (flow.path_taken != None)
                     assert (flow.reverse_path_taken != None)
-                    if flow.num_sent > 0 and flow.flow_finished():
+                    if flow.get_latest_packets_sent() > 0:
                         #print(flow.starttime_ms)
-                        if flow.num_lost > 0:
+                        if flow.get_latest_packets_lost() > 0:
                             num_flows_with_retransmission += 1
                         flows.append(flow)
+                    #flow.print_flow_metric(sys.stdout)
+                #print(flow.starttime_ms)
                 #Flowid= 3 157 31302 1073.072934 21 0 0
                 src = int(tokens[1])
                 dest = int(tokens[2])
-                flowbytes = int(tokens[3])
+                nbytes = int(tokens[3])
                 start_time_ms = float(tokens[4])
-                finish_time_ms = float(tokens[5])
-                num_sent = int(tokens[6])
-                num_lost = int(tokens[7])
-                num_randomly_lost = int(tokens[8])
-                avgrtt = 0.0
-                flow = Flow(src, dest, num_sent, num_lost, num_randomly_lost, avgrtt, start_time_ms, finish_time_ms, flowbytes)
-
-
+                flow = Flow(src, 0, 0, dest, 0, 0, nbytes, start_time_ms)
+            elif "Snapshot" in line:
+                snapshot_time_ms = float(tokens[1])
+                num_sent = int(tokens[2])
+                num_lost = int(tokens[3])
+                num_randomly_lost = int(tokens[4])
+                flow.add_snapshot(snapshot_time_ms, num_sent, num_lost, num_randomly_lost)
             elif "flowpath_reverse" in line:
                 #flowpath_reverse_taken 14 6 10
                 path = []
                 for i in range(1, len(tokens)):
                     path.append(int(tokens[i]))
-                if(len(path) > 1):
+                if(len(path) > 0):
                     flow.add_reverse_path(path, reverse_path_taken=("_taken" in line))
                 for v in range(1, len(path)):
                     link = (path[v-1], path[v])
@@ -189,7 +116,7 @@ def get_data_from_logfile(filename):
                 path = []
                 for i in range(1, len(tokens)):
                     path.append(int(tokens[i]))
-                if(len(path) > 1):
+                if(len(path) > 0):
                     flow.add_path(path, path_taken=("_taken" in line))
                 for v in range(1, len(path)):
                     link = (path[v-1], path[v])
@@ -230,37 +157,38 @@ def get_data_from_logfile(filename):
         if flow != None and len(flow.paths)>0: #log the previous flow
             assert (flow.path_taken != None)
             assert (flow.reverse_path_taken != None)
-            if flow.num_sent > 0 and flow.flow_finished():
-                if flow.num_lost > 0:
+            if flow.get_latest_packets_sent() > 0:
+                if flow.get_latest_packets_lost() > 0:
                     num_flows_with_retransmission += 1
-                    #flow.printinfo(sys.stdout)
                 #print(flow.starttime_ms)
                 flows.append(flow)
         #print("Num flows with retransmission", num_flows_with_retransmission)
 
+    if VERBOSE:
+        print("Read log file in ", time.time() - get_data_start_time, "seconds")
     return {'failed_links':failed_links, 'flows':flows, 'links':links, 'inverse_links':inverse_links, 'link_statistics':link_statistics}
 
 
-def get_forward_flows_by_link(flows, inverse_links):
+def get_forward_flows_by_link(flows, inverse_links, max_finish_time_ms):
     flows_by_link = dict()
     for link in inverse_links:
         flows_by_link[link] = []
     for ff in range(len(flows)):
         flow = flows[ff]
-        flow_paths = flow.get_paths()
+        flow_paths = flow.get_paths(max_finish_time_ms)
         for path in flow_paths:
             for v in range(1, len(path)):
                 l = (path[v-1], path[v])
                 flows_by_link[l].append(ff)
     return flows_by_link
 
-def get_reverse_flows_by_link(flows, inverse_links):
+def get_reverse_flows_by_link(flows, inverse_links, max_finish_time_ms):
     flows_by_link = dict()
     for link in inverse_links:
         flows_by_link[link] = []
     for ff in range(len(flows)):
         flow = flows[ff]
-        flow_reverse_paths = flow.get_reverse_paths()
+        flow_reverse_paths = flow.get_reverse_paths(max_finish_time_ms)
         for path in flow_reverse_paths:
             for v in range(1, len(path)):
                 l = (path[v-1], path[v])
@@ -275,24 +203,21 @@ def get_flows_by_link(forward_flows_by_link, reverse_flows_by_link, inverse_link
         flows_by_link[l] = forward_flows_by_link[l] + reverse_flows_by_link[l]
     return flows_by_link
 
-def get_data_structures_from_logfile(filename):
+def get_data_structures_from_logdata(logdata, max_finish_time_ms):
     start_time = time.time()
-    logdata = get_data_from_logfile(filename) 
     failed_links = logdata['failed_links']
     flows = logdata['flows']
     links = logdata['links']
     inverse_links = logdata['inverse_links']
     link_statistics = logdata['link_statistics']
-    if VERBOSE:
-        print("Read all log files in ", time.time() - start_time, "seconds")
     #print("num flows: ", len(flows))
     #print("num links: ", len(inverse_links))
     #print("num linkstats: ", len(link_statistics))
     start_time = time.time()
-    forward_flows_by_link = get_forward_flows_by_link(flows, inverse_links)
+    forward_flows_by_link = get_forward_flows_by_link(flows, inverse_links, max_finish_time_ms)
     reverse_flows_by_link = []
     if CONSIDER_REVERSE_PATH:
-        reverse_flows_by_link = get_reverse_flows_by_link(flows, inverse_links)
+        reverse_flows_by_link = get_reverse_flows_by_link(flows, inverse_links, max_finish_time_ms)
     flows_by_link = get_flows_by_link(forward_flows_by_link, reverse_flows_by_link, inverse_links)
     return flows, links, inverse_links, flows_by_link, forward_flows_by_link, reverse_flows_by_link, link_statistics, failed_links
 
@@ -322,20 +247,20 @@ def get_link_scores(flows, inverse_links, forward_flows_by_link, reverse_flows_b
         forward_flows = forward_flows_by_link[l]
         for ff in forward_flows:
             flow = flows[ff]
-            if flow.start_time_ms < min_start_time_ms or flow.finish_time_ms > max_finish_time_ms:
+            if flow.start_time_ms < min_start_time_ms:
                 continue
-            weights = flow_label_weights_func(flow)
-            expected_score += (weights[0] + weights[1])/len(flow.get_paths())
+            weights = flow.label_weights_func(max_finish_time_ms)
+            expected_score += (weights[0] + weights[1])/len(flow.get_paths(max_finish_time_ms))
             score += weights[1]
 
         if CONSIDER_REVERSE_PATH:
             reverse_flows = reverse_flows_by_link[l]
             for ff in reverse_flows:
                 flow = flows[ff]
-                if flow.start_time_ms < min_start_time_ms or flow.finish_time_ms > max_finish_time_ms:
+                if flow.start_time_ms < min_start_time_ms:
                     continue
-                weights = flow_label_weights_func(flow)
-                expected_score += (weights[0] + weights[1])/len(flow.get_reverse_paths())
+                weights = flow.label_weights_func(max_finish_time_ms)
+                expected_score += (weights[0] + weights[1])/len(flow.get_reverse_paths(max_finish_time_ms))
                 score += weights[1]
         scores[l] = score
         expected_scores[l] = expected_score

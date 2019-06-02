@@ -56,12 +56,12 @@ def compute_log_likelihood(hypothesis, flows_by_link, flows, min_start_time_ms, 
         link_flows = flows_by_link[h]
         for f in link_flows:
             flow = flows[f]
-            if flow.start_time_ms >= min_start_time_ms and flow.finish_time_ms <= max_finish_time_ms:
+            if flow.start_time_ms >= min_start_time_ms:
                 relevant_flows.add(f)
 
     #an optimization if we know path for every flow
     if PATH_KNOWN:
-        weights = [flow_label_weights_func(flows[ff]) for ff in relevant_flows]
+        weights = [flows[ff].label_weights_func(max_finish_time_ms) for ff in relevant_flows]
         weight_good = sum(w[0] for w in weights)
         weight_bad = sum(w[1] for w in weights)
         #log_likelihood += bnf_bad(1, 1, 1, 1, p1, p2) * weight_bad
@@ -73,19 +73,22 @@ def compute_log_likelihood(hypothesis, flows_by_link, flows, min_start_time_ms, 
 
     for ff in relevant_flows:
         flow = flows[ff]
-        flow_paths = flow.get_paths()
-        #npaths = len(flow_paths)
-        #naffected = 0.0
+        flow_paths = flow.get_paths(max_finish_time_ms)
+        weight = flow.label_weights_func(max_finish_time_ms)
+        if weight[0] == 0 and weight[1] == 0:
+            continue
+        npaths = len(flow_paths)
+        naffected = 0.0
         p_arr = []
         correct_p_arr = []
-        weight = flow_label_weights_func(flow)
         for path in flow_paths:
             pval = 0
             for v in range(1, len(path)):
                 l = (path[v-1], path[v])
                 if l in hypothesis:
-                    #naffected += 1.0
-                    #break
+                    naffected += 1.0
+                    break
+        '''
                     pval += (1.0-p1)
                 else:
                     pval += p2
@@ -93,7 +96,7 @@ def compute_log_likelihood(hypothesis, flows_by_link, flows, min_start_time_ms, 
             correct_p_arr.append((len(path)-1) * p2)
         log_likelihood += bnf_weighted_path_individual(p_arr, correct_p_arr, weight[0], weight[1])
         '''
-        flow_reverse_paths = flow.get_reverse_paths()
+        flow_reverse_paths = flow.get_reverse_paths(max_finish_time_ms)
         npaths_r = len(flow_reverse_paths)
         naffected_r = 0.0
         if CONSIDER_REVERSE_PATH:
@@ -107,7 +110,6 @@ def compute_log_likelihood(hypothesis, flows_by_link, flows, min_start_time_ms, 
         #log_likelihood += bnf_good(naffected, npaths, naffected_r, npaths_r, p1, p2) * weight[0]
         #log_likelihood += bnf_bad(naffected, npaths, naffected_r, npaths_r, p1, p2) * weight[1]
         log_likelihood += bnf_weighted(naffected, npaths, naffected_r, npaths_r, p1, p2, weight[0], weight[1])
-        '''
     return log_likelihood
    
 def compute_likelihoods(hypothesis_space, flows_by_link, flows, min_start_time_ms, max_finish_time_ms, p1, p2, response_queue):
@@ -135,21 +137,21 @@ def compute_likelihoods_daemon(request_queue, flows_by_link, flows, min_start_ti
 
     
 def bayesian_network_cilia(flows, links, inverse_links, flows_by_link, forward_flows_by_link, reverse_flows_by_link, failed_links, link_statistics, min_start_time_ms, max_finish_time_ms, params, nprocesses):
-    weights = [flow_label_weights_func(flow) for flow in flows if flow.start_time_ms >= min_start_time_ms and flow.finish_time_ms <= max_finish_time_ms]
+    weights = [flow.label_weights_func(max_finish_time_ms) for flow in flows if flow.start_time_ms >= min_start_time_ms]
     weight_good = sum(w[0] for w in weights)
     weight_bad = sum(w[1] for w in weights)
     score_time = time.time()
-    scores, expected_scores = get_link_scores(flows, inverse_links, forward_flows_by_link, reverse_flows_by_link, min_start_time_ms, max_finish_time_ms)
-    alpha_scores = [calc_alpha(scores[link], expected_scores[link]) for link in inverse_links]
-    max_alpha_score = max(alpha_scores)
 
     #knobs in the bayesian network
     # p1 = P[flow good|bad path], p2 = P[flow bad|good path]
     #p2 = max(1.0e-10, weight_bad/(weight_good + weight_bad))
-    p2 = 5e-4
+    p2 = 2e-4
     #p1 = max(0.001, (1.0 - max_alpha_score))
-    p1 = 1.0 - 2.0e-3
+    p1 = 1.0 - 5.0e-3
     if utils.VERBOSE:
+        scores, expected_scores = get_link_scores(flows, inverse_links, forward_flows_by_link, reverse_flows_by_link, min_start_time_ms, max_finish_time_ms)
+        alpha_scores = [calc_alpha(scores[link], expected_scores[link]) for link in inverse_links]
+        max_alpha_score = max(alpha_scores)
         min_expected_flows_on_link = min([expected_scores[link] for link in inverse_links])
         print("Weight (bad):", weight_bad, " (good):", weight_good)
         print("Parameters: P[sample bad|link bad] (1-p1)", 1-p1, "P[sample bad|link good] (p2)", p2)
@@ -228,7 +230,7 @@ def bayesian_network_cilia(flows, links, inverse_links, flows_by_link, forward_f
     ret_hypothesis = set()
     while(len(max_k_likelihoods) > 0):
         likelihood, hypothesis = heappop(max_k_likelihoods)
-        if(highest_likelihood - likelihood <= 1.0e-3):
+        if(highest_likelihood > 1.0e-3 and highest_likelihood - likelihood <= 1.0e-3):
             for h in hypothesis:
                 ret_hypothesis.add(h)
         if utils.VERBOSE:

@@ -356,8 +356,10 @@ int main(int argc, char *argv[])
   	Simulator::Stop (Seconds(simTimeInSec+1.0));
   	Simulator::Run ();
 
+    /* XML file results
   	monitor->CheckForLostPackets ();
   	monitor->SerializeToXmlFile(result_filename, true, true);
+    */
 
 	std::cout << "Simulation finished "<<"\n";
 

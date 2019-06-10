@@ -4,7 +4,7 @@ import math
 import time
 import random
 
-PATH_KNOWN = True
+PATH_KNOWN = False
 
 class Flow:
     # Initialize flow without snapshot

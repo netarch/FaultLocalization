@@ -26,7 +26,7 @@ def convert_path(p, hostip_to_host, linkip_to_link, host_switch_ip, flow):
     destrack = p[-1]
     if (not (srchost in hostip_to_host and destrack in host_switch_ip)):
         print(p)
-        flow.printinfo(sys.stdout)
+        flow.print_flow_metrics(sys.stdout)
         return False
     assert (srchost in hostip_to_host and destrack in host_switch_ip)
     for i in range(1, len(p)-1):

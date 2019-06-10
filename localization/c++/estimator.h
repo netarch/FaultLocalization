@@ -17,7 +17,7 @@ class Estimator{
  public:
     Estimator(){}
 
-    EstimatorResult localize(vector<Flow> &flows, vector<Link> &links);
+    EstimatorResult localize(vector<Flow> &flows, vector<Link> &links, vector<Link> &faultyLinks);
 };
 
 #endif

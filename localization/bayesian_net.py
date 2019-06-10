@@ -1,5 +1,6 @@
 import sys
 from heapq import heappush, heappop
+import multiprocessing
 from multiprocessing import Process, Queue
 import math
 import time
@@ -9,6 +10,7 @@ import random
 import numpy as np
 from scipy.optimize import minimize
 import utils
+import queue
 from utils import *
 from plot_utils import *
 
@@ -131,11 +133,11 @@ def compute_likelihoods_daemon(request_queue, flows_by_link, flows, min_start_ti
             log_likelihood = compute_log_likelihood(hypothesis, flows_by_link, flows, min_start_time_ms, max_finish_time_ms, p1, p2)
             #print(log_likelihood, hypothesis)
             likelihoods.append((log_likelihood, list(hypothesis)))
-        #print("compute_likelihoods computed", len(hypothesis_space), "in", time.time() - start_time, "seconds") 
+        #if utils.VERBOSE:
+        #    print("compute_likelihoods computed", len(hypothesis_space), "in", time.time() - start_time, "seconds") 
         response_queue.put(likelihoods)
 
 
-    
 def bayesian_network_cilia(flows, links, inverse_links, flows_by_link, forward_flows_by_link, reverse_flows_by_link, failed_links, link_statistics, min_start_time_ms, max_finish_time_ms, params, nprocesses):
     weights = [flow.label_weights_func(max_finish_time_ms) for flow in flows if flow.start_time_ms >= min_start_time_ms]
     weight_good = sum(w[0] for w in weights)
@@ -145,24 +147,27 @@ def bayesian_network_cilia(flows, links, inverse_links, flows_by_link, forward_f
     #knobs in the bayesian network
     # p1 = P[flow good|bad path], p2 = P[flow bad|good path]
     #p2 = max(1.0e-10, weight_bad/(weight_good + weight_bad))
-    p2 = 2e-4
+    #p2 = 2.5e-4
     #p1 = max(0.001, (1.0 - max_alpha_score))
-    p1 = 1.0 - 5.0e-3
+    #p1 = 1.0 - 2.5e-3
+    p1 = params[0]
+    p2 = params[1]
     if utils.VERBOSE:
         scores, expected_scores = get_link_scores(flows, inverse_links, forward_flows_by_link, reverse_flows_by_link, min_start_time_ms, max_finish_time_ms)
         alpha_scores = [calc_alpha(scores[link], expected_scores[link]) for link in inverse_links]
         max_alpha_score = max(alpha_scores)
         min_expected_flows_on_link = min([expected_scores[link] for link in inverse_links])
+        max_expected_flows_on_link = max([expected_scores[link] for link in inverse_links])
         print("Weight (bad):", weight_bad, " (good):", weight_good)
         print("Parameters: P[sample bad|link bad] (1-p1)", 1-p1, "P[sample bad|link good] (p2)", p2)
-        print("Min expected coverage on link", min_expected_flows_on_link)
+        print("Min expected coverage on link", min_expected_flows_on_link, "Max", max_expected_flows_on_link)
         print("Calculated scores in", time.time() - score_time, " seconds")
 
     request_queues = []
-    response_queue = Queue()
+    response_queue = multiprocessing.Queue()
     MAX_FAILS = 10
     for i in range(nprocesses):
-        request_queues.append(Queue())
+        request_queues.append(multiprocessing.JoinableQueue())
         proc = Process(target=compute_likelihoods_daemon, args=(request_queues[i], dict(flows_by_link), list(flows), min_start_time_ms, max_finish_time_ms, p1, p2, response_queue, MAX_FAILS))
         proc.start()
 
@@ -170,7 +175,7 @@ def bayesian_network_cilia(flows, links, inverse_links, flows_by_link, forward_f
     max_k_likelihoods = []
     heappush(max_k_likelihoods, (0.0, []))
     prev_hypothesis_space = [[]]
-    NUM_CANDIDATES = min(len(inverse_links), max(15, int(3 * MAX_FAILS)))
+    NUM_CANDIDATES = min(len(inverse_links), max(15, int(2 * MAX_FAILS)))
     candidates = inverse_links
 
     if utils.VERBOSE:
@@ -203,8 +208,7 @@ def bayesian_network_cilia(flows, links, inverse_links, flows_by_link, forward_f
                 heappop(max_k_likelihoods)
 
         if nfails == 1:
-            candidates_likelihoods = [l_h[i] for i in top_hypotheses[-NUM_CANDIDATES:]]
-            candidates = [l_h[1][0] for l_h in candidates_likelihoods] #update candidates for further search
+            candidates_likelihoods = [l_h[i] for i in top_hypotheses[-2*NUM_CANDIDATES:]]
             if utils.VERBOSE:
                 for l, h in candidates_likelihoods:
                     link = h[0]
@@ -213,6 +217,8 @@ def bayesian_network_cilia(flows, links, inverse_links, flows_by_link, forward_f
                     link = h[0]
                     if link in failed_links:
                         print("Failed link: ", link, l, calc_alpha(scores[link], expected_scores[link]), " scores: ", scores[link], expected_scores[link])
+            candidates_likelihoods = [l_h[i] for i in top_hypotheses[-NUM_CANDIDATES:]]
+            candidates = [l_h[1][0] for l_h in candidates_likelihoods] #update candidates for further search
 
         #Aggressively limit candidates at further stages
         NUM_CANDIDATES = min(len(inverse_links), 10)

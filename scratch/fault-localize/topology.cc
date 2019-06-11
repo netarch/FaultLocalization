@@ -235,16 +235,17 @@ void Topology::connect_switches_and_switches(PointToPointHelper &p2p, Ptr<RateEr
         ss[i].resize(networkLinks[i].size());
         ipSsContainer[i].resize(networkLinks[i].size());
     }
+    double min_drop_rate_correct_link = 0.00005;
     double max_drop_rate_correct_link = 0.0001;
     double min_drop_rate_failed_link = 0.001;
-    double max_drop_rate_failed_link = 0.01;
+    double max_drop_rate_failed_link = 0.005;
     for (int i=0;i<num_tor;i++){
         for (int h=0;h<networkLinks[i].size();h++){
             int nbr = networkLinks[i][h];
             if (nbr < i) continue;
             //random drop rate b/w 0 and 10^-4
-            double silent_drop_rate1 = drand48() * max_drop_rate_correct_link;
-            double silent_drop_rate2 = drand48() * max_drop_rate_correct_link;
+            double silent_drop_rate1 = min_drop_rate_correct_link + drand48() * (max_drop_rate_correct_link - min_drop_rate_correct_link);
+            double silent_drop_rate2 = min_drop_rate_correct_link + drand48() * (max_drop_rate_correct_link - min_drop_rate_correct_link);
             ss[i][h] = p2p.Install(tors.Get(i), tors.Get(nbr));
             if(failedLinks.find(pair<int, int>(i, nbr)) != failedLinks.end()){
                 //failparam is appropriately set, so use that

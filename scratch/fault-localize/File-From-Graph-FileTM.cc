@@ -125,6 +125,7 @@ int main(int argc, char *argv[])
    int nfails = atoi(argv[6]);
    double failparam = atof(argv[7]);
    int seed = atoi(argv[8]);
+   seed = nfails * 100003 + seed;
    RngSeedManager::SetSeed (seed);
    RngSeedManager::SetRun (seed);
    srand(seed);
@@ -137,7 +138,7 @@ int main(int argc, char *argv[])
   Config::SetDefault ("ns3::DropTailQueue::MaxPackets", UintegerValue (drop_queue_limit));
 
 //==== Simulation Parameters ====//
-   double simTimeInSec = 1.0;
+   double simTimeInSec = 100.0;
    double warmupTimeInSec = 1.0;
    bool onOffApplication = true;	
 
@@ -216,7 +217,7 @@ int main(int argc, char *argv[])
    int nflows = 0;
    long long total_bytes=0;
 
-   double onTime = 1000000.000, offTime = 0.000;
+   double onTime = 10000000.000, offTime = 0.000;
    Ptr<ExponentialRandomVariable> rvOn = CreateObject<ExponentialRandomVariable> ();
    rvOn->SetAttribute ("Mean", DoubleValue (onTime));
    rvOn->SetAttribute ("Bound", DoubleValue (0.0));
@@ -287,7 +288,6 @@ int main(int argc, char *argv[])
    }
    cout<<"Finished creating applications"<<endl;
    
-
 // Initialize PointtoPointHelper for normal and failed links
 //	
 	PointToPointHelper p2p;
@@ -317,12 +317,10 @@ int main(int argc, char *argv[])
 //=========== Start the simulation ===========//
 //
 
-
     Simulator::Schedule (Seconds(warmupTimeInSec), &echo_progress, simTimeInSec/100.0);
 
     double snapshot_period_seconds = simTimeInSec/50.0;
     Simulator::Schedule (Seconds(warmupTimeInSec + snapshot_period_seconds), &snapshot_flows, &topology, flow_app, snapshot_period_seconds);
-
 
     //Check if ECMP routing is working 
     //Config::SetDefault("ns3::Ipv4GlobalRouting::FlowEcmpRouting", BooleanValue(true));
@@ -340,8 +338,8 @@ int main(int argc, char *argv[])
          if(bytes < 1) continue;
 		   //flow_app[i][j].Start (Seconds (warmupTimeInSec));
            //add some small random delay to unsynchronize    
-		   //flow_app[i][j].Start (Seconds (warmupTimeInSec + rand() * simTimeInSec * 0.001/RAND_MAX)); 
-		   flow_app[i][j].Start (Seconds (warmupTimeInSec + rand() * simTimeInSec/RAND_MAX));
+		   flow_app[i][j].Start (Seconds (warmupTimeInSec + rand() * simTimeInSec * 0.0001/RAND_MAX)); 
+		   //flow_app[i][j].Start (Seconds (warmupTimeInSec + rand() * simTimeInSec/RAND_MAX));
   		   flow_app[i][j].Stop (Seconds (warmupTimeInSec + simTimeInSec));
       }
 	}
@@ -351,11 +349,10 @@ int main(int argc, char *argv[])
   	FlowMonitorHelper flowmon;
 	Ptr<FlowMonitor> monitor = flowmon.InstallAll();
 
-
 // Run simulation.
 //
   	NS_LOG_INFO ("Run Simulation.");
-  	Simulator::Stop (Seconds(simTimeInSec+1.0));
+  	Simulator::Stop (Seconds(warmupTimeInSec + simTimeInSec));
   	Simulator::Run ();
 
     /* XML file results

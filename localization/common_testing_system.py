@@ -1,5 +1,6 @@
 import sys
 from heapq import heappush, heappop
+import multiprocessing
 from multiprocessing import Process, Queue
 import math
 import time
@@ -121,7 +122,7 @@ def get_precision_recall_trend_files_parallel(files, min_start_time_ms, max_fini
         print("Chunk assigned to process: ", start, end)
         files_copies.append(list(files[start:end]))
     print("Arrays copied for parallel execution in ", time.time() - start_time_ms, " seconds")
-    response_queue = Queue()
+    response_queue = multiprocessing.JoinableQueue()
     for i in range(nprocesses):
         proc = Process(target=get_precision_recall_trend_files_serial, args=(files_copies[i], min_start_time_ms, max_finish_time_ms, step, estimator_func, list(params), response_queue))
         procs.append(proc)

@@ -3,6 +3,7 @@ from heapq import heappush, heappop
 import multiprocessing
 from multiprocessing import Process, Queue
 import math
+import copy
 import time
 import joblib
 from joblib import Parallel, delayed
@@ -124,18 +125,25 @@ def compute_likelihoods(hypothesis_space, flows_by_link, flows, min_start_time_m
     #print("compute_likelihoods computed", len(hypothesis_space), "in", time.time() - start_time, "seconds") 
     response_queue.put(likelihoods)
 
-def compute_likelihoods_daemon(request_queue, flows_by_link, flows, min_start_time_ms, max_finish_time_ms, p1, p2, response_queue, niters):
+def compute_likelihoods_daemon(request_queue, flows_by_link, flows, min_start_time_ms_, max_finish_time_ms_, p1_, p2_, response_queue, final_request):
+    min_start_time_ms = min_start_time_ms_
+    max_finish_time_ms = max_finish_time_ms_
+    p1 = p1_
+    p2 = p2_
     start_time = time.time()
-    for i in range(niters):
-        hypothesis_space = request_queue.get()
+    while not final_request:
+        hypothesis_space, final = request_queue.get()
+        final_request = final
         likelihoods = []
         for hypothesis in hypothesis_space:
             log_likelihood = compute_log_likelihood(hypothesis, flows_by_link, flows, min_start_time_ms, max_finish_time_ms, p1, p2)
             #print(log_likelihood, hypothesis)
             likelihoods.append((log_likelihood, list(hypothesis)))
         #if utils.VERBOSE:
-        #    print("compute_likelihoods computed", len(hypothesis_space), "in", time.time() - start_time, "seconds") 
+        #print("compute_likelihoods computed", len(hypothesis_space), "in", time.time() - start_time, "seconds") 
         response_queue.put(likelihoods)
+        #request_queue.task_done()
+        #response_queue.join()
 
 
 def bayesian_network_cilia(flows, links, inverse_links, flows_by_link, forward_flows_by_link, reverse_flows_by_link, failed_links, link_statistics, min_start_time_ms, max_finish_time_ms, params, nprocesses):
@@ -163,13 +171,16 @@ def bayesian_network_cilia(flows, links, inverse_links, flows_by_link, forward_f
         print("Min expected coverage on link", min_expected_flows_on_link, "Max", max_expected_flows_on_link)
         print("Calculated scores in", time.time() - score_time, " seconds")
 
-    request_queues = []
-    response_queue = multiprocessing.Queue()
+    request_queues = [Queue() for x in range(nprocesses)]
+    #response_queues = []
+    response_queue = Queue()
     MAX_FAILS = 10
-    for i in range(nprocesses):
-        request_queues.append(multiprocessing.JoinableQueue())
-        proc = Process(target=compute_likelihoods_daemon, args=(request_queues[i], dict(flows_by_link), list(flows), min_start_time_ms, max_finish_time_ms, p1, p2, response_queue, MAX_FAILS))
-        proc.start()
+    if nprocesses > 1:
+        for i in range(nprocesses):
+            #request_queues.append(multiprocessing.JoinableQueue())
+            #response_queues.append(multiprocessing.JoinableQueue())
+            proc = Process(target=compute_likelihoods_daemon, args=(request_queues[i], dict(flows_by_link), list(flows), min_start_time_ms, max_finish_time_ms, p1, p2, response_queue, False))
+            proc.start()
 
     n_max_k_likelihoods = 20
     max_k_likelihoods = []
@@ -182,24 +193,32 @@ def bayesian_network_cilia(flows, links, inverse_links, flows_by_link, forward_f
         print("Beginning search, num candidates", len(candidates), "branch_factor", len(prev_hypothesis_space))
     start_search_time = time.time()
 
-    for nfails in range(1, MAX_FAILS+1):
+    surely_failed_links = set()
+    nfails = 1
+    while nfails <= MAX_FAILS:
         start_time = time.time()
         hypothesis_space = []
         for h in prev_hypothesis_space:
             for link in candidates:
                 if link not in h:
                     hnew = sorted(h+[link])
-                    if hnew not in hypothesis_space:
+                    if hnew not in hypothesis_space and surely_failed_links.issubset(hnew):
                         hypothesis_space.append(hnew)
         num_hypothesis = len(hypothesis_space)
         for i in range(nprocesses):
             start = int(i * num_hypothesis/nprocesses)
             end = int(min(num_hypothesis, (i+1) * num_hypothesis/nprocesses))
-            request_queues[i].put(list(hypothesis_space[start:end]))
+            request_queues[i].put((list(hypothesis_space[start:end]), (nfails==MAX_FAILS or nprocesses==1)))
+
+        if (nprocesses == 1):
+            #Optimization for single process
+            compute_likelihoods_daemon(request_queues[i], flows_by_link, flows, min_start_time_ms, max_finish_time_ms, p1, p2, response_queue, False)
 
         l_h = [] # each element is (likelihood, hypothesis)
         for i in range(nprocesses):
+            #request_queues[i].join()
             l_h.extend(response_queue.get())
+            #response_queues[i].task_done()
         top_hypotheses = np.argsort([x[0] for x in l_h])
         for i in range(min(n_max_k_likelihoods, len(top_hypotheses))):
             ind = top_hypotheses[-(i+1)]
@@ -207,8 +226,16 @@ def bayesian_network_cilia(flows, links, inverse_links, flows_by_link, forward_f
             if (len(max_k_likelihoods) > n_max_k_likelihoods):
                 heappop(max_k_likelihoods)
 
+        if utils.VERBOSE:
+            print("Finished hypothesis search across ", len(hypothesis_space), "Hypothesis for ", nfails, "failures in", time.time() - start_time, "seconds")
+
         if nfails == 1:
             candidates_likelihoods = [l_h[i] for i in top_hypotheses[-2*NUM_CANDIDATES:]]
+            for l, h in candidates_likelihoods:
+                link = h[0]
+                if l > 15.0:
+                    surely_failed_links.add(link)
+            print("Surely failed links:", list(surely_failed_links))
             if utils.VERBOSE:
                 for l, h in candidates_likelihoods:
                     link = h[0]
@@ -219,12 +246,17 @@ def bayesian_network_cilia(flows, links, inverse_links, flows_by_link, forward_f
                         print("Failed link: ", link, l, calc_alpha(scores[link], expected_scores[link]), " scores: ", scores[link], expected_scores[link])
             candidates_likelihoods = [l_h[i] for i in top_hypotheses[-NUM_CANDIDATES:]]
             candidates = [l_h[1][0] for l_h in candidates_likelihoods] #update candidates for further search
-
+            if len(surely_failed_links) > 1:
+                prev_hypothesis_space = [list(surely_failed_links)[:-1]] #!TODO: Hack
+                nfails = len(surely_failed_links)
+            else:
+                prev_hypothesis_space = [l_h[i][1] for i in top_hypotheses[-NUM_CANDIDATES:]]
+                nfails += 1
+        else:
+            prev_hypothesis_space = [l_h[i][1] for i in top_hypotheses[-NUM_CANDIDATES:]]
+            nfails += 1
         #Aggressively limit candidates at further stages
         NUM_CANDIDATES = min(len(inverse_links), 10)
-        if utils.VERBOSE:
-            print("Finished hypothesis search across ", len(hypothesis_space), "Hypothesis for ", nfails, "failures in", time.time() - start_time, "seconds")
-        prev_hypothesis_space = [l_h[i][1] for i in top_hypotheses[-NUM_CANDIDATES:]]
 
     failed_links_set = set(failed_links.keys())
     if utils.VERBOSE:
@@ -244,7 +276,7 @@ def bayesian_network_cilia(flows, links, inverse_links, flows_by_link, forward_f
     precision, recall = get_precision_recall(failed_links, ret_hypothesis)
     if utils.VERBOSE:
         print("\nSearched hypothesis space in ", time.time() - start_search_time, " seconds")
-        print ("Output Hypothesis: ", list(ret_hypothesis))
+    print ("Output Hypothesis: ", list(ret_hypothesis), "precsion_recall", precision, recall)
     return (precision, recall), None
 
 

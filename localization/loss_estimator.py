@@ -18,7 +18,7 @@ from net_bouncer import *
 
 
 def get_precision_recall_bayesian_cilia(filename, min_start_time_ms, max_finish_time_ms, nprocesses):
-    return get_precision_recall_estimator(filename, min_start_time_ms, max_finish_time_ms, bayesian_network_cilia, (1.0 - 2.0e-3, 1.0e-4), nprocesses)
+    return get_precision_recall_estimator(filename, min_start_time_ms, max_finish_time_ms, bayesian_network_cilia, (1.0 - 2.5e-3, 0.5e-4), nprocesses)
 
 def get_precision_recall_net_bouncer(filename, min_start_time_ms, max_finish_time_ms, nprocesses):
     return get_precision_recall_estimator(filename, min_start_time_ms, max_finish_time_ms, net_bouncer, [], nprocesses)

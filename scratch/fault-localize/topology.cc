@@ -228,6 +228,24 @@ int Topology::getSecondOctetOfTor(int tor){
     return tor%256;
 }
 
+double Topology::get_drop_rate_link_uniform(double min_drop_rate, double max_drop_rate){
+    return min_drop_rate + drand48() * (max_drop_rate - min_drop_rate);
+}
+
+double Topology::get_drop_rate_failed_link(){
+    if (drand48() <= 0.5){
+        double min_drop_rate_failed_link = 0.001;
+        double max_drop_rate_failed_link = 0.005;
+        return get_drop_rate_link_uniform(min_drop_rate_failed_link, max_drop_rate_failed_link);
+    }
+    else{
+        double min_drop_rate_failed_link = 0.01;
+        double max_drop_rate_failed_link = 0.05;
+        return get_drop_rate_link_uniform(min_drop_rate_failed_link, max_drop_rate_failed_link);
+    }
+}
+
+
 void Topology::connect_switches_and_switches(PointToPointHelper &p2p, Ptr<RateErrorModel> rem, NodeContainer &tors, double failparam){
     vector<NetDeviceContainer> ss[num_tor]; 	
     vector<Ipv4InterfaceContainer> ipSsContainer[num_tor];
@@ -235,28 +253,26 @@ void Topology::connect_switches_and_switches(PointToPointHelper &p2p, Ptr<RateEr
         ss[i].resize(networkLinks[i].size());
         ipSsContainer[i].resize(networkLinks[i].size());
     }
+    //random drop rate b/w 5*10^-5 and 10^-4
     double min_drop_rate_correct_link = 0.00005;
     double max_drop_rate_correct_link = 0.0001;
-    double min_drop_rate_failed_link = 0.001;
-    double max_drop_rate_failed_link = 0.005;
     for (int i=0;i<num_tor;i++){
         for (int h=0;h<networkLinks[i].size();h++){
             int nbr = networkLinks[i][h];
             if (nbr < i) continue;
-            //random drop rate b/w 0 and 10^-4
-            double silent_drop_rate1 = min_drop_rate_correct_link + drand48() * (max_drop_rate_correct_link - min_drop_rate_correct_link);
-            double silent_drop_rate2 = min_drop_rate_correct_link + drand48() * (max_drop_rate_correct_link - min_drop_rate_correct_link);
+            double silent_drop_rate1 = get_drop_rate_link_uniform(min_drop_rate_correct_link, max_drop_rate_correct_link);
+            double silent_drop_rate2 = get_drop_rate_link_uniform(min_drop_rate_correct_link, max_drop_rate_correct_link);
             ss[i][h] = p2p.Install(tors.Get(i), tors.Get(nbr));
             if(failedLinks.find(pair<int, int>(i, nbr)) != failedLinks.end()){
                 //failparam is appropriately set, so use that
                 if (failparam > max_drop_rate_correct_link) silent_drop_rate1 = failparam;
-                else silent_drop_rate1 = min_drop_rate_failed_link + (drand48() * (max_drop_rate_failed_link - min_drop_rate_failed_link));
+                else silent_drop_rate1 = get_drop_rate_failed_link();
                 std::cout<<"Failing_link "<<i<<" "<<nbr<<" "<<silent_drop_rate1<<endl;
             }
             if(failedLinks.find(pair<int, int>(nbr, i)) != failedLinks.end()){
                 //failparam is appropriately set, so use that
                 if (failparam > max_drop_rate_correct_link) silent_drop_rate2 = failparam;
-                else silent_drop_rate2 = min_drop_rate_failed_link + (drand48() * (max_drop_rate_failed_link - min_drop_rate_failed_link));
+                else silent_drop_rate2 = get_drop_rate_failed_link();
                 std::cout<<"Failing_link "<<nbr<<" "<<i<<" "<<silent_drop_rate2<<endl;
             }
 

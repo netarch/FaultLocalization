@@ -64,6 +64,8 @@ class Topology{
     int getFirstOctetOfTor(int tor);
     int getSecondOctetOfTor(int tor);
 
+    double get_drop_rate_link_uniform(double min_drop_rate, double max_drop_rate);
+    double get_drop_rate_failed_link();
     void connect_switches_and_switches(PointToPointHelper &p2p, Ptr<RateErrorModel> rem, NodeContainer &tors, double failparam);
 
     void connect_switches_and_hosts(PointToPointHelper &p2p, NodeContainer &tors, NodeContainer *rackhosts);

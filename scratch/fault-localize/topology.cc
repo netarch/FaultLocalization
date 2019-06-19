@@ -239,8 +239,8 @@ double Topology::get_drop_rate_failed_link(){
         return get_drop_rate_link_uniform(min_drop_rate_failed_link, max_drop_rate_failed_link);
     }
     else{
-        double min_drop_rate_failed_link = 0.01;
-        double max_drop_rate_failed_link = 0.05;
+        double min_drop_rate_failed_link = 0.05;
+        double max_drop_rate_failed_link = 0.1;
         return get_drop_rate_link_uniform(min_drop_rate_failed_link, max_drop_rate_failed_link);
     }
 }

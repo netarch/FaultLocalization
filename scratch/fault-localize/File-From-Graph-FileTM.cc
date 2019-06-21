@@ -138,7 +138,7 @@ int main(int argc, char *argv[])
   Config::SetDefault ("ns3::DropTailQueue::MaxPackets", UintegerValue (drop_queue_limit));
 
 //==== Simulation Parameters ====//
-   double simTimeInSec = 100.0;
+   double simTimeInSec = 20.0;
    double warmupTimeInSec = 1.0;
    bool onOffApplication = true;	
 
@@ -153,6 +153,7 @@ int main(int argc, char *argv[])
 	int port = 9; //port for background app
 	int packetSizeBytes = 1500;
 	string dataRate_OnOff = on_off_datarate + "Kbps"; 
+	string dataRate_OnOff_Inf = "100Gbps"; 
 	//char maxBytes [] = "0" ; //"50000"; // "0"; // unlimited
 
 // Initialize parameters for PointToPoint protocol
@@ -169,7 +170,7 @@ int main(int argc, char *argv[])
 //	
     std::cout << "Total number of hosts =  "<< topology.total_host<<"\n";
     if (onOffApplication){
-        std::cout << "On/Off flow data rate = "<< dataRate_OnOff<<"."<<endl;
+        std::cout << "On/Off flow data rate = "<< dataRate_OnOff<<" Infinite data rate = "<< dataRate_OnOff_Inf<<"."<<endl;
     }
 
 // Initialize Internet Stack and Routing Protocols
@@ -224,6 +225,7 @@ int main(int argc, char *argv[])
    Ptr<ExponentialRandomVariable> rvOff = CreateObject<ExponentialRandomVariable> ();
    rvOff->SetAttribute ("Mean", DoubleValue (offTime));
    rvOff->SetAttribute ("Bound", DoubleValue (0.0));
+   int nactive_flows = 0, npassive_flows = 0;
    for(int i=0; i<topology.total_host; i++){
       for(int j=0; j<topology.total_host; j++){
          int bytes = truncateBytes((int)(topology.serverTM[i][j] * traffic_wt));
@@ -243,7 +245,16 @@ int main(int argc, char *argv[])
          if(onOffApplication){
             //cout<<"Initializing On Off flow"<<endl;
             //Simulate flows that never stop by having a very large onTime
-            oo.SetAttribute("DataRate",StringValue (dataRate_OnOff));      
+            //!TODO: Hack, infinite flow size is only 1e9 bytes, set to identify active probe flows
+            if (bytes >= 1000000000){
+                nactive_flows++;
+                oo.SetAttribute("DataRate",StringValue (dataRate_OnOff));      
+            }
+            else{
+                //normal flow, burst at full speed 
+                npassive_flows++;
+                oo.SetAttribute("DataRate",StringValue (dataRate_OnOff_Inf));      
+            }
             oo.SetAttribute("PacketSize",UintegerValue (packetSizeBytes));
             //oo.SetAttribute ("Remote", Address(InetSocketAddress(Ipv4Address(remote_ip), port)));
             oo.SetAttribute("OnTime", StringValue ("ns3::ConstantRandomVariable[Constant=1000000.0]"));
@@ -277,6 +288,7 @@ int main(int argc, char *argv[])
       }
    }
    cout<<"Total Flows in the system: "<<nflows<<" carrying "<<total_bytes<<" bytes"<<endl;
+   cout<<"Active Flows: "<<nactive_flows<<", Passive Flows: "<<npassive_flows<<endl;
 
    for(int i=0;i<topology.total_host; i++){
       //Create packet sink application on every server
@@ -332,17 +344,26 @@ int main(int argc, char *argv[])
    //   globalRouting.PrintRoutingTableAt (Seconds (5.0), tors.Get(i), routingStream);
 
    std::cout << "Start Simulation.. "<<"\n";
+   nactive_flows = 0;
+   npassive_flows = 0;
    for (int i=0;i<topology.total_host;i++){
       for (int j=0;j<topology.total_host;j++){
          int bytes = truncateBytes((int)(topology.serverTM[i][j] * traffic_wt));
          if(bytes < 1) continue;
 		   //flow_app[i][j].Start (Seconds (warmupTimeInSec));
            //add some small random delay to unsynchronize    
-		   flow_app[i][j].Start (Seconds (warmupTimeInSec + rand() * simTimeInSec * 0.0001/RAND_MAX)); 
-		   //flow_app[i][j].Start (Seconds (warmupTimeInSec + rand() * simTimeInSec/RAND_MAX));
+           if (bytes >= 1000000000){ //infinite length flow
+		       flow_app[i][j].Start (Seconds (warmupTimeInSec + rand() * simTimeInSec * 0.0001/RAND_MAX)); 
+               nactive_flows++;
+           }
+           else{
+		       flow_app[i][j].Start (Seconds (warmupTimeInSec + rand() * simTimeInSec/RAND_MAX));
+               npassive_flows++;
+           }
   		   flow_app[i][j].Stop (Seconds (warmupTimeInSec + simTimeInSec));
       }
-	}
+   }
+   cout<<"Active Flows: "<<nactive_flows<<", Passive Flows: "<<npassive_flows<<endl;
 
 // Calculate Throughput using Flowmonitor
 //

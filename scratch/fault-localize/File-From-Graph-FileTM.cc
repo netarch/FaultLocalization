@@ -328,7 +328,7 @@ int main(int argc, char *argv[])
 
     Simulator::Schedule (Seconds(warmupTimeInSec), &echo_progress, simTimeInSec/100.0);
 
-    double snapshot_period_seconds = simTimeInSec/500.0;
+    double snapshot_period_seconds = simTimeInSec/50.0;
     Simulator::Schedule (Seconds(warmupTimeInSec + snapshot_period_seconds), &snapshot_flows, &topology, flow_app, snapshot_period_seconds);
 
     //Check if ECMP routing is working 

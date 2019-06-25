@@ -16,6 +16,7 @@
  * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
  */
 
+#include <iostream>
 #include "ns3/log.h"
 #include "ns3/queue.h"
 #include "ns3/simulator.h"
@@ -335,6 +336,8 @@ PointToPointNetDevice::Receive (Ptr<Packet> packet)
   NS_LOG_FUNCTION (this << packet);
   uint16_t protocol = 0;
 
+
+  //std::cout<<"PointToPointNetDevice::Receive"<<std::endl;
   if (m_receiveErrorModel && m_receiveErrorModel->IsCorrupt (packet) ) 
     {
       // 
@@ -518,6 +521,7 @@ PointToPointNetDevice::Send (
   // If IsLinkUp() is false it means there is no channel to send any packet 
   // over so we just hit the drop trace on the packet and return an error.
   //
+  //std::cout<<"PointToPointNetDevice::Send"<<std::endl;
   if (IsLinkUp () == false)
     {
       m_macTxDropTrace (packet);

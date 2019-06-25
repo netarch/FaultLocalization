@@ -156,6 +156,8 @@ TcpCubic::NewAck (const SequenceNumber32& seq)
                 " cwnd " << m_cWnd <<
                 " ssthresh " << m_ssThresh);
 
+  m_ackedPackets = std::max(m_ackedPackets, seq.GetValue()/m_segmentSize); 
+
   // Check for exit condition of fast recovery same as NewReno
   if (m_inFastRec && seq < m_recover)
     { // Partial ACK, partial window deflation (RFC2582 sec.3 bullet #5 paragraph 3)

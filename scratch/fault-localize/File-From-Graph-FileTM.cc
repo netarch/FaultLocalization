@@ -90,9 +90,6 @@ void echo_progress(double delay_seconds){
 void snapshot_flows(Topology* topology, ApplicationContainer** flow_app, double snapshot_period_seconds){
     Simulator::Schedule (Seconds(snapshot_period_seconds), &snapshot_flows, topology, flow_app, snapshot_period_seconds);
     double curr_time_seconds = Simulator::Now().GetSeconds();
-    double next_snapshot_time = curr_time_seconds + snapshot_period_seconds;
-    //!TODO Hack for the fault localization to analyse trends
-    //Time mid = Time::FromDouble((curr_time_seconds + next_snapshot_time)/2, Time::S);
     for (int i=0;i<topology->total_host;i++){
         for (int j=0;j<topology->total_host;j++){
             int bytes = truncateBytes((int)(topology->serverTM[i][j]));
@@ -153,7 +150,7 @@ int main(int argc, char *argv[])
 	int port = 9; //port for background app
 	int packetSizeBytes = 1500;
 	string dataRate_OnOff = on_off_datarate + "Kbps"; 
-	string dataRate_OnOff_Inf = "100Gbps"; 
+	string dataRate_OnOff_Inf = "1Gbps"; 
 	//char maxBytes [] = "0" ; //"50000"; // "0"; // unlimited
 
 // Initialize parameters for PointToPoint protocol
@@ -331,7 +328,7 @@ int main(int argc, char *argv[])
 
     Simulator::Schedule (Seconds(warmupTimeInSec), &echo_progress, simTimeInSec/100.0);
 
-    double snapshot_period_seconds = simTimeInSec/50.0;
+    double snapshot_period_seconds = simTimeInSec/500.0;
     Simulator::Schedule (Seconds(warmupTimeInSec + snapshot_period_seconds), &snapshot_flows, &topology, flow_app, snapshot_period_seconds);
 
     //Check if ECMP routing is working 
@@ -353,6 +350,7 @@ int main(int argc, char *argv[])
 		   //flow_app[i][j].Start (Seconds (warmupTimeInSec));
            //add some small random delay to unsynchronize    
            if (bytes >= 1000000000){ //infinite length flow
+               //!TODO: Hack, infinite flow size is only 1e9 bytes, set to identify active probe flows
 		       flow_app[i][j].Start (Seconds (warmupTimeInSec + rand() * simTimeInSec * 0.0001/RAND_MAX)); 
                nactive_flows++;
            }

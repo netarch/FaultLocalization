@@ -275,22 +275,29 @@ void Topology::connect_switches_and_switches(PointToPointHelper &p2p, Ptr<RateEr
                 else silent_drop_rate2 = get_drop_rate_failed_link();
                 std::cout<<"Failing_link "<<nbr<<" "<<i<<" "<<silent_drop_rate2<<endl;
             }
+            
+            Ptr<NetDevice> device;
+            Ptr<PointToPointNetDevice> p2pDevice;
 
             //i --> nbr
-            Ptr<RateErrorModel> rem1 = CreateObjectWithAttributes<RateErrorModel> (
-                                "ErrorRate", DoubleValue (silent_drop_rate1),
-                                "ErrorUnit", EnumValue (RateErrorModel::ERROR_UNIT_PACKET));
-            Ptr<NetDevice> device =  ss[i][h].Get(1);
-            Ptr<PointToPointNetDevice> p2pDevice = device->GetObject<PointToPointNetDevice> ();;
-            p2pDevice->SetAttribute ("ReceiveErrorModel", PointerValue (rem1));
+            if (silent_drop_rate1 > 0.0) {
+                Ptr<RateErrorModel> rem1 = CreateObjectWithAttributes<RateErrorModel> (
+                                    "ErrorRate", DoubleValue (silent_drop_rate1),
+                                    "ErrorUnit", EnumValue (RateErrorModel::ERROR_UNIT_PACKET));
+                device =  ss[i][h].Get(1);
+                p2pDevice = device->GetObject<PointToPointNetDevice> ();;
+                p2pDevice->SetAttribute ("ReceiveErrorModel", PointerValue (rem1));
+            }
 
             //nbr --> i
-            Ptr<RateErrorModel> rem2 = CreateObjectWithAttributes<RateErrorModel> (
-                                "ErrorRate", DoubleValue (silent_drop_rate2),
-                                "ErrorUnit", EnumValue (RateErrorModel::ERROR_UNIT_PACKET));
-            device =  ss[i][h].Get(0);
-            p2pDevice = device->GetObject<PointToPointNetDevice> ();;
-            p2pDevice->SetAttribute ("ReceiveErrorModel", PointerValue (rem2));
+            if (silent_drop_rate2 > 0.0) {
+                Ptr<RateErrorModel> rem2 = CreateObjectWithAttributes<RateErrorModel> (
+                                    "ErrorRate", DoubleValue (silent_drop_rate2),
+                                    "ErrorUnit", EnumValue (RateErrorModel::ERROR_UNIT_PACKET));
+                device =  ss[i][h].Get(0);
+                p2pDevice = device->GetObject<PointToPointNetDevice> ();;
+                p2pDevice->SetAttribute ("ReceiveErrorModel", PointerValue (rem2));
+            }
 
             //Assign subnet
             pair<char* , char*> subnet_base = getLinkBaseIpAddress(i, h);
@@ -375,7 +382,8 @@ void Topology::print_flow_info(int srchost, int desthost, int bytes, Application
         <<app->GetStartTime()<<" "<<tcp_socket_base->GetFinishTime()
         <<" "<<tcp_socket_base->GetSentPackets()<<" "
         <<tcp_socket_base->GetLostPackets()<<" "
-        <<tcp_socket_base->GetRandomlyLostPackets()<<endl;
+        <<tcp_socket_base->GetRandomlyLostPackets()<<" "
+        <<tcp_socket_base->GetAckedPackets()/1444<<endl;
     print_flow_path(srchost, desthost);
 }
 
@@ -432,7 +440,8 @@ void Topology::snapshot_flow(int srchost, int desthost, int bytes, ApplicationCo
         <<startTime<<" "<<snapshotTime
         <<" "<<tcp_socket_base->GetSentPackets()<<" "
         <<tcp_socket_base->GetLostPackets()<<" "
-        <<tcp_socket_base->GetRandomlyLostPackets()<<endl;
+        <<tcp_socket_base->GetRandomlyLostPackets()<<" "
+        <<tcp_socket_base->GetAckedPackets()<<endl;
 }
 
 void Topology::adapt_network(){

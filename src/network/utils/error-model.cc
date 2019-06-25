@@ -60,10 +60,10 @@
  *         James P.G. Sterbenz <jpgs@ittc.ku.edu>, director 
  */
 
+#include <iostream>
 #include <cmath>
 
 #include "error-model.h"
-
 #include "ns3/packet.h"
 #include "ns3/assert.h"
 #include "ns3/log.h"
@@ -253,7 +253,9 @@ bool
 RateErrorModel::DoCorruptPkt (Ptr<Packet> p)
 {
   NS_LOG_FUNCTION (this << p);
-  return (m_ranvar->GetValue () < m_rate);
+  double ranvar = m_ranvar->GetValue (); 
+  //std::cout<<" corrupting packet "<<(ranvar < m_rate)<<" "<<ranvar<<" "<<m_rate<<std::endl;
+  return (ranvar < m_rate);
 }
 
 bool

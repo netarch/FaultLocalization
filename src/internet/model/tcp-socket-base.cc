@@ -194,6 +194,7 @@ TcpSocketBase::TcpSocketBase (void)
     m_sentPackets(0),
     m_lostPackets(0),
     m_randomlyLostPackets(0),
+    m_ackedPackets(0),
     m_finishTime(0)
 
 {
@@ -243,9 +244,10 @@ TcpSocketBase::TcpSocketBase (const TcpSocketBase& sock)
     m_rcvScaleFactor (sock.m_rcvScaleFactor),
     m_timestampEnabled (sock.m_timestampEnabled),
     m_timestampToEcho (sock.m_timestampToEcho),
-    m_sentPackets (m_sentPackets),
+    m_sentPackets (sock.m_sentPackets),
     m_lostPackets (sock.m_lostPackets),
-    m_randomlyLostPackets(m_randomlyLostPackets),
+    m_randomlyLostPackets(sock.m_randomlyLostPackets),
+    m_ackedPackets(sock.m_ackedPackets),
     m_finishTime (sock.m_finishTime)
 
 {
@@ -2796,6 +2798,12 @@ uint32_t
 TcpSocketBase::GetRandomlyLostPackets (void) const
 {
   return m_randomlyLostPackets;
+}
+
+uint32_t
+TcpSocketBase::GetAckedPackets (void) const
+{
+  return m_ackedPackets;
 }
 
 Time

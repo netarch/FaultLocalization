@@ -3,8 +3,6 @@ from heapq import heappush, heappop
 from multiprocessing import Process, Queue
 import math
 import time
-import joblib
-from joblib import Parallel, delayed
 import random
 import numpy as np
 from scipy.optimize import minimize
@@ -59,7 +57,7 @@ def get_precision_recall_trend_estimator(min_start_time_ms, max_finish_time_ms, 
     for f in files:
         print("File: ", f)
     step = (max_finish_time_ms - min_start_time_ms)/10
-    step = 10.0 * 1000.0
+    step = 1.0 * 1000.0
     precision_recall, info = get_precision_recall_trend(files, min_start_time_ms, max_finish_time_ms, step, estimator_func, params, nprocesses)
     for i in range(len(precision_recall)):
         p, r = precision_recall[i]
@@ -71,7 +69,7 @@ def get_precision_recall_trend_bayesian_cilia(min_start_time_ms, max_finish_time
 
 def get_precision_recall_trend_net_bouncer(min_start_time_ms, max_finish_time_ms, nprocesses):
     #get_precision_recall_trend_estimator(min_start_time_ms, max_finish_time_ms, net_bouncer, (0.0075, 1-3.0e-3), nprocesses)
-    get_precision_recall_trend_estimator(min_start_time_ms, max_finish_time_ms, net_bouncer, (0.0075, 1-4.5e-3), nprocesses)
+    get_precision_recall_trend_estimator(min_start_time_ms, max_finish_time_ms, net_bouncer, (0.0125, 1-6e-3), nprocesses)
 
 def get_precision_recall_trend_007(min_start_time_ms, max_finish_time_ms, fail_percentile, nprocesses):
     get_precision_recall_trend_estimator(min_start_time_ms, max_finish_time_ms, doubleO7, (fail_percentile,), nprocesses)
@@ -123,9 +121,9 @@ if __name__ == '__main__':
     nprocesses = 16
     utils.VERBOSE = False
     start_time = time.time()
-    get_precision_recall_trend_bayesian_cilia(min_start_time_sec * 1000.0, max_finish_time_sec * 1000.0, nprocesses)
+    #get_precision_recall_trend_bayesian_cilia(min_start_time_sec * 1000.0, max_finish_time_sec * 1000.0, nprocesses)
     #print("Execution time", time.time() - start_time, "seconds")
-    #get_precision_recall_trend_net_bouncer(min_start_time_sec * 1000.0, max_finish_time_sec * 1000.0, nprocesses)
+    get_precision_recall_trend_net_bouncer(min_start_time_sec * 1000.0, max_finish_time_sec * 1000.0, nprocesses)
     #fail_percentile = 0.0135
     #get_precision_recall_trend_007(min_start_time_sec * 1000.0, max_finish_time_sec * 1000.0, fail_percentile, nprocesses)
     #get_precision_recall_net_bouncer_params(min_start_time_sec * 1000.0, max_finish_time_sec * 1000.0, nprocesses)

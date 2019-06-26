@@ -5,8 +5,6 @@ from multiprocessing import Process, Queue
 import math
 import copy
 import time
-import joblib
-from joblib import Parallel, delayed
 import random
 import numpy as np
 from scipy.optimize import minimize
@@ -70,11 +68,11 @@ def compute_log_likelihood(hypothesis, flows_by_link, flows, min_start_time_ms, 
         link_flows = flows_by_link[h]
         for f in link_flows:
             flow = flows[f]
-            if flow.start_time_ms >= min_start_time_ms and (not active_flows_only or flow.is_active_flow()):
+            if flow.start_time_ms >= min_start_time_ms and (not active_flows_only or flow.is_active_flow() or flow.is_flow_bad(max_finish_time_ms)):
                 relevant_flows.add(f)
 
     #an optimization if we know path for every flow
-    if PATH_KNOWN and False:
+    if PATH_KNOWN:
         weights = [flows[ff].label_weights_func(max_finish_time_ms) for ff in relevant_flows]
         weight_good = sum(w[0] for w in weights)
         weight_bad = sum(w[1] for w in weights)
@@ -124,10 +122,10 @@ def compute_log_likelihood(hypothesis, flows_by_link, flows, min_start_time_ms, 
         #log_likelihood += bnf_good(naffected, npaths, naffected_r, npaths_r, p1, p2) * weight[0]
         #log_likelihood += bnf_bad(naffected, npaths, naffected_r, npaths_r, p1, p2) * weight[1]
         log_likelihood += bnf_weighted(naffected, npaths, naffected_r, npaths_r, p1, p2, weight[0], weight[1])
-    assert(False)
     return log_likelihood
 
 def compute_log_likelihood_conditional(hypothesis, flows_by_link, flows, min_start_time_ms, max_finish_time_ms, p1, p2, active_flows_only=False):
+    assert(False)
     log_likelihood = 0.0
     relevant_flows = set()
     for h in hypothesis:
@@ -215,7 +213,7 @@ def compute_likelihoods_daemon(request_queue, flows_by_link, flows, min_start_ti
         hypothesis_space, final_request, active_flows_only = request_queue.get()
         likelihoods = []
         for hypothesis in hypothesis_space:
-            log_likelihood = compute_log_likelihood_conditional(hypothesis, flows_by_link, flows, min_start_time_ms, max_finish_time_ms, p1, p2, active_flows_only)
+            log_likelihood = compute_log_likelihood(hypothesis, flows_by_link, flows, min_start_time_ms, max_finish_time_ms, p1, p2, active_flows_only)
             #print(log_likelihood, hypothesis)
             likelihoods.append((log_likelihood, list(hypothesis)))
         #if utils.VERBOSE:
@@ -289,7 +287,7 @@ def bayesian_network_cilia(flows, links, inverse_links, flows_by_link, forward_f
             start = int(i * num_hypothesis/nprocesses)
             end = int(min(num_hypothesis, (i+1) * num_hypothesis/nprocesses))
             #!TODO: Hack. The 3rd argument will restrict flows to active flows only for nfails==1
-            active_flows_only = False #(nfails==1 and repeat_nfails_1)
+            active_flows_only = (nfails==1 and repeat_nfails_1)
             request_queues[i].put((list(hypothesis_space[start:end]), (nfails==MAX_FAILS or nprocesses==1), active_flows_only))
 
         if (nprocesses == 1):

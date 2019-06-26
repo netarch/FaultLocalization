@@ -3,8 +3,6 @@ from heapq import heappush, heappop
 from multiprocessing import Process, Queue
 import math
 import time
-import joblib
-from joblib import Parallel, delayed
 import random
 import numpy as np
 from scipy.optimize import minimize

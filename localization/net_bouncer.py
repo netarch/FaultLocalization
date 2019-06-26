@@ -3,8 +3,6 @@ from heapq import heappush, heappop
 from multiprocessing import Process, Queue
 import math
 import time
-import joblib
-from joblib import Parallel, delayed
 import random
 import numpy as np
 from scipy.optimize import minimize
@@ -21,7 +19,7 @@ def net_bouncer(flows, links, inverse_links, flows_by_link, forward_flows_by_lin
     sum_success_prob = np.zeros(nlinks)
     num_flows_through_link = np.zeros(nlinks)
     for flow in flows:
-        if flow.start_time_ms >= min_start_time_ms and flow.any_snapshot_before(max_finish_time_ms):
+        if flow.start_time_ms >= min_start_time_ms and flow.any_snapshot_before(max_finish_time_ms) and flow.traceroute_flow(max_finish_time_ms):
             path = flow.path_taken
             for v in range(1, len(path)):
                 l = (path[v-1], path[v])
@@ -40,7 +38,7 @@ def net_bouncer(flows, links, inverse_links, flows_by_link, forward_flows_by_lin
     def F(X):
         ret = 0.0
         for flow in flows:
-            if flow.start_time_ms >= min_start_time_ms and flow.any_snapshot_before(max_finish_time_ms):
+            if flow.start_time_ms >= min_start_time_ms and flow.any_snapshot_before(max_finish_time_ms) and flow.traceroute_flow(max_finish_time_ms):
                 path = flow.path_taken
                 x = 1.0
                 for v in range(1, len(path)):
@@ -57,7 +55,7 @@ def net_bouncer(flows, links, inverse_links, flows_by_link, forward_flows_by_lin
         S2 = 0.0
         for ff in flows_by_link[inverse_links[i]]:
             flow = flows[ff]
-            if flow.start_time_ms >= min_start_time_ms and flow.any_snapshot_before(max_finish_time_ms):
+            if flow.start_time_ms >= min_start_time_ms and flow.any_snapshot_before(max_finish_time_ms) and flow.traceroute_flow(max_finish_time_ms):
                 path = flow.path_taken
                 contains_xi = False
                 t = 1.0

@@ -4,7 +4,7 @@ import math
 import time
 import random
 
-PATH_KNOWN = True
+PATH_KNOWN = False
 
 class Flow:
     # Initialize flow without snapshot
@@ -117,7 +117,7 @@ class Flow:
         self.update_snapshot_ptr(max_finish_time_ms)
         if self.snapshot_ptr >= 0:
             snapshot = self.snapshots[self.snapshot_ptr]
-            return float(snapshot[2])/snapshot[1]
+            return float(snapshot[2])/max(snapshot[1], 1.0)
         return 0
 
     def get_packets_lost_before_finish_time(self, max_finish_time_ms):
@@ -127,8 +127,16 @@ class Flow:
             return snapshot[2]
         return 0
             
+    def is_active_flow(self):
+        return (len(self.paths) == 1)
+
     def traceroute_flow(self, max_finish_time_ms):
-        return (PATH_KNOWN or self.get_packets_lost_before_finish_time(max_finish_time_ms) > 0)
+        #return (PATH_KNOWN or self.is_active_flow())
+        return (PATH_KNOWN or self.get_packets_lost_before_finish_time(max_finish_time_ms) > 0 or self.is_active_flow())
+
+    def is_flow_bad(self, max_finish_time_ms):
+        #return (PATH_KNOWN or self.is_active_flow())
+        return (self.get_packets_lost_before_finish_time(max_finish_time_ms) > 0)
 
     #flow_label_weights_func: a function which assigns two weights to each flow : (good_weight, bad_weight)
     def label_weights_func(self, max_finish_time_ms):
@@ -141,3 +149,7 @@ class Flow:
             bw = snapshot[2]
         return (gw, bw)
 
+    def discard_flow(self):
+        #print(self.src, self.dest)
+        return False
+        #return not (self.src < 256 and self.dest < 256)

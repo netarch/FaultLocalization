@@ -36,8 +36,20 @@ def bnf_weighted(naffected, npaths, naffected_r, npaths_r, p1, p2, weight_good, 
     e2e_correct_paths = (npaths - naffected) * (npaths_r - naffected_r)
     e2e_failed_paths = e2e_paths - e2e_correct_paths
     a = float(e2e_failed_paths)/e2e_paths
-    val = (1.0 - a) + a * (((1.0 - p1)/p2) ** weight_bad) * ((p1/(1.0-p2)) ** weight_good)
+    #val = (1.0 - a) + a * (((1.0 - p1)/p2) ** weight_bad) * ((p1/(1.0-p2)) ** weight_good)
     return math.log((1.0 -a) + a * (((1.0 - p1)/p2) ** weight_bad) * ((p1/(1.0-p2)) ** weight_good))
+
+def bnf_weighted_conditional(naffected, npaths, naffected_r, npaths_r, p1, p2, weight_good, weight_bad):
+    #end_to_end: e2e
+    e2e_paths = npaths * npaths_r
+    e2e_correct_paths = (npaths - naffected) * (npaths_r - naffected_r)
+    e2e_failed_paths = e2e_paths - e2e_correct_paths
+    assert(e2e_paths == 1 and e2e_failed_paths)
+    a = float(e2e_failed_paths)/e2e_paths
+    val1 = (1.0 - a) + a * (((1.0 - p1)/p2) ** weight_bad) * ((p1/(1.0-p2)) ** weight_good)
+    total_weight = weight_good + weight_bad
+    val2 = (1.0 - a) + a * (1 - (p1**total_weight))/(1.0 - ((1.0 - p2)**total_weight))
+    return math.log(val1/val2)
 
 def bnf_weighted_path_individual(p_arr, correct_p_arr, weight_good, weight_bad):
     likelihood_numerator = 0.0
@@ -51,19 +63,18 @@ def bnf_weighted_path_individual(p_arr, correct_p_arr, weight_good, weight_bad):
         likelihood_denominator += (p0 ** weight_bad) * ((1.0 - p0) ** weight_good)
     return math.log(likelihood_numerator/likelihood_denominator)
         
-
-def compute_log_likelihood(hypothesis, flows_by_link, flows, min_start_time_ms, max_finish_time_ms, p1, p2):
+def compute_log_likelihood(hypothesis, flows_by_link, flows, min_start_time_ms, max_finish_time_ms, p1, p2, active_flows_only=False):
     log_likelihood = 0.0
     relevant_flows = set()
     for h in hypothesis:
         link_flows = flows_by_link[h]
         for f in link_flows:
             flow = flows[f]
-            if flow.start_time_ms >= min_start_time_ms:
+            if flow.start_time_ms >= min_start_time_ms and (not active_flows_only or flow.is_active_flow()):
                 relevant_flows.add(f)
 
     #an optimization if we know path for every flow
-    if PATH_KNOWN:
+    if PATH_KNOWN and False:
         weights = [flows[ff].label_weights_func(max_finish_time_ms) for ff in relevant_flows]
         weight_good = sum(w[0] for w in weights)
         weight_bad = sum(w[1] for w in weights)
@@ -113,6 +124,75 @@ def compute_log_likelihood(hypothesis, flows_by_link, flows, min_start_time_ms, 
         #log_likelihood += bnf_good(naffected, npaths, naffected_r, npaths_r, p1, p2) * weight[0]
         #log_likelihood += bnf_bad(naffected, npaths, naffected_r, npaths_r, p1, p2) * weight[1]
         log_likelihood += bnf_weighted(naffected, npaths, naffected_r, npaths_r, p1, p2, weight[0], weight[1])
+    assert(False)
+    return log_likelihood
+
+def compute_log_likelihood_conditional(hypothesis, flows_by_link, flows, min_start_time_ms, max_finish_time_ms, p1, p2, active_flows_only=False):
+    log_likelihood = 0.0
+    relevant_flows = set()
+    for h in hypothesis:
+        link_flows = flows_by_link[h]
+        for f in link_flows:
+            flow = flows[f]
+            if flow.start_time_ms >= min_start_time_ms and (flow.is_active_flow() or flow.is_flow_bad(max_finish_time_ms)):
+                relevant_flows.add(f)
+
+    #an optimization if we know path for every flow
+    if PATH_KNOWN and False:
+        weights = [flows[ff].label_weights_func(max_finish_time_ms) for ff in relevant_flows]
+        weight_good = sum(w[0] for w in weights)
+        weight_bad = sum(w[1] for w in weights)
+        #log_likelihood += bnf_bad(1, 1, 1, 1, p1, p2) * weight_bad
+        #log_likelihood += bnf_good(1, 1, 1, 1, p1, p2) * weight_good
+        #because expression in bnf_weighted runs into numerical issues
+        log_likelihood += weight_bad * math.log((1.0 - p1)/p2)
+        log_likelihood += weight_good * math.log(p1/(1.0-p2))
+        return log_likelihood
+
+    for ff in relevant_flows:
+        flow = flows[ff]
+        flow_paths = flow.get_paths(max_finish_time_ms)
+        weight = flow.label_weights_func(max_finish_time_ms)
+        if weight[0] == 0 and weight[1] == 0:
+            continue
+        npaths = len(flow_paths)
+        naffected = 0.0
+        p_arr = []
+        correct_p_arr = []
+        for path in flow_paths:
+            pval = 0
+            for v in range(1, len(path)):
+                l = (path[v-1], path[v])
+                if l in hypothesis:
+                    naffected += 1.0
+                    break
+        '''
+                    pval += (1.0-p1)
+                else:
+                    pval += p2
+            p_arr.append(pval)
+            correct_p_arr.append((len(path)-1) * p2)
+        log_likelihood += bnf_weighted_path_individual(p_arr, correct_p_arr, weight[0], weight[1])
+        '''
+        flow_reverse_paths = flow.get_reverse_paths(max_finish_time_ms)
+        npaths_r = len(flow_reverse_paths)
+        naffected_r = 0.0
+        if CONSIDER_REVERSE_PATH:
+            for path in flow_reverse_paths:
+                for v in range(1, len(path)):
+                    l = (path[v-1], path[v])
+                    if l in hypothesis:
+                        naffected_r += 1.0
+                        break
+        #print("Num paths: ", naffected, npaths, naffected_r, npaths_r)
+        #log_likelihood += bnf_good(naffected, npaths, naffected_r, npaths_r, p1, p2) * weight[0]
+        #log_likelihood += bnf_bad(naffected, npaths, naffected_r, npaths_r, p1, p2) * weight[1]
+        if flow.is_active_flow():
+            log_likelihood += bnf_weighted(naffected, npaths, naffected_r, npaths_r, p1, p2, weight[0], weight[1])
+        elif flow.is_flow_bad(max_finish_time_ms):
+            log_likelihood += bnf_weighted_conditional(naffected, npaths, naffected_r, npaths_r, p1, p2, weight[0], weight[1])
+        else:
+            assert(False)
     return log_likelihood
    
 def compute_likelihoods(hypothesis_space, flows_by_link, flows, min_start_time_ms, max_finish_time_ms, p1, p2, response_queue):
@@ -132,11 +212,10 @@ def compute_likelihoods_daemon(request_queue, flows_by_link, flows, min_start_ti
     p2 = p2_
     start_time = time.time()
     while not final_request:
-        hypothesis_space, final = request_queue.get()
-        final_request = final
+        hypothesis_space, final_request, active_flows_only = request_queue.get()
         likelihoods = []
         for hypothesis in hypothesis_space:
-            log_likelihood = compute_log_likelihood(hypothesis, flows_by_link, flows, min_start_time_ms, max_finish_time_ms, p1, p2)
+            log_likelihood = compute_log_likelihood_conditional(hypothesis, flows_by_link, flows, min_start_time_ms, max_finish_time_ms, p1, p2, active_flows_only)
             #print(log_likelihood, hypothesis)
             likelihoods.append((log_likelihood, list(hypothesis)))
         #if utils.VERBOSE:
@@ -161,7 +240,7 @@ def bayesian_network_cilia(flows, links, inverse_links, flows_by_link, forward_f
     p1 = params[0]
     p2 = params[1]
     if utils.VERBOSE:
-        scores, expected_scores = get_link_scores(flows, inverse_links, forward_flows_by_link, reverse_flows_by_link, min_start_time_ms, max_finish_time_ms)
+        scores, expected_scores = get_link_scores(flows, inverse_links, forward_flows_by_link, reverse_flows_by_link, min_start_time_ms, max_finish_time_ms, active_flows_only=False)
         alpha_scores = [calc_alpha(scores[link], expected_scores[link]) for link in inverse_links]
         max_alpha_score = max(alpha_scores)
         min_expected_flows_on_link = min([expected_scores[link] for link in inverse_links])
@@ -186,15 +265,16 @@ def bayesian_network_cilia(flows, links, inverse_links, flows_by_link, forward_f
     max_k_likelihoods = []
     heappush(max_k_likelihoods, (0.0, []))
     prev_hypothesis_space = [[]]
-    NUM_CANDIDATES = min(len(inverse_links), max(15, int(2 * MAX_FAILS)))
+    NUM_CANDIDATES = min(len(inverse_links), max(15, int(10 * MAX_FAILS)))
     candidates = inverse_links
 
     if utils.VERBOSE:
         print("Beginning search, num candidates", len(candidates), "branch_factor", len(prev_hypothesis_space))
     start_search_time = time.time()
 
-    surely_failed_links = set()
     nfails = 1
+    # might have to repeat nfails_1 if likelihoods computed using only active flows
+    repeat_nfails_1 = True
     while nfails <= MAX_FAILS:
         start_time = time.time()
         hypothesis_space = []
@@ -202,13 +282,15 @@ def bayesian_network_cilia(flows, links, inverse_links, flows_by_link, forward_f
             for link in candidates:
                 if link not in h:
                     hnew = sorted(h+[link])
-                    if hnew not in hypothesis_space and surely_failed_links.issubset(hnew):
+                    if hnew not in hypothesis_space:
                         hypothesis_space.append(hnew)
         num_hypothesis = len(hypothesis_space)
         for i in range(nprocesses):
             start = int(i * num_hypothesis/nprocesses)
             end = int(min(num_hypothesis, (i+1) * num_hypothesis/nprocesses))
-            request_queues[i].put((list(hypothesis_space[start:end]), (nfails==MAX_FAILS or nprocesses==1)))
+            #!TODO: Hack. The 3rd argument will restrict flows to active flows only for nfails==1
+            active_flows_only = False #(nfails==1 and repeat_nfails_1)
+            request_queues[i].put((list(hypothesis_space[start:end]), (nfails==MAX_FAILS or nprocesses==1), active_flows_only))
 
         if (nprocesses == 1):
             #Optimization for single process
@@ -220,22 +302,18 @@ def bayesian_network_cilia(flows, links, inverse_links, flows_by_link, forward_f
             l_h.extend(response_queue.get())
             #response_queues[i].task_done()
         top_hypotheses = np.argsort([x[0] for x in l_h])
-        for i in range(min(n_max_k_likelihoods, len(top_hypotheses))):
-            ind = top_hypotheses[-(i+1)]
-            heappush(max_k_likelihoods, l_h[ind])
-            if (len(max_k_likelihoods) > n_max_k_likelihoods):
-                heappop(max_k_likelihoods)
 
-        if utils.VERBOSE:
-            print("Finished hypothesis search across ", len(hypothesis_space), "Hypothesis for ", nfails, "failures in", time.time() - start_time, "seconds")
+        if not (nfails == 1 and repeat_nfails_1):
+            for i in range(min(n_max_k_likelihoods, len(top_hypotheses))):
+                ind = top_hypotheses[-(i+1)]
+                heappush(max_k_likelihoods, l_h[ind])
+                if (len(max_k_likelihoods) > n_max_k_likelihoods):
+                    heappop(max_k_likelihoods)
+            if utils.VERBOSE:
+                print("Finished hypothesis search across ", len(hypothesis_space), "Hypothesis for ", nfails, "failures in", time.time() - start_time, "seconds")
 
-        if nfails == 1:
-            candidates_likelihoods = [l_h[i] for i in top_hypotheses[-2*NUM_CANDIDATES:]]
-            for l, h in candidates_likelihoods:
-                link = h[0]
-                if l > 15.0:
-                    surely_failed_links.add(link)
-            print("Surely failed links:", list(surely_failed_links))
+        if nfails == 1 and repeat_nfails_1:
+            candidates_likelihoods = [l_h[i] for i in top_hypotheses[-NUM_CANDIDATES:]]
             if utils.VERBOSE:
                 for l, h in candidates_likelihoods:
                     link = h[0]
@@ -244,23 +322,17 @@ def bayesian_network_cilia(flows, links, inverse_links, flows_by_link, forward_f
                     link = h[0]
                     if link in failed_links:
                         print("Failed link: ", link, l, calc_alpha(scores[link], expected_scores[link]), " scores: ", scores[link], expected_scores[link])
-            candidates_likelihoods = [l_h[i] for i in top_hypotheses[-NUM_CANDIDATES:]]
             candidates = [l_h[1][0] for l_h in candidates_likelihoods] #update candidates for further search
-            if len(surely_failed_links) > 1:
-                prev_hypothesis_space = [list(surely_failed_links)[:-1]] #!TODO: Hack
-                nfails = len(surely_failed_links)
-            else:
-                prev_hypothesis_space = [l_h[i][1] for i in top_hypotheses[-NUM_CANDIDATES:]]
-                nfails += 1
+            repeat_nfails_1 = False
         else:
             prev_hypothesis_space = [l_h[i][1] for i in top_hypotheses[-NUM_CANDIDATES:]]
             nfails += 1
         #Aggressively limit candidates at further stages
-        NUM_CANDIDATES = min(len(inverse_links), 10)
+        NUM_CANDIDATES = min(len(inverse_links), 5)
 
     failed_links_set = set(failed_links.keys())
     if utils.VERBOSE:
-        likelihood_correct_hypothesis = compute_log_likelihood(failed_links_set, flows_by_link, flows, min_start_time_ms, max_finish_time_ms, p1, p2)
+        likelihood_correct_hypothesis = compute_log_likelihood_conditional(failed_links_set, flows_by_link, flows, min_start_time_ms, max_finish_time_ms, p1, p2)
         print ("Correct Hypothesis ", list(failed_links_set), " likelihood ", likelihood_correct_hypothesis)
     highest_likelihood = -1000000000000.0 
     for likelihood, hypothesis in max_k_likelihoods:

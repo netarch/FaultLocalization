@@ -79,7 +79,8 @@ def get_data_from_logfile(filename):
                         #print(flow.starttime_ms)
                         if flow.get_latest_packets_lost() > 0:
                             num_flows_with_retransmission += 1
-                        flows.append(flow)
+                        if not flow.discard_flow():
+                            flows.append(flow)
                     #flow.print_flow_metric(sys.stdout)
                 #print(flow.starttime_ms)
                 #Flowid= 3 157 31302 1073.072934 21 0 0
@@ -161,7 +162,8 @@ def get_data_from_logfile(filename):
                 if flow.get_latest_packets_lost() > 0:
                     num_flows_with_retransmission += 1
                 #print(flow.starttime_ms)
-                flows.append(flow)
+                if not flow.discard_flow():
+                    flows.append(flow)
         #print("Num flows with retransmission", num_flows_with_retransmission)
 
     if VERBOSE:
@@ -226,7 +228,7 @@ def calc_alpha(score, expected_score):
     return calc_alpha1(score, expected_score)
 
 def calc_alpha1(score, expected_score):
-    return score/max(0.00001, expected_score)
+    return score/max(1.0e-6, expected_score)
 
 def calc_alpha2(score, expected_score):
     if (expected_score <= 1.0e-5):
@@ -238,7 +240,7 @@ def calc_alpha2(score, expected_score):
         alpha = math.exp(-delta)/math.pow(1.0 - delta, 1.0-delta)
         alpha = math.pow(alpha, expected_score)
 
-def get_link_scores(flows, inverse_links, forward_flows_by_link, reverse_flows_by_link, min_start_time_ms, max_finish_time_ms):
+def get_link_scores(flows, inverse_links, forward_flows_by_link, reverse_flows_by_link, min_start_time_ms, max_finish_time_ms, active_flows_only=False):
     scores = dict()
     expected_scores = dict()
     for l in inverse_links:
@@ -247,7 +249,7 @@ def get_link_scores(flows, inverse_links, forward_flows_by_link, reverse_flows_b
         forward_flows = forward_flows_by_link[l]
         for ff in forward_flows:
             flow = flows[ff]
-            if flow.start_time_ms < min_start_time_ms:
+            if flow.start_time_ms < min_start_time_ms or (active_flows_only and not flow.is_active_flow()):
                 continue
             weights = flow.label_weights_func(max_finish_time_ms)
             expected_score += (weights[0] + weights[1])/len(flow.get_paths(max_finish_time_ms))
@@ -257,7 +259,7 @@ def get_link_scores(flows, inverse_links, forward_flows_by_link, reverse_flows_b
             reverse_flows = reverse_flows_by_link[l]
             for ff in reverse_flows:
                 flow = flows[ff]
-                if flow.start_time_ms < min_start_time_ms:
+                if flow.start_time_ms < min_start_time_ms or (active_flows_only and not flow.is_active_flow()):
                     continue
                 weights = flow.label_weights_func(max_finish_time_ms)
                 expected_score += (weights[0] + weights[1])/len(flow.get_reverse_paths(max_finish_time_ms))

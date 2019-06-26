@@ -17,17 +17,19 @@ from net_bouncer import *
 from doubleO7 import *
 
 def get_files():
-    file_prefix = "../topology/net_bouner_ft_k8_os3/logs/plog_1"
+    file_prefix = "../topology/net_bouncer_ft_k8_os2/logs/active_passive/plog"
+    #file_prefix = "../topology/net_bouncer_ft_k8_os2/logs/new/plog"
+    #file_prefix = "../topology/net_bouncer_ft_k8_os2/logs/plog"
+    ignore_files = []
     files = []
-    for i in range(1,9):
-        #for l in ["0.01", "0.005", "0.002", "0.001"]:
-        for l in ["0.01"]:
-            files.append(file_prefix + "_" + l + "_" + str(i))
-    '''
-    for i in range(1,25):
-        l="0"
-        files.append(file_prefix + "_" + l + "_" + str(i))
-    '''
+    for f in range(1,9):
+        #for s in [3,4,5,6]:
+        for s in [1,2]: #ap
+        #for s in [3,4,5,6]:
+            if (f, s) not in ignore_files:
+                files.append(file_prefix + "_" + str(f) + "_0_" + str(s))
+    #for s in range(1,17):
+    #    files.append(file_prefix + "_0_0_" + str(s))
     return files
 
 def get_files1():
@@ -53,11 +55,11 @@ def get_files2():
     return files
 
 def get_precision_recall_trend_estimator(min_start_time_ms, max_finish_time_ms, estimator_func, params, nprocesses):
-    files = get_files1()
+    files = get_files()
     for f in files:
         print("File: ", f)
     step = (max_finish_time_ms - min_start_time_ms)/10
-    step = 50.0
+    step = 10.0 * 1000.0
     precision_recall, info = get_precision_recall_trend(files, min_start_time_ms, max_finish_time_ms, step, estimator_func, params, nprocesses)
     for i in range(len(precision_recall)):
         p, r = precision_recall[i]
@@ -65,10 +67,11 @@ def get_precision_recall_trend_estimator(min_start_time_ms, max_finish_time_ms, 
 
 def get_precision_recall_trend_bayesian_cilia(min_start_time_ms, max_finish_time_ms, nprocesses):
     #(1.0 - 2e-3, 1.2e-4 works well)
-    get_precision_recall_trend_estimator(min_start_time_ms, max_finish_time_ms, bayesian_network_cilia, (1.0 - 2.5e-3, 0.5e-4), nprocesses)
+    get_precision_recall_trend_estimator(min_start_time_ms, max_finish_time_ms, bayesian_network_cilia, (1.0 - 5e-3, 5.0e-4), nprocesses)
 
 def get_precision_recall_trend_net_bouncer(min_start_time_ms, max_finish_time_ms, nprocesses):
-    get_precision_recall_trend_estimator(min_start_time_ms, max_finish_time_ms, net_bouncer, [], nprocesses)
+    #get_precision_recall_trend_estimator(min_start_time_ms, max_finish_time_ms, net_bouncer, (0.0075, 1-3.0e-3), nprocesses)
+    get_precision_recall_trend_estimator(min_start_time_ms, max_finish_time_ms, net_bouncer, (0.0075, 1-4.5e-3), nprocesses)
 
 def get_precision_recall_trend_007(min_start_time_ms, max_finish_time_ms, fail_percentile, nprocesses):
     get_precision_recall_trend_estimator(min_start_time_ms, max_finish_time_ms, doubleO7, (fail_percentile,), nprocesses)
@@ -87,6 +90,23 @@ def get_precision_recall_bayesian_cilia_params(min_start_time_ms, max_finish_tim
     for params in params_list:
         print(params, precision_recall[params])
 
+def get_precision_recall_net_bouncer_params(min_start_time_ms, max_finish_time_ms, nprocesses):
+    files = get_files()
+    #c = [0.00625]
+    #c = [0.00750, 0.00875, 0.01, 0.01125, 0.0125, 0.015]
+    c = np.arange(0.00250, 0.0175, 0.00125)
+    #threshold = [2.0e-3, 2.5e-3, 3e-3, 3.5e-3, 4e-3]
+    threshold = [5.5e-3, 6e-3]
+    threshold = [1.0 - x for x in threshold]
+    params_list = []
+    for c_i in c:
+        for t_i in threshold:
+            params_list.append((c_i, t_i))
+    nprocesses = min(len(files), nprocesses)
+    precision_recall = explore_params_estimator_files(files, min_start_time_ms, max_finish_time_ms, net_bouncer, params_list, nprocesses)
+    for params in params_list:
+        print(params, precision_recall[params])
+
 def get_precision_recall_007_params(min_start_time_ms, max_finish_time_ms, nprocesses):
     files = get_files1()
     fail_percentiles = list(np.arange(0.001, 0.03, 0.0025))
@@ -100,15 +120,14 @@ def get_precision_recall_007_params(min_start_time_ms, max_finish_time_ms, nproc
 if __name__ == '__main__':
     min_start_time_sec = float(sys.argv[1])
     max_finish_time_sec = float(sys.argv[2])
-    nprocesses = 30
+    nprocesses = 16
     utils.VERBOSE = False
-    #get_precision_recall_trend(file_prefix, minfile, maxfile, [nfails], nprocesses)
     start_time = time.time()
     get_precision_recall_trend_bayesian_cilia(min_start_time_sec * 1000.0, max_finish_time_sec * 1000.0, nprocesses)
     #print("Execution time", time.time() - start_time, "seconds")
     #get_precision_recall_trend_net_bouncer(min_start_time_sec * 1000.0, max_finish_time_sec * 1000.0, nprocesses)
     #fail_percentile = 0.0135
     #get_precision_recall_trend_007(min_start_time_sec * 1000.0, max_finish_time_sec * 1000.0, fail_percentile, nprocesses)
-    #get_precision_recall_007_params(min_start_time_sec * 1000.0, max_finish_time_sec * 1000.0, nprocesses)
+    #get_precision_recall_net_bouncer_params(min_start_time_sec * 1000.0, max_finish_time_sec * 1000.0, nprocesses)
     print("Execution time", time.time() - start_time, "seconds")
 

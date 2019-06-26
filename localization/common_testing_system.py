@@ -132,7 +132,7 @@ def get_precision_recall_trend_files_parallel(files, min_start_time_ms, max_fini
     #    proc.join()
     precision_recall = []
     retinfo = []
-    for finish_time in np.arange(min_start_time_ms+step, max_finish_time_ms, step):
+    for finish_time in np.arange(min_start_time_ms + step, max_finish_time_ms, step):
         precision_recall.append((0.0, 0.0))
 
     for i in range(nprocesses):

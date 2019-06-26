@@ -87,7 +87,7 @@ def process_logfile(filename, min_start_time_ms, max_start_time_ms, outfilename)
                     flow_route_taken[flow] = []
                 flow_route_taken[flow].append(hop_ip)
             elif "Flowid" in line:
-                #Flowid 0 2 10.0.0.2 10.0.1.2 100000000 +1039438292.0ns 74215 0 0
+                #Flowid 0 2 10.0.0.2 10.0.1.2 100000000 +1039438292.0ns 74215 0 0 70011
                 src = int(tokens[1])
                 dest = int(tokens[2])
                 srcip = tokens[3]
@@ -100,6 +100,8 @@ def process_logfile(filename, min_start_time_ms, max_start_time_ms, outfilename)
                 packets_sent = int(tokens[10])
                 lost_packets = int(tokens[11])
                 randomly_lost_packets = int(tokens[12])
+                #acked packets
+                packets_sent = int(tokens[13])
                 if (curr_flow != None and len(curr_flow.paths)>0):
                     flow_tuple = (curr_flow.srcip, curr_flow.destip, curr_flow.srcport, curr_flow.destport)
                     flows[flow_tuple] = curr_flow

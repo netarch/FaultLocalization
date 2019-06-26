@@ -53,7 +53,7 @@ def get_files2():
     return files
 
 def get_precision_recall_trend_estimator(min_start_time_ms, max_finish_time_ms, estimator_func, params, nprocesses):
-    files = get_files()
+    files = get_files1()
     for f in files:
         print("File: ", f)
     step = (max_finish_time_ms - min_start_time_ms)/10
@@ -65,7 +65,8 @@ def get_precision_recall_trend_estimator(min_start_time_ms, max_finish_time_ms, 
 
 def get_precision_recall_trend_bayesian_cilia(min_start_time_ms, max_finish_time_ms, nprocesses):
     #(1.0 - 2e-3, 1.2e-4 works well)
-    get_precision_recall_trend_estimator(min_start_time_ms, max_finish_time_ms, bayesian_network_cilia, (1.0 - 5e-3, 5.0e-4), nprocesses)
+    #get_precision_recall_trend_estimator(min_start_time_ms, max_finish_time_ms, bayesian_network_cilia, (1.0 - 6e-3, 7.5e-4), nprocesses)
+    get_precision_recall_trend_estimator(min_start_time_ms, max_finish_time_ms, bayesian_network_cilia, (1.0 - 2.5e-3, 1.0e-4), nprocesses)
 
 def get_precision_recall_trend_net_bouncer(min_start_time_ms, max_finish_time_ms, nprocesses):
     #get_precision_recall_trend_estimator(min_start_time_ms, max_finish_time_ms, net_bouncer, (0.0075, 1-3.0e-3), nprocesses)
@@ -121,9 +122,9 @@ if __name__ == '__main__':
     nprocesses = 16
     utils.VERBOSE = False
     start_time = time.time()
-    #get_precision_recall_trend_bayesian_cilia(min_start_time_sec * 1000.0, max_finish_time_sec * 1000.0, nprocesses)
+    get_precision_recall_trend_bayesian_cilia(min_start_time_sec * 1000.0, max_finish_time_sec * 1000.0, nprocesses)
     #print("Execution time", time.time() - start_time, "seconds")
-    get_precision_recall_trend_net_bouncer(min_start_time_sec * 1000.0, max_finish_time_sec * 1000.0, nprocesses)
+    #get_precision_recall_trend_net_bouncer(min_start_time_sec * 1000.0, max_finish_time_sec * 1000.0, nprocesses)
     #fail_percentile = 0.0135
     #get_precision_recall_trend_007(min_start_time_sec * 1000.0, max_finish_time_sec * 1000.0, fail_percentile, nprocesses)
     #get_precision_recall_net_bouncer_params(min_start_time_sec * 1000.0, max_finish_time_sec * 1000.0, nprocesses)

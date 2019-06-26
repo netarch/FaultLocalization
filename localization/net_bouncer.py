@@ -18,14 +18,18 @@ def net_bouncer(flows, links, inverse_links, flows_by_link, forward_flows_by_lin
         print("Num links", nlinks)
     sum_success_prob = np.zeros(nlinks)
     num_flows_through_link = np.zeros(nlinks)
+    filtered_flows = []
     for flow in flows:
         if flow.start_time_ms >= min_start_time_ms and flow.any_snapshot_before(max_finish_time_ms) and flow.traceroute_flow(max_finish_time_ms):
+            filtered_flows.append(flow)
             path = flow.path_taken
             for v in range(1, len(path)):
                 l = (path[v-1], path[v])
                 sum_success_prob[links[l]] += (1.0 - flow.get_drop_rate(max_finish_time_ms))
                 num_flows_through_link[links[l]] += 1
     #X: success probabilities
+    flows = filtered_flows
+    flows_by_link = get_forward_flows_by_link(flows, inverse_links, max_finish_time_ms)
     X = np.zeros(nlinks)
     for i in range(nlinks):
         X[i] = sum_success_prob[i]/num_flows_through_link[i]

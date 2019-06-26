@@ -13,6 +13,8 @@ import queue
 from utils import *
 from plot_utils import *
 
+USE_CONDITIONAL = False
+
 def fn(naffected, npaths, naffected_r, npaths_r, p1, p2):
     #end_to_end: e2e
     e2e_paths = npaths * npaths_r
@@ -68,7 +70,7 @@ def compute_log_likelihood(hypothesis, flows_by_link, flows, min_start_time_ms, 
         link_flows = flows_by_link[h]
         for f in link_flows:
             flow = flows[f]
-            if flow.start_time_ms >= min_start_time_ms and (not active_flows_only or flow.is_active_flow() or flow.is_flow_bad(max_finish_time_ms)):
+            if flow.start_time_ms >= min_start_time_ms and (not active_flows_only or flow.is_active_flow()):
                 relevant_flows.add(f)
 
     #an optimization if we know path for every flow
@@ -125,7 +127,6 @@ def compute_log_likelihood(hypothesis, flows_by_link, flows, min_start_time_ms, 
     return log_likelihood
 
 def compute_log_likelihood_conditional(hypothesis, flows_by_link, flows, min_start_time_ms, max_finish_time_ms, p1, p2, active_flows_only=False):
-    assert(False)
     log_likelihood = 0.0
     relevant_flows = set()
     for h in hypothesis:
@@ -213,7 +214,11 @@ def compute_likelihoods_daemon(request_queue, flows_by_link, flows, min_start_ti
         hypothesis_space, final_request, active_flows_only = request_queue.get()
         likelihoods = []
         for hypothesis in hypothesis_space:
-            log_likelihood = compute_log_likelihood(hypothesis, flows_by_link, flows, min_start_time_ms, max_finish_time_ms, p1, p2, active_flows_only)
+            if USE_CONDITIONAL:
+                log_likelihood = compute_log_likelihood_conditional(hypothesis, flows_by_link, flows, min_start_time_ms, max_finish_time_ms, p1, p2, active_flows_only)
+            else:
+                log_likelihood = compute_log_likelihood(hypothesis, flows_by_link, flows, min_start_time_ms, max_finish_time_ms, p1, p2, active_flows_only)
+                
             #print(log_likelihood, hypothesis)
             likelihoods.append((log_likelihood, list(hypothesis)))
         #if utils.VERBOSE:
@@ -224,6 +229,13 @@ def compute_likelihoods_daemon(request_queue, flows_by_link, flows, min_start_ti
 
 
 def bayesian_network_cilia(flows, links, inverse_links, flows_by_link, forward_flows_by_link, reverse_flows_by_link, failed_links, link_statistics, min_start_time_ms, max_finish_time_ms, params, nprocesses):
+
+    if USE_CONDITIONAL: 
+        flows = [flow for flow in flows if flow.start_time_ms >= min_start_time_ms and flow.any_snapshot_before(max_finish_time_ms) and flow.traceroute_flow(max_finish_time_ms)]
+        forward_flows_by_link = get_forward_flows_by_link(flows, inverse_links, max_finish_time_ms)
+        reverse_flows_by_link = dict()
+        flows_by_link = get_flows_by_link(forward_flows_by_link, reverse_flows_by_link, inverse_links)
+
     weights = [flow.label_weights_func(max_finish_time_ms) for flow in flows if flow.start_time_ms >= min_start_time_ms]
     weight_good = sum(w[0] for w in weights)
     weight_bad = sum(w[1] for w in weights)
@@ -263,7 +275,7 @@ def bayesian_network_cilia(flows, links, inverse_links, flows_by_link, forward_f
     max_k_likelihoods = []
     heappush(max_k_likelihoods, (0.0, []))
     prev_hypothesis_space = [[]]
-    NUM_CANDIDATES = min(len(inverse_links), max(15, int(10 * MAX_FAILS)))
+    NUM_CANDIDATES = min(len(inverse_links), max(15, int(3 * MAX_FAILS)))
     candidates = inverse_links
 
     if utils.VERBOSE:
@@ -287,7 +299,7 @@ def bayesian_network_cilia(flows, links, inverse_links, flows_by_link, forward_f
             start = int(i * num_hypothesis/nprocesses)
             end = int(min(num_hypothesis, (i+1) * num_hypothesis/nprocesses))
             #!TODO: Hack. The 3rd argument will restrict flows to active flows only for nfails==1
-            active_flows_only = (nfails==1 and repeat_nfails_1)
+            active_flows_only = False #(nfails==1 and repeat_nfails_1)
             request_queues[i].put((list(hypothesis_space[start:end]), (nfails==MAX_FAILS or nprocesses==1), active_flows_only))
 
         if (nprocesses == 1):

@@ -215,7 +215,7 @@ def get_data_structures_from_logdata(logdata, max_finish_time_ms):
     #print("num linkstats: ", len(link_statistics))
     start_time = time.time()
     forward_flows_by_link = get_forward_flows_by_link(flows, inverse_links, max_finish_time_ms)
-    reverse_flows_by_link = []
+    reverse_flows_by_link = dict()
     if CONSIDER_REVERSE_PATH:
         reverse_flows_by_link = get_reverse_flows_by_link(flows, inverse_links, max_finish_time_ms)
     flows_by_link = get_flows_by_link(forward_flows_by_link, reverse_flows_by_link, inverse_links)

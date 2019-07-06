@@ -76,7 +76,7 @@ def net_bouncer(flows, links, inverse_links, flows_by_link, forward_flows_by_lin
                     S2 += t * t
         return (2 * S1 - c)/(2 * (S2 - c))
 
-    maxiter = 100
+    maxiter = 50
     error = F(X)
     for it in range(maxiter):
         start_time = time.time()

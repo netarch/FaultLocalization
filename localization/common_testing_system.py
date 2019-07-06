@@ -42,6 +42,17 @@ def explore_params_estimator_files_serial(files, min_start_time_ms, max_finish_t
         ret.append((filename, p_r_results))
     response_queue.put(ret)
 
+def combine_p_r_square_mean(p_r_square_mean, p_r, parameter_space):
+    for param in parameter_space:
+        x, y = p_r_square_mean[param]
+        p, r = p_r[param]
+        p_r_square_mean[param] = (x+(p*p), y+(r*r))
+
+def sample_std_dev(sx2, sx, n):  
+    if n==1:
+        return 0
+    #print("sample_std_dev", sx2, sx, n, sx2/(n-1) - (sx * sx)/(n*(n-1)))
+    return math.sqrt(sx2/(n-1) - (sx * sx)/(n*(n-1)))
 
 def explore_params_estimator_files(files, min_start_time_ms, max_finish_time_ms, estimator_func, params_list, nprocesses):
     #print("Time to partition flows by link: ", time.time() - start_time_ms, "seconds")
@@ -61,19 +72,20 @@ def explore_params_estimator_files(files, min_start_time_ms, max_finish_time_ms,
         procs.append(proc)
     for proc in procs:
         proc.start()
-    precision_recall = dict()
+    precision_recall_mean = dict()
     for params in params_list:
-        precision_recall[params] = (0.0, 0.0)
+        precision_recall_mean[params] = (0.0, 0.0)
     for i in range(nprocesses):
         results = response_queue.get()
         for filename, p_r_results in results:
-            combine_p_r_dicts(precision_recall, p_r_results, params_list)
+            combine_p_r_dicts(precision_recall_mean, p_r_results, params_list)
+
+    ret = dict()
     for params in params_list:
-        p, r = precision_recall[params]
-        p /= float(len(files))
-        r /= float(len(files))
-        precision_recall[params] = (p, r)
-    return precision_recall
+        p, r = precision_recall_mean[params]
+        n = float(len(files))
+        ret[params] = (p/n, r/n)
+    return ret
 
 
 def get_precision_recall_trend_file(filename, min_start_time_ms, max_finish_time_ms, step, estimator_func, params):
@@ -81,7 +93,7 @@ def get_precision_recall_trend_file(filename, min_start_time_ms, max_finish_time
     precision_recalls = []
     last_print_time = min_start_time_ms
     retinfo = []
-    for finish_time_ms in np.arange(min_start_time_ms+step, max_finish_time_ms, step):
+    for finish_time_ms in np.arange(min_start_time_ms + 0.0 + step, max_finish_time_ms, step):
         flows, links, inverse_links, flows_by_link, forward_flows_by_link, reverse_flows_by_link, link_statistics, failed_links = get_data_structures_from_logdata(logdata, finish_time_ms)
         if (finish_time_ms - last_print_time >= 1 * step):
             last_print_time = min_start_time_ms
@@ -128,27 +140,36 @@ def get_precision_recall_trend_files_parallel(files, min_start_time_ms, max_fini
         proc.start()
     #for proc in procs:
     #    proc.join()
-    precision_recall = []
+    precision_recall_mean = []
+    precision_recall_square_mean = []
     retinfo = []
-    for finish_time in np.arange(min_start_time_ms + step, max_finish_time_ms, step):
-        precision_recall.append((0.0, 0.0))
+    for finish_time in np.arange(min_start_time_ms + 0.0 + step, max_finish_time_ms, step):
+        precision_recall_mean.append((0.0, 0.0))
+        precision_recall_square_mean.append((0.0, 0.0))
 
     for i in range(nprocesses):
         response = response_queue.get()
         for filename, p_r_list, info in response:
+            assert(len(p_r_list) == len(precision_recall_square_mean))
             if info!=None:
                 retinfo.append(info)
             for j in range(len(p_r_list)):
                 p1, r1 = p_r_list[j]
-                p2, r2 = precision_recall[j]
-                precision_recall[j] = (p1+p2, r1+r2)
+                p2, r2 = precision_recall_mean[j]
+                precision_recall_mean[j] = (p1+p2, r1+r2)
+                p2s, r2s = precision_recall_square_mean[j]
+                #print(i, j, p1, r1, p2s, r2s)
+                precision_recall_square_mean[j] = ((p1*p1)+p2s, (r1*r1)+r2s)
     print("Finished sweeping all epochs in ", time.time() - start_time_ms, "seconds")
+
+    ret = []
     for i in range(len(p_r_list)):
-        p, r = precision_recall[i]
-        p /= len(files)
-        r /= len(files)
-        precision_recall[i] = (p, r)
-    return precision_recall, retinfo
+        p, r = precision_recall_mean[i]
+        p_2, r_2 = precision_recall_square_mean[i]
+        #print("iii", i, p, r, p_2, r_2)
+        n = numfiles
+        ret.append((p/n, r/n, sample_std_dev(p_2, p, n), sample_std_dev(r_2, r, n)))
+    return ret, retinfo
 
 def get_precision_recall_trend(files, min_start_time_ms, max_finish_time_ms, step, estimator_func, params, nprocesses):
     nprocesses = min(len(files), nprocesses)

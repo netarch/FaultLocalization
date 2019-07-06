@@ -135,7 +135,7 @@ int main(int argc, char *argv[])
   Config::SetDefault ("ns3::DropTailQueue::MaxPackets", UintegerValue (drop_queue_limit));
 
 //==== Simulation Parameters ====//
-   double simTimeInSec = 20.0;
+   double simTimeInSec = 1.0;
    double warmupTimeInSec = 1.0;
    bool onOffApplication = true;	
 
@@ -150,7 +150,7 @@ int main(int argc, char *argv[])
 	int port = 9; //port for background app
 	int packetSizeBytes = 1500;
 	string dataRate_OnOff = on_off_datarate + "Kbps"; 
-	string dataRate_OnOff_Inf = "1Gbps"; 
+	string dataRate_OnOff_Inf = "5Gbps"; 
 	//char maxBytes [] = "0" ; //"50000"; // "0"; // unlimited
 
 // Initialize parameters for PointToPoint protocol

@@ -233,16 +233,16 @@ double Topology::get_drop_rate_link_uniform(double min_drop_rate, double max_dro
 }
 
 double Topology::get_drop_rate_failed_link(){
-    if (drand48() <= 0.5){
+    //if (drand48() <= 0.5){
         double min_drop_rate_failed_link = 0.001;
         double max_drop_rate_failed_link = 0.005;
         return get_drop_rate_link_uniform(min_drop_rate_failed_link, max_drop_rate_failed_link);
-    }
-    else{
-        double min_drop_rate_failed_link = 0.05;
-        double max_drop_rate_failed_link = 0.1;
-        return get_drop_rate_link_uniform(min_drop_rate_failed_link, max_drop_rate_failed_link);
-    }
+    //}
+    //else{
+    //    double min_drop_rate_failed_link = 0.05;
+    //    double max_drop_rate_failed_link = 0.1;
+    //    return get_drop_rate_link_uniform(min_drop_rate_failed_link, max_drop_rate_failed_link);
+    //}
 }
 
 

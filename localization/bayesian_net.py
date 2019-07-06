@@ -10,6 +10,7 @@ import numpy as np
 from scipy.optimize import minimize
 import utils
 import queue
+from decimal import Decimal
 from utils import *
 from plot_utils import *
 
@@ -36,7 +37,9 @@ def bnf_weighted(naffected, npaths, naffected_r, npaths_r, p1, p2, weight_good, 
     e2e_correct_paths = (npaths - naffected) * (npaths_r - naffected_r)
     e2e_failed_paths = e2e_paths - e2e_correct_paths
     a = float(e2e_failed_paths)/e2e_paths
-    #val = (1.0 - a) + a * (((1.0 - p1)/p2) ** weight_bad) * ((p1/(1.0-p2)) ** weight_good)
+    val = (1.0 - a) + a * (((1.0 - p1)/p2) ** weight_bad) * ((p1/(1.0-p2)) ** weight_good)
+    #d = Decimal(val)
+    #return float(d.ln())
     return math.log((1.0 -a) + a * (((1.0 - p1)/p2) ** weight_bad) * ((p1/(1.0-p2)) ** weight_good))
 
 def bnf_weighted_conditional(naffected, npaths, naffected_r, npaths_r, p1, p2, weight_good, weight_bad):
@@ -49,7 +52,9 @@ def bnf_weighted_conditional(naffected, npaths, naffected_r, npaths_r, p1, p2, w
     val1 = (1.0 - a) + a * (((1.0 - p1)/p2) ** weight_bad) * ((p1/(1.0-p2)) ** weight_good)
     total_weight = weight_good + weight_bad
     val2 = (1.0 - a) + a * (1 - (p1**total_weight))/(1.0 - ((1.0 - p2)**total_weight))
-    return math.log(val1/val2)
+    #d = Decimal(val1/val2)
+    #return float(d.ln())
+    return math.log(max(1.0e-1000, val1/val2))
 
 def bnf_weighted_path_individual(p_arr, correct_p_arr, weight_good, weight_bad):
     likelihood_numerator = 0.0
@@ -135,18 +140,6 @@ def compute_log_likelihood_conditional(hypothesis, flows_by_link, flows, min_sta
             flow = flows[f]
             if flow.start_time_ms >= min_start_time_ms and (flow.is_active_flow() or flow.is_flow_bad(max_finish_time_ms)):
                 relevant_flows.add(f)
-
-    #an optimization if we know path for every flow
-    if PATH_KNOWN and False:
-        weights = [flows[ff].label_weights_func(max_finish_time_ms) for ff in relevant_flows]
-        weight_good = sum(w[0] for w in weights)
-        weight_bad = sum(w[1] for w in weights)
-        #log_likelihood += bnf_bad(1, 1, 1, 1, p1, p2) * weight_bad
-        #log_likelihood += bnf_good(1, 1, 1, 1, p1, p2) * weight_good
-        #because expression in bnf_weighted runs into numerical issues
-        log_likelihood += weight_bad * math.log((1.0 - p1)/p2)
-        log_likelihood += weight_good * math.log(p1/(1.0-p2))
-        return log_likelihood
 
     for ff in relevant_flows:
         flow = flows[ff]
@@ -275,7 +268,7 @@ def bayesian_network_cilia(flows, links, inverse_links, flows_by_link, forward_f
     max_k_likelihoods = []
     heappush(max_k_likelihoods, (0.0, []))
     prev_hypothesis_space = [[]]
-    NUM_CANDIDATES = min(len(inverse_links), max(15, int(3 * MAX_FAILS)))
+    NUM_CANDIDATES = min(len(inverse_links), max(15, int(5 * MAX_FAILS)))
     candidates = inverse_links
 
     if utils.VERBOSE:
@@ -299,7 +292,7 @@ def bayesian_network_cilia(flows, links, inverse_links, flows_by_link, forward_f
             start = int(i * num_hypothesis/nprocesses)
             end = int(min(num_hypothesis, (i+1) * num_hypothesis/nprocesses))
             #!TODO: Hack. The 3rd argument will restrict flows to active flows only for nfails==1
-            active_flows_only = False #(nfails==1 and repeat_nfails_1)
+            active_flows_only = (nfails==1 and repeat_nfails_1)
             request_queues[i].put((list(hypothesis_space[start:end]), (nfails==MAX_FAILS or nprocesses==1), active_flows_only))
 
         if (nprocesses == 1):
@@ -332,7 +325,7 @@ def bayesian_network_cilia(flows, links, inverse_links, flows_by_link, forward_f
                     link = h[0]
                     if link in failed_links:
                         print("Failed link: ", link, l, calc_alpha(scores[link], expected_scores[link]), " scores: ", scores[link], expected_scores[link])
-            candidates = [l_h[1][0] for l_h in candidates_likelihoods] #update candidates for further search
+            candidates = [l_h[1][0] for l_h in candidates_likelihoods if l_h[0] > 0.0] #update candidates for further search
             repeat_nfails_1 = False
         else:
             prev_hypothesis_space = [l_h[i][1] for i in top_hypotheses[-NUM_CANDIDATES:]]
@@ -342,7 +335,10 @@ def bayesian_network_cilia(flows, links, inverse_links, flows_by_link, forward_f
 
     failed_links_set = set(failed_links.keys())
     if utils.VERBOSE:
-        likelihood_correct_hypothesis = compute_log_likelihood_conditional(failed_links_set, flows_by_link, flows, min_start_time_ms, max_finish_time_ms, p1, p2)
+        if USE_CONDITIONAL:
+            likelihood_correct_hypothesis = compute_log_likelihood_conditional(failed_links_set, flows_by_link, flows, min_start_time_ms, max_finish_time_ms, p1, p2)
+        else:
+            likelihood_correct_hypothesis = compute_log_likelihood(failed_links_set, flows_by_link, flows, min_start_time_ms, max_finish_time_ms, p1, p2)
         print ("Correct Hypothesis ", list(failed_links_set), " likelihood ", likelihood_correct_hypothesis)
     highest_likelihood = -1000000000000.0 
     for likelihood, hypothesis in max_k_likelihoods:

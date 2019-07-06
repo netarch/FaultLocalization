@@ -15,19 +15,63 @@ from net_bouncer import *
 from doubleO7 import *
 
 def get_files():
-    file_prefix = "../topology/net_bouncer_ft_k8_os2/logs/active_passive/plog"
+    #file_prefix = "../topology/net_bouncer_ft_k8_os2/logs/active_passive/new/plog"
+    file_prefix = "/home/vharsh2/scratch/logs/active_passive/new/plog"
     #file_prefix = "../topology/net_bouncer_ft_k8_os2/logs/new/plog"
     #file_prefix = "../topology/net_bouncer_ft_k8_os2/logs/plog"
-    ignore_files = []
+    ignore_files = [(2,3)]
     files = []
     for f in range(1,9):
         #for s in [3,4,5,6]:
-        for s in [1,2]: #ap
-        #for s in [3,4,5,6]:
+        for s in [1,2]:
             if (f, s) not in ignore_files:
                 files.append(file_prefix + "_" + str(f) + "_0_" + str(s))
     #for s in range(1,17):
     #    files.append(file_prefix + "_0_0_" + str(s))
+    return files
+
+def get_files_golub1():
+    ignore_files = []
+    #ignore_files_old = [(6,3), (6,1), (7,1)]
+    #ignore_files += [(0,7),(0,8),(6,3),(8,1),(2,2),(6,14)]
+    files = []
+    file_prefix = "/home/vharsh2/scratch/logs/ls_x30_y10/plog_0"
+    #inds = [9,12,15,16,20,21,22,23]
+    for i in range(1,1):
+        if (0, i) not in ignore_files:
+            files.append(file_prefix + "_0_" + str(i))
+    for f in range(1,9):
+        file_prefix = "/home/vharsh2/scratch/logs/ls_x30_y10/plog_" + str(f)
+        for s in [1]:
+            if (f, s) not in ignore_files:
+                files.append(file_prefix +"_0_" + str(s))
+    for f in range(1,5):
+        file_prefix = "/home/vharsh2/scratch/logs/ls_x30_y10/plog_" + str(f)
+        for s in [2]:
+            if (f, s) not in ignore_files:
+                files.append(file_prefix +"_0_" + str(s))
+    return files
+
+def get_files_golub2():
+    ignore_files = []
+    #ignore_files_old = [(6,3), (6,1), (7,1)]
+    #ignore_files += [(0,7),(0,8),(6,3),(8,1),(2,2),(6,14)]
+    files = []
+    file_prefix = "/home/vharsh2/scratch/logs/ls_x30_y10/plog_0"
+    #inds = [9,12,15,16,20,21,22,23]
+    for i in range(1,1):
+        if (0, i) not in ignore_files:
+            files.append(file_prefix + "_0_" + str(i))
+    for f in range(1,9):
+        file_prefix = "/home/vharsh2/scratch/logs/ls_x30_y10/plog_" + str(f)
+        for s in [4]:
+            if (f, s) not in ignore_files:
+                files.append(file_prefix +"_0_" + str(s))
+    for f in range(5,9):
+        file_prefix = "/home/vharsh2/scratch/logs/ls_x30_y10/plog_" + str(f)
+        for s in [2]:
+            if (f, s) not in ignore_files:
+                files.append(file_prefix +"_0_" + str(s))
     return files
 
 def get_files1():
@@ -35,14 +79,14 @@ def get_files1():
     #ignore_files_old = [(6,3), (6,1), (7,1)]
     #ignore_files += [(0,7),(0,8),(6,3),(8,1),(2,2),(6,14)]
     files = []
-    file_prefix = "../topology/ls_x30_y10/logs/plog_0"
+    file_prefix = "/home/vharsh2/scratch/logs/ls_x30_y10/plog_0"
     #inds = [9,12,15,16,20,21,22,23]
     for i in range(1,1):
         if (0, i) not in ignore_files:
             files.append(file_prefix + "_0_" + str(i))
     for f in range(1,9):
-        file_prefix = "../topology/ls_x30_y10/logs/plog_" + str(f)
-        for s in [1,2,4]:
+        file_prefix = "/home/vharsh2/scratch/logs/ls_x30_y10/plog_" + str(f)
+        for s in [1]:
             if (f, s) not in ignore_files:
                 files.append(file_prefix +"_0_" + str(s))
     return files
@@ -53,20 +97,20 @@ def get_files2():
     return files
 
 def get_precision_recall_trend_estimator(min_start_time_ms, max_finish_time_ms, estimator_func, params, nprocesses):
-    files = get_files1()
+    files = get_files()
     for f in files:
         print("File: ", f)
     step = (max_finish_time_ms - min_start_time_ms)/10
-    step = 1.0 * 1000.0
+    step = 12.0 * 1000.0
     precision_recall, info = get_precision_recall_trend(files, min_start_time_ms, max_finish_time_ms, step, estimator_func, params, nprocesses)
     for i in range(len(precision_recall)):
-        p, r = precision_recall[i]
-        print("Max_finish_time_ms: ", min_start_time_ms + (i+1)*step, p, r)
+        p, r, p_stddev, r_stddev = precision_recall[i]
+        print("Max_finish_time_ms: ", min_start_time_ms + 0.0 + (i+1)*step, p, r, p_stddev, r_stddev)
 
 def get_precision_recall_trend_bayesian_cilia(min_start_time_ms, max_finish_time_ms, nprocesses):
     #(1.0 - 2e-3, 1.2e-4 works well)
-    #get_precision_recall_trend_estimator(min_start_time_ms, max_finish_time_ms, bayesian_network_cilia, (1.0 - 6e-3, 7.5e-4), nprocesses)
-    get_precision_recall_trend_estimator(min_start_time_ms, max_finish_time_ms, bayesian_network_cilia, (1.0 - 2.5e-3, 1.0e-4), nprocesses)
+    get_precision_recall_trend_estimator(min_start_time_ms, max_finish_time_ms, bayesian_network_cilia, (1.0 - 5e-3, 5e-4), nprocesses)
+    #get_precision_recall_trend_estimator(min_start_time_ms, max_finish_time_ms, bayesian_network_cilia, (1.0 - 2.5e-3, 1.0e-4), nprocesses)
 
 def get_precision_recall_trend_net_bouncer(min_start_time_ms, max_finish_time_ms, nprocesses):
     #get_precision_recall_trend_estimator(min_start_time_ms, max_finish_time_ms, net_bouncer, (0.0075, 1-3.0e-3), nprocesses)
@@ -76,10 +120,11 @@ def get_precision_recall_trend_007(min_start_time_ms, max_finish_time_ms, fail_p
     get_precision_recall_trend_estimator(min_start_time_ms, max_finish_time_ms, doubleO7, (fail_percentile,), nprocesses)
 
 def get_precision_recall_bayesian_cilia_params(min_start_time_ms, max_finish_time_ms, nprocesses):
-    files = get_files1()
-    p1 = list(np.arange(0.001, 0.003, 0.0005))
+    files = get_files()
+    p1 = list(np.arange(0.001, 0.01, 0.001))
     p1 = [1.0 - x for x in p1]
-    p2 = list(np.arange(0.000050, 0.00035, 0.00005))
+    #p2 = list(np.arange(0.0001, 0.001, 0.0001))
+    p2 = [0.001]
     params_list = []
     for p1_i in p1:
         for p2_i in p2:
@@ -107,7 +152,7 @@ def get_precision_recall_net_bouncer_params(min_start_time_ms, max_finish_time_m
         print(params, precision_recall[params])
 
 def get_precision_recall_007_params(min_start_time_ms, max_finish_time_ms, nprocesses):
-    files = get_files1()
+    files = get_files()
     fail_percentiles = list(np.arange(0.001, 0.03, 0.0025))
     print(fail_percentiles)
     params_list = [(x,) for x in fail_percentiles]
@@ -127,6 +172,6 @@ if __name__ == '__main__':
     #get_precision_recall_trend_net_bouncer(min_start_time_sec * 1000.0, max_finish_time_sec * 1000.0, nprocesses)
     #fail_percentile = 0.0135
     #get_precision_recall_trend_007(min_start_time_sec * 1000.0, max_finish_time_sec * 1000.0, fail_percentile, nprocesses)
-    #get_precision_recall_net_bouncer_params(min_start_time_sec * 1000.0, max_finish_time_sec * 1000.0, nprocesses)
+    #get_precision_recall_bayesian_cilia_params(min_start_time_sec * 1000.0, max_finish_time_sec * 1000.0, nprocesses)
     print("Execution time", time.time() - start_time, "seconds")
 

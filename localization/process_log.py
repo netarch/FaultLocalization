@@ -101,19 +101,19 @@ def process_logfile(filename, min_start_time_ms, max_start_time_ms, outfilename)
                 lost_packets = int(tokens[11])
                 randomly_lost_packets = int(tokens[12])
                 #acked packets
-                packets_sent = int(tokens[13])
+                packets_acked = int(tokens[13])
                 if (curr_flow != None and len(curr_flow.paths)>0):
                     flow_tuple = (curr_flow.srcip, curr_flow.destip, curr_flow.srcport, curr_flow.destport)
                     flows[flow_tuple] = curr_flow
                 flow_tuple = (srcip, destip, srcport, destport)
                 if flow_tuple in flows:
                     #Entry already exsist, simply add one snapshot entry
-                    flows[flow_tuple].add_snapshot(snapshot_time_ms, packets_sent, lost_packets, randomly_lost_packets)
+                    flows[flow_tuple].add_snapshot(snapshot_time_ms, packets_acked, lost_packets, randomly_lost_packets)
                     curr_flow = None
                 else:
                     #Create a new flow entry
                     curr_flow = Flow(src, srcip, srcport, dest, destip, destport, nbytes, start_time_ms)
-                    curr_flow.add_snapshot(snapshot_time_ms, packets_sent, lost_packets, randomly_lost_packets)
+                    curr_flow.add_snapshot(snapshot_time_ms, packets_acked, lost_packets, randomly_lost_packets)
                     if start_time_ms < min_start_time_ms or start_time_ms >= max_start_time_ms:
                         print("Ignoring flow", end=" ")
                         curr_flow.printinfo(sys.stdout)

@@ -12,7 +12,8 @@ while IFS='' read -r line || [[ -n "$line" ]]; do
     #pid=$! 
     #pids+=($pid)
     if ! ((ctr < n)); then
-       wait -n
+       wait
+       ctr=0
        #for apid in ${pids[@]};
        #do
        #   echo "waiting for $apid at $ctr"

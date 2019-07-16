@@ -89,6 +89,13 @@ def explore_params_estimator_files(files, min_start_time_ms, max_finish_time_ms,
 
 
 def get_precision_recall_trend_file(filename, min_start_time_ms, max_finish_time_ms, step, estimator_func, params):
+    '''
+    sleep_time = 0
+    if (random.choice([True, False])):
+        sleep_time = 200
+    print("Sleeping for ", sleep_time, "seconds")
+    time.sleep(sleep_time)
+    '''
     logdata = get_data_from_logfile(filename) 
     precision_recalls = []
     last_print_time = min_start_time_ms

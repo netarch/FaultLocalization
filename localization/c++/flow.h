@@ -24,11 +24,11 @@ public:
     // Initialize flow without snapshot
     Flow(int src, string srcip, int srcport, int dest, string destip, int destport, int nbytes, double start_time_ms);
 
-    void AddPath(Path *path, bool path_taken=false):
+    void AddPath(Path *path, bool is_path_taken=false);
     // A reverse path is from the destination to the source
-    void AddReversePath(Path *path, bool reverse_path_taken=false):
-    void SetPathTaken(path *path):
-    void SetReversePathTaken(path *path):
+    void AddReversePath(Path *path, bool is_reverse_path_taken=false);
+    void SetPathTaken(path *path);
+    void SetReversePathTaken(path *path);
 
     int GetLatestPacketsSent();
     int GetLatestPacketsLost();
@@ -37,14 +37,13 @@ public:
      * It's assumed that the snapshots will be accessed in non-decreasing order of time
      */
     bool AnySnapshotBefore(double finish_time_ms);
-    void AddSnapshot(double snapshot_time_ms, int packets_sent, int lost_packets, int randomly_lost_packets);
+    void AddSnapshot(double snapshot_time_ms, int packets_sent, int packets_lost, int packets_randomly_lost);
     void PrintFlowSnapshots(ostream& out=std::cout);
     void PrintFlowMetrics(ostream& out=std::cout);
     void PrintInfo(ostream& out=std::cout);
 
     vector<Path*>* GetPaths(double max_finish_time_ms);
     vector<Path*>* GetReversePaths(double max_finish_time_ms);
-    bool FlowFinished();
 
     // Forward the snapshot ptr to the latest snapshot before max_finish_time_ms
     void UpdateSnapshotPtr(double max_finish_time_ms);
@@ -58,7 +57,7 @@ public:
     bool DiscardFlow();
 
     // Assign two weights to each flow : (good_weight, bad_weight)
-    PII LabelWeightsFunc(double max_finish_time_ms):
+    PII LabelWeightsFunc(double max_finish_time_ms);
 
 private:
     int src, dest;
@@ -69,5 +68,6 @@ private:
     vector<FlowSnapshot*> snapshots;
     int curr_snapshot_ptr;
     vector<Path*> paths, reverse_paths;
-    Path* path_taken, reverse_path_taken;
+    // Should be of size 1 always
+    vector<Path*> path_taken_vector, reverse_path_taken_vector;
 };

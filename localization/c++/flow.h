@@ -10,7 +10,7 @@ using namespace std;
 struct FlowSnapshot{
     double snapshot_time_ms;
     int packets_sent;
-    int pacekts_lost;
+    int packets_lost;
     int packets_randomly_lost;
     FlowSnapshot(double snapshot_time_ms_, int packets_sent_, int packets_lost_, int packets_randomly_lost_):
         snapshot_time_ms(snapshot_time_ms_),
@@ -27,8 +27,8 @@ public:
     void AddPath(Path *path, bool is_path_taken=false);
     // A reverse path is from the destination to the source
     void AddReversePath(Path *path, bool is_reverse_path_taken=false);
-    void SetPathTaken(path *path);
-    void SetReversePathTaken(path *path);
+    void SetPathTaken(Path *path);
+    void SetReversePathTaken(Path *path);
 
     int GetLatestPacketsSent();
     int GetLatestPacketsLost();

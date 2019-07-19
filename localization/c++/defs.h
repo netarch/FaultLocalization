@@ -7,6 +7,7 @@ typedef pair<double, double> PDD;
 typedef vector<int> Path;
 typedef PII Link;
 
-#define PATH_KNOWN false
-#define CONSIDER_REVERSE_PATH false
+const bool PATH_KNOWN=false;
+const bool CONSIDER_REVERSE_PATH=false;
+const bool VERBOSE=false;
 

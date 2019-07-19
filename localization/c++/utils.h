@@ -2,6 +2,13 @@
 #include "linkstats.h"
 #include <map>
 
+struct LinkStats{
+    int src, dest;
+    double drop_rate;
+    LinkStats(int src_, int dest_, double drop_rate_): src(src_), dest(dest_), drop_rate(drop_rate_){}
+    double GetDropRate () { return drop_rate;}
+};
+
 vector<Flow>* GetDataFromLogfile(string filename);
 
 unordered_map<Link, vector<int> >* GetForwardFlowsByLink(

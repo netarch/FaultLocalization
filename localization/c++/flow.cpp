@@ -83,6 +83,7 @@ void Flow::PrintInfo(ostream& out){
 
 vector<Path*>* Flow::GetPaths(double max_finish_time_ms){
     if (PATH_KNOWN or TracerouteFlow(max_finish_time_ms)){
+        assert (path_taken_vector.size() == 1);
         return &path_taken_vector;
     }
     return &paths;
@@ -90,6 +91,7 @@ vector<Path*>* Flow::GetPaths(double max_finish_time_ms){
 
 vector<Path*>* Flow::GetReversePaths(double max_finish_time_ms){
     if (PATH_KNOWN or TracerouteFlow(max_finish_time_ms)){
+        assert (reverse_path_taken_vector.size() == 1);
         return &reverse_path_taken_vector;
     }
     return &reverse_paths;
@@ -125,7 +127,7 @@ bool Flow::IsFlowActive(){
 }
 
 bool Flow::TracerouteFlow(double max_finish_time_ms){
-    return (PATH_KNOWN || GetPacketsLost(max_finish_time_ms) || IsFlowActive());
+    return (PATH_KNOWN || GetPacketsLost(max_finish_time_ms) > 0 || IsFlowActive());
 }
 
 bool Flow::IsFlowBad(double max_finish_time_ms){

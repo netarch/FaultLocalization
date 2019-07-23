@@ -2,6 +2,20 @@
 #include "linkstats.h"
 #include <map>
 
+
+struct LogFileData{
+    unordered_map<Link, double> failed_links;
+    vector<Flow*> flows;
+    unordered_map<Link, int> links_to_indices;
+    vector<Link> inverse_links;
+    unordered_map<Link, vector<int> >* forward_flows_by_link=NULL, reverse_flows_by_link=NULL, flows_by_link=NULL;
+
+    unordered_map<Link, vector<int> >* GetForwardFlowsByLink(double max_finish_time_ms);
+    unordered_map<Link, vector<int> >* GetReverseFlowsByLink(double max_finish_time_ms);
+    unordered_map<Link, vector<int> >* GetFlowsByLink(double max_finish_time_ms);
+};
+
+
 struct LinkStats{
     int src, dest;
     double drop_rate;
@@ -9,19 +23,7 @@ struct LinkStats{
     double GetDropRate () { return drop_rate;}
 };
 
-vector<Flow>* GetDataFromLogfile(string filename);
+LogFileData* GetDataFromLogfile(string filename);
 
-unordered_map<Link, vector<int> >* GetForwardFlowsByLink(
-                vector<Flow>* flows, map<Link, int>* inverse_links,
-                double max_finish_time_ms);
-
-unordered_map<Link, vector<int> >* GetReverseFlowsByLink(
-                vector<Flow>* flows, map<Link, int>* inverse_links,
-                double max_finish_time_ms);
-
-unordered_map<Link, vector<int> >* GetFlowsByLink(
-                unordered_map<Link, vector<int> >* forward_flows_by_link,
-                unordered_map<Link, vector<int> >* reverse_flows_by_link,
-                map<Link, int>* inverse_links);
 
 PDD GetPrecisionRecall(set<Link> failed_links, set<Link> predicted_hypothesis);

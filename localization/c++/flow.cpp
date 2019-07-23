@@ -97,6 +97,16 @@ vector<Path*>* Flow::GetReversePaths(double max_finish_time_ms){
     return &reverse_paths;
 }
 
+Path* Flow::GetPathTaken(){
+    assert (path_taken_vector.size() == 1);
+    return path_taken_vector[0];
+}
+
+Path* Flow::GetReversePathTaken(){
+    assert (reverse_path_taken_vector.size() == 1);
+    return reverse_path_taken_vector[0];
+}
+
 void Flow::UpdateSnapshotPtr(double max_finish_time_ms){
     assert (curr_snapshot_ptr == -1 ||
             snapshots[curr_snapshot_ptr]->snapshot_time_ms < max_finish_time_ms);

@@ -2,7 +2,7 @@
 #define FAULT_LOCALIZE_ESTIMATOR
 
 #include "flow.h"
-#include "link.h"
+#include "utils.h"
 
 struct EstimatorResult{
     double precision;
@@ -12,13 +12,14 @@ struct EstimatorResult{
         precision(_precision), recall(_recall), info(_info){}
 };
 
-
 class Estimator{
  public:
     Estimator(){}
 
-    vector<Link>* localize(vector<Flow> &flows, vector<Link> &links);
-
+    vector<Link>* localize(LogFileData* data){
+        vector<Link>* ret = new vector<Link>*();
+        return ret;
+    }
 };
 
 #endif

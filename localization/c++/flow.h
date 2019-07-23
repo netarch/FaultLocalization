@@ -44,6 +44,8 @@ public:
 
     vector<Path*>* GetPaths(double max_finish_time_ms);
     vector<Path*>* GetReversePaths(double max_finish_time_ms);
+    Path* GetPathTaken();
+    Path* GetReversePathTaken();
 
     // Forward the snapshot ptr to the latest snapshot before max_finish_time_ms
     void UpdateSnapshotPtr(double max_finish_time_ms);

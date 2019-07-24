@@ -17,7 +17,7 @@ class Estimator{
  public:
     Estimator(){}
 
-    set<Link>* localize(LogFileData* data){
+    virtual set<Link>* LocalizeFailures(LogFileData* data){
         return new set<Link>();
     }
 };

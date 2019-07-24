@@ -1,20 +1,28 @@
 #include "utils.h"
 #include <assert.h>
 #include <string>
+#include <fstream>
 #include <sstream>
 #include <chrono>
+#include <algorithm>
 
-LogFileData* GetDataFromLogfile(string filename){ 
-    auto start_time = high_resolution_clock::now();
+
+inline bool string_starts_with(const string &a, const string &b) {
+    return (b.length() <= a.length() && equal(b.begin(), b.end(), a.begin()));
+}
+
+LogFileData* GetDataFromLogFile(string filename){ 
+    auto start_time = chrono::high_resolution_clock::now();
     LogFileData* data = new LogFileData();
-    ifstream input( "filename.ext" );
-    string line;
-    istringstream line_stream (line);
-    string op;
-    line_string >> op;
+    ifstream infile(filename);
+    string line, op;
     Flow *flow = NULL;
     int curr_link_index = 0;
+    int nlines = 0;
     while (getline(infile, line)){
+        istringstream line_stream (line);
+        line_stream >> op;
+        nlines += 1;
         if (op == "Failing_link"){
             int src, dest;
             float failparam;
@@ -26,9 +34,10 @@ LogFileData* GetDataFromLogfile(string filename){
         }
         else if (op == "Flowid="){
             // Log the previous flow
-            if (flow != NULL and flow->GetPaths()->size() > 0){
+            if (flow != NULL and flow->paths.size() > 0){
                 assert (flow->GetPathTaken() and flow->GetReversePathTaken());
-                if (flow.GetLatestPacketsSent() > 0 and !flow.DiscardFlow()){
+                if (flow->GetLatestPacketsSent() > 0 and !flow->DiscardFlow()){
+                    //flow->PrintInfo();
                     data->flows.push_back(flow);
                 }
             }
@@ -42,7 +51,7 @@ LogFileData* GetDataFromLogfile(string filename){
             int packets_sent, packets_lost, packets_randomly_lost;
             line_stream >> snapshot_time_ms >> packets_sent >> packets_lost >> packets_randomly_lost;
             assert (flow != NULL);
-            flow.AddSnapshot(snapshot_time_ms, packets_sent, packets_lost, packets_randomly_lost);
+            flow->AddSnapshot(snapshot_time_ms, packets_sent, packets_lost, packets_randomly_lost);
         }
         else if (string_starts_with(op, "flowpath_reverse")){
             Path* path = new Path();
@@ -52,7 +61,7 @@ LogFileData* GetDataFromLogfile(string filename){
             }
             if (path->size() > 0){
                 assert (flow != NULL);
-                flow.AddReversePath(path, (op.find("taken") != string::npos));
+                flow->AddReversePath(path, (op.find("taken") != string::npos));
             }
             for (int i=1; i<path->size(); i++){
                 Link link(path->at(i-1), path->at(i));
@@ -71,7 +80,7 @@ LogFileData* GetDataFromLogfile(string filename){
             }
             if (path->size() > 0){
                 assert (flow != NULL);
-                flow.AddPath(path, (op.find("taken") != string::npos));
+                flow->AddPath(path, (op.find("taken") != string::npos));
             }
             for (int i=1; i<path->size(); i++){
                 Link link(path->at(i-1), path->at(i));
@@ -88,28 +97,29 @@ LogFileData* GetDataFromLogfile(string filename){
     }
 
     // Log the last flow
-    if (flow != NULL and flow->GetPaths()->size() > 0){
+    if (flow != NULL and flow->paths.size() > 0){
         assert (flow->GetPathTaken() and flow->GetReversePathTaken());
-        if (flow.GetLatestPacketsSent() > 0 and !flow.DiscardFlow()){
+        if (flow->GetLatestPacketsSent() > 0 and !flow->DiscardFlow()){
+            //flow->PrintInfo();
             data->flows.push_back(flow);
         }
     }
     if (VERBOSE){
-        cout<<"Read log file in "<<duration_cast<seconds>(high_resolution_clock::now() - start_time).count() << endl;
+        cout<<"Read log file in "<<chrono::duration_cast<chrono::seconds>(
+            chrono::high_resolution_clock::now() - start_time).count() << " seconds, numlines " << nlines << endl;
     }
     return data;
 }
 
 unordered_map<Link, vector<int> >* LogFileData::GetForwardFlowsByLink(double max_finish_time_ms){
-    if (forward_flows_by_link == NULL){
-        forward_flows_by_link = new unordered_map<Link, vector<int> >();
-        for (int ff=0; ff<flows->size(); ff++){
-            auto flow_paths = flows[ff]->GetPaths(max_finish_time_ms);
-            for (Path* path: flow_paths){
-                for (int i=1; i<path->size(); i++){
-                    Link link(path->at(i-1), path->at(i));
-                    *forward_flows_by_link[link].push_back(ff);
-                }
+    if (forward_flows_by_link != NULL) delete(forward_flows_by_link);
+    forward_flows_by_link = new unordered_map<Link, vector<int> >();
+    for (int ff=0; ff<flows.size(); ff++){
+        auto flow_paths = flows[ff]->GetPaths(max_finish_time_ms);
+        for (Path* path: *flow_paths){
+            for (int i=1; i<path->size(); i++){
+                Link link(path->at(i-1), path->at(i));
+                (*forward_flows_by_link)[link].push_back(ff);
             }
         }
     }
@@ -117,15 +127,14 @@ unordered_map<Link, vector<int> >* LogFileData::GetForwardFlowsByLink(double max
 }
 
 unordered_map<Link, vector<int> >* LogFileData::GetReverseFlowsByLink(double max_finish_time_ms){
-    if (reverse_flows_by_link == NULL){
-        reverse_flows_by_link = new unordered_map<Link, vector<int> >();
-        for (int ff=0; ff<flows->size(); ff++){
-            auto flow_reverse_paths = flows[ff]->GetReversePaths(max_finish_time_ms);
-            for (Path* path: flow_reverse_paths){
-                for (int i=1; i<path->size(); i++){
-                    Link link(path->at(i-1), path->at(i));
-                    *reverse_flows_by_link[link].push_back(ff);
-                }
+    if (reverse_flows_by_link != NULL) delete(reverse_flows_by_link);
+    reverse_flows_by_link = new unordered_map<Link, vector<int> >();
+    for (int ff=0; ff<flows.size(); ff++){
+        auto flow_reverse_paths = flows[ff]->GetReversePaths(max_finish_time_ms);
+        for (Path* path: *flow_reverse_paths){
+            for (int i=1; i<path->size(); i++){
+                Link link(path->at(i-1), path->at(i));
+                (*reverse_flows_by_link)[link].push_back(ff);
             }
         }
     }
@@ -133,21 +142,26 @@ unordered_map<Link, vector<int> >* LogFileData::GetReverseFlowsByLink(double max
 }
 
 unordered_map<Link, vector<int> >* LogFileData::GetFlowsByLink(double max_finish_time_ms){
-    if (flows_by_link == NULL){
-        GetForwardFlowsByLink();
-        GetReverseFlowsByLink();
-        if (!CONSIDER_REVERSE_PATH) flows_by_link = forward_flows_by_link;
-        else{
-            flows_by_link = new unordered_map<Link, vector<int> >();
-            for (Link link: inverse_links){
-                set_union(forward_flows_by_link[link].begin(), forward_flows_by_link[link].end(),
-                        reverse_flows_by_link[link].begin(), reverse_flows_by_link[link].end(),
-                        back_inserter(flows_by_link[link]));
-                //!TODO: Check if flows_by_link actually gets populated
-            }
+    if (flows_by_link != NULL) delete(flows_by_link);
+    GetForwardFlowsByLink(max_finish_time_ms);
+    GetReverseFlowsByLink(max_finish_time_ms);
+    if (!CONSIDER_REVERSE_PATH) flows_by_link = forward_flows_by_link;
+    else{
+        flows_by_link = new unordered_map<Link, vector<int> >();
+        for (Link link: inverse_links){
+            set_union(forward_flows_by_link->at(link).begin(), forward_flows_by_link->at(link).end(),
+                    reverse_flows_by_link->at(link).begin(), reverse_flows_by_link->at(link).end(),
+                    back_inserter(flows_by_link->at(link)));
+            //!TODO: Check if flows_by_link actually gets populated
         }
     }
     return flows_by_link;
+}
+
+void LogFileData::GetFailedLinksSet(set<Link> &failed_links_set){
+    for (auto &it: failed_links){
+        failed_links_set.insert(it.first);
+    } 
 }
 
 PDD GetPrecisionRecall(set<Link> failed_links, set<Link> predicted_hypothesis){
@@ -155,8 +169,13 @@ PDD GetPrecisionRecall(set<Link> failed_links, set<Link> predicted_hypothesis){
     set_intersection(failed_links.begin(), failed_links.end(),
                      predicted_hypothesis.begin(), predicted_hypothesis.end(),
                      back_inserter(correctly_predicted));
-    double precision = ((double) correctly_predicted.size())/predicted_hypothesis.size();
-    double recall = ((double) correctly_predicted.size())/failed_links.size();
+    double precision = 1.0, recall = 1.0;
+    if (predicted_hypothesis.size() > 0) {
+        double precision = ((double) correctly_predicted.size())/predicted_hypothesis.size();
+    }
+    if (failed_links.size() > 0){
+        double recall = ((double) correctly_predicted.size())/failed_links.size();
+    }
     return PDD(precision, recall);
 }
 

@@ -1,6 +1,10 @@
 #include "flow.h"
 #include <assert.h>
 
+Flow::Flow(int src_, string srcip_, int srcport_, int dest_, string destip_, int destport_, int nbytes_, double start_time_ms_):
+    src(src_), srcip(srcip_), srcport(srcport_), dest(dest_), destip(destip_), destport(destport_),
+    nbytes(nbytes_), start_time_ms(start_time_ms_) {}
+
 void Flow::AddPath(Path *path, bool is_path_taken){
     paths.push_back(path);
     if (is_path_taken) {

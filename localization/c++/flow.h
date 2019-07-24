@@ -1,3 +1,6 @@
+#ifndef __FAULT_LOCALIZE_FLOW__
+#define __FAULT_LOCALIZE_FLOW__
+
 #include <iostream>
 #include <vector>
 #include <list>
@@ -22,7 +25,7 @@ struct FlowSnapshot{
 class Flow{
 public:
     // Initialize flow without snapshot
-    Flow(int src, string srcip, int srcport, int dest, string destip, int destport, int nbytes, double start_time_ms);
+    Flow(int src_, string srcip_, int srcport_, int dest_, string destip_, int destport_, int nbytes_, double start_time_ms_);
 
     void AddPath(Path *path, bool is_path_taken=false);
     // A reverse path is from the destination to the source
@@ -61,6 +64,7 @@ public:
     // Assign two weights to each flow : (good_weight, bad_weight)
     PII LabelWeightsFunc(double max_finish_time_ms);
 
+    vector<Path*> paths, reverse_paths;
 private:
     int src, dest;
     string srcip, destip;
@@ -69,7 +73,8 @@ private:
     int start_time_ms;
     vector<FlowSnapshot*> snapshots;
     int curr_snapshot_ptr;
-    vector<Path*> paths, reverse_paths;
     // Should be of size 1 always
     vector<Path*> path_taken_vector, reverse_path_taken_vector;
 };
+
+#endif

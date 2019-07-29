@@ -106,11 +106,10 @@ double BayesianNet::BnfWeighted(int naffected, int npaths, int naffected_r, int 
     int e2e_correct_paths = (npaths - naffected) * (npaths_r - naffected_r);
     int e2e_failed_paths = e2e_paths - e2e_correct_paths;
     double a = ((double)e2e_failed_paths)/e2e_paths;
-    double val = (1.0 - a) + a * pow((1.0 - p1)/p2, weight_bad) * pow(p1/(1.0-p2), weight_good);
-    return log(val);
+    return log((1.0 - a) + a * pow((1.0 - p1)/p2, weight_bad) * pow(p1/(1.0-p2), weight_good));
 }
 
-double BayesianNet::ComputeLogLikelihood(Hypothesis* hypothesis, double min_start_time_ms, double max_finish_time_ms){
+inline double BayesianNet::ComputeLogLikelihood(Hypothesis* hypothesis, double min_start_time_ms, double max_finish_time_ms){
     double log_likelihood = 0.0;
     unordered_set<int> relevant_flows;
     for (Link link: *hypothesis){

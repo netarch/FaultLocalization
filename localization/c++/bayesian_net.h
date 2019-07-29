@@ -18,8 +18,7 @@ private:
     double ComputeLogLikelihood(Hypothesis* hypothesis, double min_start_time_ms, double max_finish_time_ms);
     vector<pair<double, Hypothesis*> >* ComputeLogLikelihood(vector<Hypothesis*> &hypothesis_space, double min_start_time_ms, double  max_finish_time_ms);
     double ComputeLogLikelihoodConditional(set<Link>* hypothesis, double min_start_time_ms, double max_finish_time_ms);
-    double BnfWeighted(int naffected, int npaths, int naffected_r, int npaths_r, double weight_good, double weight_bad);
-
+    inline double BnfWeighted(int naffected, int npaths, int naffected_r, int npaths_r, double weight_good, double weight_bad);
 
     // Noise parameters
     double p1, p2;

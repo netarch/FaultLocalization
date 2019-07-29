@@ -86,6 +86,4 @@ const bool PATH_KNOWN=false;
 const bool CONSIDER_REVERSE_PATH=false;
 const bool VERBOSE=true;
 
-#define NDEBUG
-
 #endif

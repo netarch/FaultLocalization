@@ -17,7 +17,7 @@ struct LogFileData{
     unordered_map<Link, vector<int> >* GetForwardFlowsByLink(double max_finish_time_ms);
     unordered_map<Link, vector<int> >* GetReverseFlowsByLink(double max_finish_time_ms);
     unordered_map<Link, vector<int> >* GetFlowsByLink(double max_finish_time_ms);
-    void GetFailedLinksSet(set<Link> &failed_links_set);
+    void GetFailedLinksSet(Hypothesis &failed_links_set);
 };
 
 struct LinkStats{
@@ -29,6 +29,6 @@ struct LinkStats{
 
 LogFileData* GetDataFromLogFile(string filename);
 
-PDD GetPrecisionRecall(set<Link> failed_links, set<Link> predicted_hypothesis);
+PDD GetPrecisionRecall(Hypothesis& failed_links, Hypothesis& predicted_hypothesis);
 
 #endif

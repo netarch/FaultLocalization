@@ -65,12 +65,12 @@ public:
     PII LabelWeightsFunc(double max_finish_time_ms);
 
     vector<Path*> paths, reverse_paths;
-private:
+    double start_time_ms;
     int src, dest;
+private:
     string srcip, destip;
     int srcport, destport;
     int nbytes;
-    int start_time_ms;
     vector<FlowSnapshot*> snapshots;
     int curr_snapshot_ptr;
     // Should be of size 1 always

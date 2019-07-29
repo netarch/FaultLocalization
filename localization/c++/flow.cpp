@@ -3,7 +3,7 @@
 
 Flow::Flow(int src_, string srcip_, int srcport_, int dest_, string destip_, int destport_, int nbytes_, double start_time_ms_):
     src(src_), srcip(srcip_), srcport(srcport_), dest(dest_), destip(destip_), destport(destport_),
-    nbytes(nbytes_), start_time_ms(start_time_ms_) {}
+    nbytes(nbytes_), start_time_ms(start_time_ms_), curr_snapshot_ptr(-1) {}
 
 void Flow::AddPath(Path *path, bool is_path_taken){
     paths.push_back(path);
@@ -112,6 +112,19 @@ Path* Flow::GetReversePathTaken(){
 }
 
 void Flow::UpdateSnapshotPtr(double max_finish_time_ms){
+    //cout<<"UpdateSnapshotPtr "<<curr_snapshot_ptr<<" "<<max_finish_time_ms<<endl;
+    /*
+    if (curr_snapshot_ptr != -1){
+        if (curr_snapshot_ptr >= snapshots.size()){
+            cout << "num snapshots " << snapshots.size() << " curr_snapshot_ptr "<< curr_snapshot_ptr<<endl;
+        }
+        assert (curr_snapshot_ptr < snapshots.size());
+        if (snapshots[curr_snapshot_ptr]->snapshot_time_ms >= max_finish_time_ms){
+            cout << "current_snapshot_ptr "<< curr_snapshot_ptr << " max_finish_time_ms "<<max_finish_time_ms<<endl;
+            cout << " snapshot_time_ms "<<snapshots[curr_snapshot_ptr]->snapshot_time_ms <<endl;
+        }
+    }
+    */
     assert (curr_snapshot_ptr == -1 ||
             snapshots[curr_snapshot_ptr]->snapshot_time_ms < max_finish_time_ms);
     while (curr_snapshot_ptr + 1 < snapshots.size() && 

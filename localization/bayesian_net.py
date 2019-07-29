@@ -270,7 +270,7 @@ def bayesian_network_cilia(flows, links, inverse_links, flows_by_link, forward_f
     request_queues = [Queue() for x in range(nprocesses)]
     #response_queues = []
     response_queue = Queue()
-    MAX_FAILS = 30
+    MAX_FAILS = 10
     if nprocesses > 1:
         for i in range(nprocesses):
             #request_queues.append(multiprocessing.JoinableQueue())

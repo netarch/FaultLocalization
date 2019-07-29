@@ -36,7 +36,7 @@ LogFileData* GetDataFromLogFile(string filename){
             // Log the previous flow
             if (flow != NULL and flow->paths.size() > 0){
                 assert (flow->GetPathTaken() and flow->GetReversePathTaken());
-                if (flow->GetLatestPacketsSent() > 0 and !flow->DiscardFlow()){
+                if (flow->GetLatestPacketsSent() > 0 and !flow->DiscardFlow() and flow->paths.size() > 0){
                     //flow->PrintInfo();
                     data->flows.push_back(flow);
                 }
@@ -99,7 +99,7 @@ LogFileData* GetDataFromLogFile(string filename){
     // Log the last flow
     if (flow != NULL and flow->paths.size() > 0){
         assert (flow->GetPathTaken() and flow->GetReversePathTaken());
-        if (flow->GetLatestPacketsSent() > 0 and !flow->DiscardFlow()){
+        if (flow->GetLatestPacketsSent() > 0 and !flow->DiscardFlow() and flow->paths.size() > 0){
             //flow->PrintInfo();
             data->flows.push_back(flow);
         }
@@ -158,13 +158,13 @@ unordered_map<Link, vector<int> >* LogFileData::GetFlowsByLink(double max_finish
     return flows_by_link;
 }
 
-void LogFileData::GetFailedLinksSet(set<Link> &failed_links_set){
+void LogFileData::GetFailedLinksSet(Hypothesis &failed_links_set){
     for (auto &it: failed_links){
         failed_links_set.insert(it.first);
     } 
 }
 
-PDD GetPrecisionRecall(set<Link> failed_links, set<Link> predicted_hypothesis){
+PDD GetPrecisionRecall(Hypothesis& failed_links, Hypothesis& predicted_hypothesis){
     vector<Link> correctly_predicted;
     set_intersection(failed_links.begin(), failed_links.end(),
                      predicted_hypothesis.begin(), predicted_hypothesis.end(),

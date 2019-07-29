@@ -17,8 +17,8 @@ class Estimator{
  public:
     Estimator(){}
 
-    virtual set<Link>* LocalizeFailures(LogFileData* data){
-        return new set<Link>();
+    virtual Hypothesis* LocalizeFailures(LogFileData* data, double start_time_ms, double max_finish_time_ms){
+        return new Hypothesis();
     }
 };
 

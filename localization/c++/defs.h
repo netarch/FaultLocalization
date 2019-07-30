@@ -77,6 +77,7 @@ ostream& operator<<(ostream& os, const unordered_set<T>& v) {
     for (auto it : v) { 
         if (! first) os <<", ";
         os << it; 
+        first = false;
     } 
     os << "]"; 
     return os; 

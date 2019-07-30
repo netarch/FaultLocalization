@@ -45,6 +45,7 @@ public:
     void PrintFlowMetrics(ostream& out=std::cout);
     void PrintInfo(ostream& out=std::cout);
 
+    // !TODO: convert to vector<Path> for better cache performance
     vector<Path*>* GetPaths(double max_finish_time_ms);
     vector<Path*>* GetReversePaths(double max_finish_time_ms);
     Path* GetPathTaken();

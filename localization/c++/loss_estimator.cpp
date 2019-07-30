@@ -17,6 +17,7 @@ int main(int argc, char *argv[]){
     BayesianNet estimator;
     Hypothesis* estimator_hypothesis = estimator.LocalizeFailures(data, min_start_time_ms, max_finish_time_ms);
     PDD precision_recall = GetPrecisionRecall(failed_links_set, *estimator_hypothesis);
-    cout << "Precision "<<precision_recall.first << ", Recall "<<precision_recall.second<<endl;
+    cout << "Output Hypothesis: " << *estimator_hypothesis << " precsion_recall "
+         <<precision_recall.first << " " << precision_recall.second<<endl;
     return 0;
 }

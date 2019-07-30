@@ -171,10 +171,10 @@ PDD GetPrecisionRecall(Hypothesis& failed_links, Hypothesis& predicted_hypothesi
                      back_inserter(correctly_predicted));
     double precision = 1.0, recall = 1.0;
     if (predicted_hypothesis.size() > 0) {
-        double precision = ((double) correctly_predicted.size())/predicted_hypothesis.size();
+        precision = ((double) correctly_predicted.size())/predicted_hypothesis.size();
     }
     if (failed_links.size() > 0){
-        double recall = ((double) correctly_predicted.size())/failed_links.size();
+        recall = ((double) correctly_predicted.size())/failed_links.size();
     }
     return PDD(precision, recall);
 }

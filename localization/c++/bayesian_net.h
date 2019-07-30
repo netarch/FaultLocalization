@@ -6,7 +6,7 @@ class BayesianNet : public Estimator{
  public:
     BayesianNet() : Estimator() {}
     Hypothesis* LocalizeFailures(LogFileData* data, double min_start_time_ms,
-                                 double max_finish_time_ms);
+                                 double max_finish_time_ms, int nopenmp_threads);
     const int MAX_FAILS = 10;
     const int NUM_CANDIDATES = max(15, 5 * MAX_FAILS);
     const int NUM_TOP_HYPOTHESIS_AT_EACH_STAGE = 5;
@@ -20,10 +20,11 @@ private:
                     Hypothesis* base_hypothesis, double base_likelihood,
                     double min_start_time_ms, double max_finish_time_ms);
 
-    vector<pair<double, Hypothesis*> >* ComputeLogLikelihood(
-                    vector<Hypothesis*> &hypothesis_space,
+    void ComputeLogLikelihood(vector<Hypothesis*> &hypothesis_space,
                     vector<pair<Hypothesis*, double> > &base_hypothesis_likelihood,
-                    double min_start_time_ms, double  max_finish_time_ms);
+                    vector<pair<double, Hypothesis*> > &result,
+                    double min_start_time_ms, double  max_finish_time_ms,
+                    int nopenmp_threads);
 
     double ComputeLogLikelihoodConditional(set<Link>* hypothesis,
                     double min_start_time_ms, double max_finish_time_ms);

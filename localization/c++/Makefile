@@ -1,6 +1,6 @@
 CC = g++
 #TODO remove -g
-CFLAGS = -std=c++11 -O3 -ffast-math -w -Wall -Wno-deprecated -Wno-unused-variable
+CFLAGS = -std=c++11 -O3 -fopenmp -ffast-math -w -Wall -Wno-deprecated -Wno-unused-variable
 
 all: loss_estimator
 

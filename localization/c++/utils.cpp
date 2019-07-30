@@ -166,9 +166,11 @@ void LogFileData::GetFailedLinksSet(Hypothesis &failed_links_set){
 
 PDD GetPrecisionRecall(Hypothesis& failed_links, Hypothesis& predicted_hypothesis){
     vector<Link> correctly_predicted;
-    set_intersection(failed_links.begin(), failed_links.end(),
-                     predicted_hypothesis.begin(), predicted_hypothesis.end(),
-                     back_inserter(correctly_predicted));
+    for (Link link: predicted_hypothesis){
+        if (failed_links.find(link) != failed_links.end()){
+            correctly_predicted.push_back(link);
+        }
+    }
     double precision = 1.0, recall = 1.0;
     if (predicted_hypothesis.size() > 0) {
         precision = ((double) correctly_predicted.size())/predicted_hypothesis.size();

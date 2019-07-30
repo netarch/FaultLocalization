@@ -9,12 +9,9 @@
 using namespace std;
 
 //!TODO: Change to smart pointers for easier GC
-//!TODO: Change to smart pointers for easier GC
-//!TODO: Change to smart pointers for easier GC
-//!TODO: Change to smart pointers for easier GC
-//!TODO: Change to smart pointers for easier GC
-Hypothesis* BayesianNet::LocalizeFailures(LogFileData* data, 
-                             double min_start_time_ms, double max_finish_time_ms){
+//!TODO: Add result vector to argument list in compute likelihood function
+Hypothesis* BayesianNet::LocalizeFailures(LogFileData* data, double min_start_time_ms,
+                                double max_finish_time_ms, int nopenmp_threads){
     data_cache = data;
     flows_by_link_cache = data_cache->GetFlowsByLink(max_finish_time_ms);
     assert (flows_by_link_cache != NULL);
@@ -50,15 +47,15 @@ Hypothesis* BayesianNet::LocalizeFailures(LogFileData* data,
                 }
             }
         }
-        vector<pair<double, Hypothesis*> > *result = ComputeLogLikelihood(
-                                                      hypothesis_space, base_hypothesis_likelihood,
-                                                      min_start_time_ms, max_finish_time_ms);
-        sort(result->begin(), result->end(), greater<pair<double, Hypothesis*> >());
+        vector<pair<double, Hypothesis*> > result;
+        ComputeLogLikelihood(hypothesis_space, base_hypothesis_likelihood, result,
+                             min_start_time_ms, max_finish_time_ms, nopenmp_threads);
+        sort(result.begin(), result.end(), greater<pair<double, Hypothesis*> >());
         if (nfails == 1){
             //update candidates
             candidates.clear();
-            for (int i=0; i<min((int)result->size(), NUM_CANDIDATES); i++){
-                Hypothesis* h = result->at(i).second;
+            for (int i=0; i<min((int)result.size(), NUM_CANDIDATES); i++){
+                Hypothesis* h = result[i].second;
                 assert (h->size() == 1);
                 Link link = *(h->begin());
                 candidates.push_back(link);
@@ -74,13 +71,12 @@ Hypothesis* BayesianNet::LocalizeFailures(LogFileData* data,
         }
         nfails++;
         prev_hypothesis_space.clear();
-        for (int i=0; i<min((int)result->size(), NUM_TOP_HYPOTHESIS_AT_EACH_STAGE); i++){
-            prev_hypothesis_space.push_back(result->at(i).second);
+        for (int i=0; i<min((int)result.size(), NUM_TOP_HYPOTHESIS_AT_EACH_STAGE); i++){
+            prev_hypothesis_space.push_back(result[i].second);
         }
-        for (auto& it: *result){
+        for (auto& it: result){
             all_hypothesis[it.second] = it.first;
         }
-        delete result;
     }
     if (VERBOSE) {
         cout << "Finished hypothesis search in "<<chrono::duration_cast<chrono::milliseconds>(
@@ -109,25 +105,26 @@ Hypothesis* BayesianNet::LocalizeFailures(LogFileData* data,
             failed_links->insert(hypothesis->begin(), hypothesis->end());
         }
         if (VERBOSE){
-            cout << "Likely candidate "<<likelihood<<" " << *hypothesis << endl;
+            cout << "Likely candidate "<<*hypothesis<<" "<<likelihood << endl;
         }
     }
     return failed_links;
 }
 
 
-vector<pair<double, Hypothesis*> >* BayesianNet::ComputeLogLikelihood(
-                 vector<Hypothesis*> &hypothesis_space,
+void BayesianNet::ComputeLogLikelihood(vector<Hypothesis*> &hypothesis_space,
                  vector<pair<Hypothesis*, double> > &base_hypothesis_likelihood,
-                 double min_start_time_ms, double max_finish_time_ms){
-    vector<pair<double, Hypothesis*> > *result = new vector<pair<double, Hypothesis*> >();
+                 vector<pair<double, Hypothesis*> > &result,
+                 double min_start_time_ms, double max_finish_time_ms,
+                 int nopenmp_threads){
+    result.resize(hypothesis_space.size());
+    #pragma omp parallel for num_threads(nopenmp_threads)
     for(int i=0; i<hypothesis_space.size(); i++){
         Hypothesis* h = hypothesis_space[i];
         auto base = base_hypothesis_likelihood[i];
-        result->push_back(make_pair(ComputeLogLikelihood(h, base.first, base.second,
-                                        min_start_time_ms, max_finish_time_ms), h));
+        result[i] = make_pair(ComputeLogLikelihood(h, base.first, base.second,
+                                        min_start_time_ms, max_finish_time_ms), h);
     }
-    return result;
 }
 
 inline double BayesianNet::BnfWeighted(int naffected, int npaths,

@@ -1,23 +1,24 @@
-#ifndef FAULT_LOCALIZE_ESTIMATOR
-#define FAULT_LOCALIZE_ESTIMATOR
+#ifndef __FAULT_LOCALIZE_ESTIMATOR__
+#define __FAULT_LOCALIZE_ESTIMATOR__
 
 #include "flow.h"
-#include "link.h"
+#include "utils.h"
+#include <set>
 
 struct EstimatorResult{
     double precision;
     double recall;
     void *info;
-    EstimatorResult(double _precision, double _recall, void* _info==NULL):
+    EstimatorResult(double _precision, double _recall, void* _info=NULL):
         precision(_precision), recall(_recall), info(_info){}
 };
-
 
 class Estimator{
  public:
     Estimator(){}
 
-    EstimatorResult localize(vector<Flow> &flows, vector<Link> &links, vector<Link> &faultyLinks);
+    virtual Hypothesis* LocalizeFailures(LogFileData* data, double start_time_ms,
+                double max_finish_time_ms, int nopenmp_threads) { return new Hypothesis(); }
 };
 
 #endif

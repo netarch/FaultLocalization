@@ -30,7 +30,7 @@ if __name__ == '__main__':
     filename = sys.argv[1]
     min_start_time_sec = float(sys.argv[2])
     max_finish_time_sec = float(sys.argv[3])
-    nprocesses = 16
+    nprocesses = 32
     utils.VERBOSE = True
     start_time = time.time()
     precision_recall, info = get_precision_recall_bayesian_cilia(filename, min_start_time_sec * 1000.0, max_finish_time_sec * 1000.0, nprocesses)

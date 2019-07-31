@@ -152,4 +152,4 @@ class Flow:
     def discard_flow(self):
         #print(self.src, self.dest)
         return False
-        #return not (self.src < 256 and self.dest < 256)
+        #return (self.src < 256 and self.dest < 256)

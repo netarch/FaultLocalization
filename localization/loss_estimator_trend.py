@@ -16,8 +16,9 @@ from doubleO7 import *
 
 def get_files():
     file_prefix = "/home/vharsh2/scratch/logs/active_passive/new/plog"
-    #file_prefix = "/home/vharsh2/scratch/logs/ls_x30_y10/old/plog"
     ignore_files = [(2,3)]
+    #file_prefix = "/home/vharsh2/scratch/logs/ls_x30_y10/old/plog"
+    #ignore_files = []
     files = []
     for f in range(1,9):
         #for s in [3,4,5,6]:
@@ -99,11 +100,11 @@ def get_precision_recall_trend_estimator(min_start_time_ms, max_finish_time_ms, 
     for f in files:
         print("File: ", f)
     step = (max_finish_time_ms - min_start_time_ms)/10
-    step = 1.0 * 1000.0
+    step = 2.0 * 1000.0
     precision_recall, info = get_precision_recall_trend(files, min_start_time_ms, max_finish_time_ms, step, estimator_func, params, nprocesses)
     for i in range(len(precision_recall)):
         p, r, p_stddev, r_stddev = precision_recall[i]
-        print("Max_finish_time_ms: ", min_start_time_ms + 0.0 + (i+1)*step, p, r, p_stddev, r_stddev)
+        print("Max_finish_time_ms: ", min_start_time_ms + 1000.0 + (i+1)*step, p, r, p_stddev, r_stddev)
 
 def get_precision_recall_trend_bayesian_cilia(min_start_time_ms, max_finish_time_ms, nprocesses):
     #(1.0 - 2e-3, 1.2e-4 works well)

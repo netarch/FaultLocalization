@@ -142,15 +142,17 @@ def compute_log_likelihood(hypothesis, flows_by_link, flows, min_start_time_ms, 
 !TODO: Use previous hypothesis before extend step to optimize the size of relevant_flows
 !TODO: This will make the processing independent of the size of the hypothesis
 '''
-def compute_log_likelihood_conditional(hypothesis, flows_by_link, flows, min_start_time_ms, max_finish_time_ms, p1, p2, active_flows_only=False):
+def compute_log_likelihood_conditional(hypothesis, flows_by_link, flows, min_start_time_ms, max_finish_time_ms, p1, p2, base_hypothesis_likelihood=([], 0.0), active_flows_only=False):
     log_likelihood = 0.0
+    base_hypothesis, base_likelihood = base_hypothesis_likelihood
     relevant_flows = set()
     for h in hypothesis:
-        link_flows = flows_by_link[h]
-        for f in link_flows:
-            flow = flows[f]
-            if flow.start_time_ms >= min_start_time_ms and (flow.is_active_flow() or flow.is_flow_bad(max_finish_time_ms)):
-                relevant_flows.add(f)
+        if h not in base_hypothesis:
+            link_flows = flows_by_link[h]
+            for f in link_flows:
+                flow = flows[f]
+                if flow.start_time_ms >= min_start_time_ms and (flow.is_active_flow() or flow.is_flow_bad(max_finish_time_ms)):
+                    relevant_flows.add(f)
 
     for ff in relevant_flows:
         flow = flows[ff]
@@ -160,26 +162,22 @@ def compute_log_likelihood_conditional(hypothesis, flows_by_link, flows, min_sta
             continue
         npaths = len(flow_paths)
         naffected = 0.0
-        p_arr = []
-        correct_p_arr = []
+        naffected_base = 0.0
         for path in flow_paths:
-            pval = 0
             for v in range(1, len(path)):
                 l = (path[v-1], path[v])
                 if l in hypothesis:
                     naffected += 1.0
                     break
-        '''
-                    pval += (1.0-p1)
-                else:
-                    pval += p2
-            p_arr.append(pval)
-            correct_p_arr.append((len(path)-1) * p2)
-        log_likelihood += bnf_weighted_path_individual(p_arr, correct_p_arr, weight[0], weight[1])
-        '''
+            for v in range(1, len(path)):
+                l = (path[v-1], path[v])
+                if l in base_hypothesis:
+                    naffected_base += 1.0
+                    break
         flow_reverse_paths = flow.get_reverse_paths(max_finish_time_ms)
         npaths_r = len(flow_reverse_paths)
         naffected_r = 0.0
+        naffected_base_r = 0.0
         if CONSIDER_REVERSE_PATH:
             for path in flow_reverse_paths:
                 for v in range(1, len(path)):
@@ -187,30 +185,27 @@ def compute_log_likelihood_conditional(hypothesis, flows_by_link, flows, min_sta
                     if l in hypothesis:
                         naffected_r += 1.0
                         break
+                for v in range(1, len(path)):
+                    l = (path[v-1], path[v])
+                    if l in base_hypothesis:
+                        naffected_base_r += 1.0
+                        break
         #print("Num paths: ", naffected, npaths, naffected_r, npaths_r)
         #log_likelihood += bnf_good(naffected, npaths, naffected_r, npaths_r, p1, p2) * weight[0]
         #log_likelihood += bnf_bad(naffected, npaths, naffected_r, npaths_r, p1, p2) * weight[1]
         if flow.is_active_flow():
             log_likelihood += bnf_weighted(naffected, npaths, naffected_r, npaths_r, p1, p2, weight[0], weight[1])
+            if naffected_base > 0 or naffected_base_r > 0:
+                log_likelihood -= bnf_weighted(naffected_base, npaths, naffected_base_r, npaths_r, p1, p2, weight[0], weight[1])
         elif flow.is_flow_bad(max_finish_time_ms):
             log_likelihood += bnf_weighted_conditional(naffected, npaths, naffected_r, npaths_r, p1, p2, weight[0], weight[1])
+            if naffected_base > 0 or naffected_base_r > 0:
+                log_likelihood -= bnf_weighted_conditional(naffected_base, npaths, naffected_base_r, npaths_r, p1, p2, weight[0], weight[1])
         else:
             assert(False)
     prior = 10
-    return log_likelihood - len(hypothesis) * prior
+    return base_likelihood + log_likelihood + (len(base_hypothesis) -  len(hypothesis)) * prior
    
-def compute_likelihoods(hypothesis_space, flows_by_link, flows, min_start_time_ms, max_finish_time_ms, p1, p2, response_queue):
-    start_time = time.time()
-    likelihoods = []
-    for hypothesis in hypothesis_space:
-        if USE_CONDITIONAL:
-            log_likelihood = compute_log_likelihood_conditional(hypothesis, flows_by_link, flows, min_start_time_ms, max_finish_time_ms, p1, p2, active_flows_only=False)
-        else:
-            log_likelihood = compute_log_likelihood(hypothesis, flows_by_link, flows, min_start_time_ms, max_finish_time_ms, p1, p2, active_flows_only=False)
-        #print(log_likelihood, hypothesis)
-        likelihoods.append((log_likelihood, list(hypothesis)))
-    #print("compute_likelihoods computed", len(hypothesis_space), "in", time.time() - start_time, "seconds") 
-    response_queue.put(likelihoods)
 
 def compute_likelihoods_daemon(request_queue, flows_by_link, flows, min_start_time_ms_, max_finish_time_ms_, p1_, p2_, response_queue, final_request):
     min_start_time_ms = min_start_time_ms_
@@ -223,7 +218,7 @@ def compute_likelihoods_daemon(request_queue, flows_by_link, flows, min_start_ti
         likelihoods = []
         for hypothesis, base_hypothesis_likelihood in hypothesis_space:
             if USE_CONDITIONAL:
-                log_likelihood = compute_log_likelihood_conditional(hypothesis, flows_by_link, flows, min_start_time_ms, max_finish_time_ms, p1, p2, active_flows_only)
+                log_likelihood = compute_log_likelihood_conditional(hypothesis, flows_by_link, flows, min_start_time_ms, max_finish_time_ms, p1, p2, base_hypothesis_likelihood, active_flows_only)
             else:
                 log_likelihood = compute_log_likelihood(hypothesis, flows_by_link, flows, min_start_time_ms, max_finish_time_ms, p1, p2, base_hypothesis_likelihood, active_flows_only)
             #print(log_likelihood, hypothesis)
@@ -270,7 +265,7 @@ def bayesian_network_cilia(flows, links, inverse_links, flows_by_link, forward_f
     request_queues = [Queue() for x in range(nprocesses)]
     #response_queues = []
     response_queue = Queue()
-    MAX_FAILS = 30
+    MAX_FAILS = 10
     if nprocesses > 1:
         for i in range(nprocesses):
             #request_queues.append(multiprocessing.JoinableQueue())
@@ -312,7 +307,7 @@ def bayesian_network_cilia(flows, links, inverse_links, flows_by_link, forward_f
             start = int(i * num_hypothesis/nprocesses)
             end = int(min(num_hypothesis, (i+1) * num_hypothesis/nprocesses))
             #!TODO: Hack. The 3rd argument will restrict flows to active flows only for nfails==1
-            active_flows_only = False #(nfails==1 and repeat_nfails_1)
+            active_flows_only = (nfails==1 and repeat_nfails_1)
             request_queues[i].put((list(hypothesis_space[start:end]), (nfails==MAX_FAILS or nprocesses==1), active_flows_only))
 
         if (nprocesses == 1):

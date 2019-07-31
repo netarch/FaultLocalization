@@ -36,7 +36,8 @@ LogFileData* GetDataFromLogFile(string filename){
             // Log the previous flow
             if (flow != NULL and flow->paths.size() > 0){
                 assert (flow->GetPathTaken() and flow->GetReversePathTaken());
-                if (flow->GetLatestPacketsSent() > 0 and !flow->DiscardFlow() and flow->paths.size() > 0){
+                if (flow->GetLatestPacketsSent() > 0 and !flow->DiscardFlow()
+                    and flow->paths.size() > 0){
                     //flow->PrintInfo();
                     data->flows.push_back(flow);
                 }

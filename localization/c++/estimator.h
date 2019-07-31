@@ -17,9 +17,8 @@ class Estimator{
  public:
     Estimator(){}
 
-    virtual Hypothesis* LocalizeFailures(LogFileData* data, double start_time_ms, double max_finish_time_ms, int nopenmp_threads){
-        return new Hypothesis();
-    }
+    virtual Hypothesis* LocalizeFailures(LogFileData* data, double start_time_ms,
+                double max_finish_time_ms, int nopenmp_threads) { return new Hypothesis(); }
 };
 
 #endif

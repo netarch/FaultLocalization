@@ -37,8 +37,7 @@ Hypothesis* BayesianNet::LocalizeFailures(LogFileData* data, double min_start_ti
                     h->insert(link);
                     if (find_if(hypothesis_space.begin(), hypothesis_space.end(),
                                         HypothesisPointerCompare(h)) == hypothesis_space.end()){
-                        Hypothesis *hnew = new Hypothesis();
-                        *hnew = *h;
+                        Hypothesis *hnew = new Hypothesis(*h);
                         hypothesis_space.push_back(hnew);
                         base_hypothesis_likelihood.push_back(make_pair(h, all_hypothesis[h]));
                         //base_hypothesis_likelihood.push_back(make_pair(no_failure_hypothesis, 0.0));
@@ -79,8 +78,6 @@ Hypothesis* BayesianNet::LocalizeFailures(LogFileData* data, double min_start_ti
         }
     }
     if (VERBOSE) {
-        cout << "Finished hypothesis search in "<<chrono::duration_cast<chrono::milliseconds>(
-             chrono::high_resolution_clock::now() - start_search_time).count()*1.0e-3 << endl;
         Hypothesis failed_links;
         data_cache->GetFailedLinksSet(failed_links);
         double likelihood_correct_hypothesis = ComputeLogLikelihood(&failed_links,
@@ -107,6 +104,10 @@ Hypothesis* BayesianNet::LocalizeFailures(LogFileData* data, double min_start_ti
         if (VERBOSE){
             cout << "Likely candidate "<<*hypothesis<<" "<<likelihood << endl;
         }
+    }
+    if (VERBOSE){
+        cout << endl << "Searched hypothesis space in "<<chrono::duration_cast<chrono::milliseconds>(
+             chrono::high_resolution_clock::now() - start_search_time).count()*1.0e-3 << " seconds"<<endl;
     }
     return failed_links;
 }
@@ -189,5 +190,5 @@ double BayesianNet::ComputeLogLikelihood(Hypothesis* hypothesis,
     //             chrono::high_resolution_clock::now() - start_compute_time).count();
     log_likelihood = max(-1.0e9, log_likelihood);
     //cout << *hypothesis << " " << log_likelihood + hypothesis->size() * PRIOR << endl;
-    return base_likelihood + log_likelihood + (hypothesis->size() - base_hypothesis->size())*PRIOR;
+    return base_likelihood + log_likelihood + (hypothesis->size() - base_hypothesis->size()) * PRIOR;
 }

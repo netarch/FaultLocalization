@@ -11,8 +11,8 @@ typedef pair<int, int> PII;
 typedef pair<double, double> PDD;
 typedef vector<int> Path;
 typedef PII Link;
-//!TODO : convert to unordered_set
-typedef unordered_set<Link> Hypothesis;
+//!TODO: run speed tests b/w set and unordered_set
+typedef set<Link, less<Link>, vector<Link> > Hypothesis;
 
 namespace std {
     template <>

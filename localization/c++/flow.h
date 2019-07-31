@@ -15,7 +15,8 @@ struct FlowSnapshot{
     int packets_sent;
     int packets_lost;
     int packets_randomly_lost;
-    FlowSnapshot(double snapshot_time_ms_, int packets_sent_, int packets_lost_, int packets_randomly_lost_):
+    FlowSnapshot(double snapshot_time_ms_, int packets_sent_, int packets_lost_,
+                 int packets_randomly_lost_):
         snapshot_time_ms(snapshot_time_ms_),
         packets_sent(packets_sent_),
         packets_lost(packets_lost_),
@@ -25,7 +26,8 @@ struct FlowSnapshot{
 class Flow{
 public:
     // Initialize flow without snapshot
-    Flow(int src_, string srcip_, int srcport_, int dest_, string destip_, int destport_, int nbytes_, double start_time_ms_);
+    Flow(int src_, string srcip_, int srcport_, int dest_, string destip_, int destport_,
+         int nbytes_, double start_time_ms_);
 
     void AddPath(Path *path, bool is_path_taken=false);
     // A reverse path is from the destination to the source
@@ -40,7 +42,8 @@ public:
      * It's assumed that the snapshots will be accessed in non-decreasing order of time
      */
     bool AnySnapshotBefore(double finish_time_ms);
-    void AddSnapshot(double snapshot_time_ms, int packets_sent, int packets_lost, int packets_randomly_lost);
+    void AddSnapshot(double snapshot_time_ms, int packets_sent, int packets_lost,
+                     int packets_randomly_lost);
     void PrintFlowSnapshots(ostream& out=std::cout);
     void PrintFlowMetrics(ostream& out=std::cout);
     void PrintInfo(ostream& out=std::cout);

@@ -5,9 +5,10 @@
 class BayesianNet : public Estimator{
  public:
     BayesianNet() : Estimator() {}
-    Hypothesis* LocalizeFailures(LogFileData* data, double min_start_time_ms,
-                                 double max_finish_time_ms, int nopenmp_threads);
-    const int MAX_FAILS = 10;
+    void LocalizeFailures(LogFileData* data, double min_start_time_ms,
+                                 double max_finish_time_ms, Hypothesis &localized_links,
+                                 int nopenmp_threads);
+    const int MAX_FAILS = 20;
     const int NUM_CANDIDATES = max(15, 5 * MAX_FAILS);
     const int NUM_TOP_HYPOTHESIS_AT_EACH_STAGE = 5;
     // For printing purposes
@@ -30,6 +31,9 @@ private:
                     double min_start_time_ms, double max_finish_time_ms);
 
     inline double BnfWeighted(int naffected, int npaths, int naffected_r,
+                    int npaths_r, double weight_good, double weight_bad);
+
+    inline double BnfWeightedConditional(int naffected, int npaths, int naffected_r,
                     int npaths_r, double weight_good, double weight_bad);
 
     // Noise parameters

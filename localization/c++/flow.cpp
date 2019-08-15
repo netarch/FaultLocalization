@@ -149,15 +149,15 @@ inline int Flow::GetPacketsLost(double max_finish_time_ms){
     return 0;
 }
 
-inline bool Flow::IsFlowActive(){
+bool Flow::IsFlowActive(){
     return (paths.size() == 1);
 }
 
-inline bool Flow::TracerouteFlow(double max_finish_time_ms){
+bool Flow::TracerouteFlow(double max_finish_time_ms){
     return (PATH_KNOWN || GetPacketsLost(max_finish_time_ms) > 0 || IsFlowActive());
 }
 
-inline bool Flow::IsFlowBad(double max_finish_time_ms){
+bool Flow::IsFlowBad(double max_finish_time_ms){
     return (GetPacketsLost(max_finish_time_ms) > 0);
 }
 
@@ -173,5 +173,5 @@ PII Flow::LabelWeightsFunc(double max_finish_time_ms){
 
 bool Flow::DiscardFlow(){
     return false;
-    //return !(src < 256 && dest <256)
+    //return (src < 256 && dest <256);
 }

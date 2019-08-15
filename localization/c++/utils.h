@@ -18,6 +18,9 @@ struct LogFileData{
     unordered_map<Link, vector<int> >* GetReverseFlowsByLink(double max_finish_time_ms);
     unordered_map<Link, vector<int> >* GetFlowsByLink(double max_finish_time_ms);
     void GetFailedLinksSet(Hypothesis &failed_links_set);
+    void FilterFlowsForConditional(double max_finish_time_ms);
+
+    void AddChunkData(LogFileData* chunk_data);
 };
 
 struct LinkStats{
@@ -28,6 +31,7 @@ struct LinkStats{
 };
 
 LogFileData* GetDataFromLogFile(string filename);
+LogFileData* GetDataFromLogFileDistributed(string dirname, int nchunks, int nopenmp_threads);
 
 PDD GetPrecisionRecall(Hypothesis& failed_links, Hypothesis& predicted_hypothesis);
 

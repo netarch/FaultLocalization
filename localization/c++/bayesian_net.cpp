@@ -9,9 +9,11 @@
 using namespace std;
 
 //!TODO: Change to smart pointers for easier GC
-//!TODO: Add result vector to argument list in compute likelihood function
-Hypothesis* BayesianNet::LocalizeFailures(LogFileData* data, double min_start_time_ms,
-                                double max_finish_time_ms, int nopenmp_threads){
+//!TODO: Add code for REVERSE_PATH
+void BayesianNet::LocalizeFailures(LogFileData* data, double min_start_time_ms,
+                                double max_finish_time_ms, Hypothesis& localized_links,
+                                int nopenmp_threads){
+    if (VERBOSE) cout << "Num flows "<<data->flows.size()<<endl;
     data_cache = data;
     flows_by_link_cache = data_cache->GetFlowsByLink(max_finish_time_ms);
     assert (flows_by_link_cache != NULL);
@@ -78,28 +80,28 @@ Hypothesis* BayesianNet::LocalizeFailures(LogFileData* data, double min_start_ti
         }
     }
     if (VERBOSE) {
-        Hypothesis failed_links;
-        data_cache->GetFailedLinksSet(failed_links);
-        double likelihood_correct_hypothesis = ComputeLogLikelihood(&failed_links,
+        Hypothesis correct_hypothesis;
+        data_cache->GetFailedLinksSet(correct_hypothesis);
+        double likelihood_correct_hypothesis = ComputeLogLikelihood(&correct_hypothesis,
                                                         no_failure_hypothesis, 0.0,
                                                         min_start_time_ms, max_finish_time_ms);
-        cout << "Correct Hypothesis " << failed_links << " likelihood " << likelihood_correct_hypothesis << endl;
+        cout << "Correct Hypothesis " << correct_hypothesis << " likelihood " << likelihood_correct_hypothesis << endl;
 
     }
 
-    Hypothesis* failed_links = new Hypothesis();
     vector<pair<double, Hypothesis*> > likelihood_hypothesis;
     for (auto& it: all_hypothesis){
         likelihood_hypothesis.push_back(make_pair(it.second, it.first));
     }
     sort(likelihood_hypothesis.begin(), likelihood_hypothesis.end(),
                                 greater<pair<double, Hypothesis*> >());
+    localized_links.clear();
     double highest_likelihood = likelihood_hypothesis[0].first;
     for (int i=min((int)likelihood_hypothesis.size(), N_MAX_K_LIKELIHOODS)-1; i>=0; i--){
         double likelihood = likelihood_hypothesis[i].first;
         Hypothesis *hypothesis = likelihood_hypothesis[i].second;
         if (highest_likelihood - likelihood <= 1.0e-3){
-            failed_links->insert(hypothesis->begin(), hypothesis->end());
+            localized_links.insert(hypothesis->begin(), hypothesis->end());
         }
         if (VERBOSE){
             cout << "Likely candidate "<<*hypothesis<<" "<<likelihood << endl;
@@ -109,7 +111,6 @@ Hypothesis* BayesianNet::LocalizeFailures(LogFileData* data, double min_start_ti
         cout << endl << "Searched hypothesis space in "<<chrono::duration_cast<chrono::milliseconds>(
              chrono::high_resolution_clock::now() - start_search_time).count()*1.0e-3 << " seconds"<<endl;
     }
-    return failed_links;
 }
 
 
@@ -126,6 +127,20 @@ void BayesianNet::ComputeLogLikelihood(vector<Hypothesis*> &hypothesis_space,
         result[i] = make_pair(ComputeLogLikelihood(h, base.first, base.second,
                                         min_start_time_ms, max_finish_time_ms), h);
     }
+}
+
+inline double BayesianNet::BnfWeightedConditional(int naffected, int npaths,
+                                       int naffected_r, int npaths_r,
+                                       double weight_good, double weight_bad){
+    // e2e: end-to-end
+    int e2e_paths = npaths * npaths_r;
+    int e2e_correct_paths = (npaths - naffected) * (npaths_r - naffected_r);
+    int e2e_failed_paths = e2e_paths - e2e_correct_paths;
+    double a = ((double)e2e_failed_paths)/e2e_paths;
+    double val1 = (1.0 - a) + a * pow(((1.0 - p1)/p2), weight_bad) * pow((p1/(1.0-p2)), weight_good);
+    double total_weight = weight_good + weight_bad;
+    double val2 = (1.0 - a) + a * (1 - pow(p1, total_weight))/(1.0 - pow((1.0 - p2), total_weight));
+    return log(val1/val2);
 }
 
 inline double BayesianNet::BnfWeighted(int naffected, int npaths,
@@ -150,7 +165,7 @@ double BayesianNet::ComputeLogLikelihood(Hypothesis* hypothesis,
             for(int f: link_flows){
                 Flow* flow = data_cache->flows[f];
                 //!TODO: Add option for active_flows_only
-                if (flow->start_time_ms >= min_start_time_ms){
+                if (flow->start_time_ms >= min_start_time_ms and (!USE_CONDITIONAL or flow->TracerouteFlow(max_finish_time_ms))){
                     relevant_flows.insert(f);
                 }
             }
@@ -179,11 +194,21 @@ double BayesianNet::ComputeLogLikelihood(Hypothesis* hypothesis,
         vector<Path*>* flow_reverse_paths = flow->GetReversePaths(max_finish_time_ms);
         int npaths_r = flow_reverse_paths->size(), naffected_r = 0, naffected_base_r = 0;
         //!TODO: implement REVERSE_PATH case
-        log_likelihood += BnfWeighted(naffected, npaths, naffected_r, npaths_r,
-                                      weight.first, weight.second);
-        if (naffected_base > 0 or naffected_base_r > 0){
-            log_likelihood -= BnfWeighted(naffected_base, npaths,
-                              naffected_base_r, npaths_r, weight.first, weight.second);
+        if (USE_CONDITIONAL) {
+            log_likelihood += BnfWeightedConditional(naffected, npaths, naffected_r, npaths_r,
+                                          weight.first, weight.second);
+            if (naffected_base > 0 or naffected_base_r > 0){
+                log_likelihood -= BnfWeightedConditional(naffected_base, npaths,
+                                  naffected_base_r, npaths_r, weight.first, weight.second);
+            }
+        }
+        else {
+            log_likelihood += BnfWeighted(naffected, npaths, naffected_r, npaths_r,
+                                          weight.first, weight.second);
+            if (naffected_base > 0 or naffected_base_r > 0){
+                log_likelihood -= BnfWeighted(naffected_base, npaths,
+                                  naffected_base_r, npaths_r, weight.first, weight.second);
+            }
         }
     }
     //function1_time_sec += chrono::duration_cast<chrono::nanoseconds>(

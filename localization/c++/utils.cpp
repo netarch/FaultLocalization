@@ -11,6 +11,25 @@ inline bool string_starts_with(const string &a, const string &b) {
     return (b.length() <= a.length() && equal(b.begin(), b.end(), a.begin()));
 }
 
+LogFileData* GetDataFromLogFileDistributed(string dirname, int nchunks, int nopenmp_threads){ 
+    auto start_time = chrono::high_resolution_clock::now();
+    LogFileData* chunk_data[nchunks];
+    #pragma omp parallel for num_threads(nopenmp_threads)
+    for(int i=0; i<nchunks; i++){
+        chunk_data[i] = GetDataFromLogFile(dirname + "/" + to_string(i));
+    }
+    if (VERBOSE){
+        cout<<"Read log file chunks in "<<chrono::duration_cast<chrono::seconds>(
+            chrono::high_resolution_clock::now() - start_time).count() << " seconds "<< endl;
+    }
+    LogFileData* all_data = new LogFileData();
+    for(int i=0; i<nchunks; i++){
+        all_data->AddChunkData(chunk_data[i]); 
+        free(chunk_data[i]);
+    }
+    return all_data;
+}
+
 LogFileData* GetDataFromLogFile(string filename){ 
     auto start_time = chrono::high_resolution_clock::now();
     LogFileData* data = new LogFileData();
@@ -20,13 +39,18 @@ LogFileData* GetDataFromLogFile(string filename){
     int curr_link_index = 0;
     int nlines = 0;
     while (getline(infile, line)){
+        //const char *linum = line.c_str();
         istringstream line_stream (line);
+        //cout << linum <<endl;
+        //sscanf(linum, "%s *", op);
+        //cout << "op" << op << endl;
         line_stream >> op;
         nlines += 1;
         if (op == "Failing_link"){
             int src, dest;
             float failparam;
             line_stream >> src >> dest >> failparam;
+            //sscanf (linum + op.size(),"%d %*d %f", &src, &dest, &failparam);
             data->failed_links[Link(src, dest)] = failparam;
             if (VERBOSE){
                 cout<< "Failed link "<<src<<" "<<dest<<" "<<failparam<<endl; 
@@ -106,10 +130,20 @@ LogFileData* GetDataFromLogFile(string filename){
         }
     }
     if (VERBOSE){
-        cout<<"Read log file in "<<chrono::duration_cast<chrono::seconds>(
-            chrono::high_resolution_clock::now() - start_time).count() << " seconds, numlines " << nlines << endl;
+        cout<<"Read log file in "<<chrono::duration_cast<chrono::milliseconds>(
+            chrono::high_resolution_clock::now() - start_time).count()/1000.0 << " seconds, numlines " << nlines << endl;
     }
     return data;
+}
+
+void LogFileData::FilterFlowsForConditional(double max_finish_time_ms){
+    vector<Flow*> filtered_flows;
+    for (Flow* f: flows){
+        if (f->TracerouteFlow(max_finish_time_ms)){
+            filtered_flows.push_back(f);
+        }
+    }
+    flows = filtered_flows;
 }
 
 unordered_map<Link, vector<int> >* LogFileData::GetForwardFlowsByLink(double max_finish_time_ms){
@@ -163,6 +197,19 @@ void LogFileData::GetFailedLinksSet(Hypothesis &failed_links_set){
     for (auto &it: failed_links){
         failed_links_set.insert(it.first);
     } 
+}
+
+void LogFileData::AddChunkData(LogFileData* chunk_data){
+    flows.insert(flows.end(), chunk_data->flows.begin(), chunk_data->flows.end());
+    for (auto &it: chunk_data->failed_links){
+        failed_links[it.first] = it.second;
+    }
+    for (Link l: chunk_data->inverse_links){
+        if (links_to_indices.find(l) == links_to_indices.end()){
+            links_to_indices[l] = inverse_links.size();
+            inverse_links.push_back(l);
+        }
+    }
 }
 
 PDD GetPrecisionRecall(Hypothesis& failed_links, Hypothesis& predicted_hypothesis){

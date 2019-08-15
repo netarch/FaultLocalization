@@ -307,7 +307,7 @@ def bayesian_network_cilia(flows, links, inverse_links, flows_by_link, forward_f
             start = int(i * num_hypothesis/nprocesses)
             end = int(min(num_hypothesis, (i+1) * num_hypothesis/nprocesses))
             #!TODO: Hack. The 3rd argument will restrict flows to active flows only for nfails==1
-            active_flows_only = (nfails==1 and repeat_nfails_1)
+            active_flows_only = False #(nfails==1 and repeat_nfails_1)
             request_queues[i].put((list(hypothesis_space[start:end]), (nfails==MAX_FAILS or nprocesses==1), active_flows_only))
 
         if (nprocesses == 1):

@@ -14,7 +14,8 @@ int main(int argc, char *argv[]){
     int nopenmp_threads = atoi(argv[4]);
     cout << "Using " << nopenmp_threads << " openmp threads"<<endl;
     //LogFileData* data = GetDataFromLogFile(filename);
-    LogFileData* data = GetDataFromLogFileDistributed(filename, 40, nopenmp_threads);
+    int nchunks = 4;
+    LogFileData* data = GetDataFromLogFileDistributed(filename, nchunks, nchunks);
     Hypothesis failed_links_set;
     data->GetFailedLinksSet(failed_links_set);
     BayesianNet estimator;

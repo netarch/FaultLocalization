@@ -63,7 +63,6 @@ print("Num racks", nracks, "Servers per rack", servers_per_rack)
 
 #nflows = random.randint(200000, 400000)
 nflows = 100 * nservers
-nflows = 100
 #nflows = 250
 servers_busy = []
 servers_idle = []
@@ -103,7 +102,7 @@ def get_flows(nflows, G, fail_prob, servers_busy, servers_idle, outfile, respons
     packetsize = 1500 #bytes
     sumflowsize = 0
     for i in range(nflows):
-        if i%100 == 0:
+        if i%1000 == 0:
             print("Finished", i, "flows")
         src = random_server_generator()
         dst = random_server_generator()
@@ -137,7 +136,7 @@ def get_flows(nflows, G, fail_prob, servers_busy, servers_idle, outfile, respons
     response_queue.put(sumflowsize)
     return
 
-nprocesses = 4
+nprocesses = 32
 outfiles = [open(outfilename + "/" + str(i),"w+") for i in range(nprocesses)]
 for (u,v) in failed_links:
     print("Failing_link", u, v, fail_prob[(u,v)], file=outfiles[0])

@@ -71,14 +71,14 @@ public:
     vector<Path*> paths, reverse_paths;
     double start_time_ms;
     int src, dest;
+    // Should be of size 1 always
+    vector<Path*> path_taken_vector, reverse_path_taken_vector;
 private:
     string srcip, destip;
     int srcport, destport;
     int nbytes;
     vector<FlowSnapshot*> snapshots;
     int curr_snapshot_ptr;
-    // Should be of size 1 always
-    vector<Path*> path_taken_vector, reverse_path_taken_vector;
 };
 
 #endif

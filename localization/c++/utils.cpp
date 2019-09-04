@@ -58,8 +58,11 @@ LogFileData* GetDataFromLogFile(string filename){
         }
         else if (op == "Flowid="){
             // Log the previous flow
-            if (flow != NULL and flow->paths.size() > 0){
-                assert (flow->GetPathTaken() and flow->GetReversePathTaken());
+            if (flow != NULL and flow->paths.size() > 0 and flow->path_taken_vector.size() == 1){
+                assert (flow->GetPathTaken());
+                if (CONSIDER_REVERSE_PATH){
+                    assert (flow->GetReversePathTaken());
+                }
                 if (flow->GetLatestPacketsSent() > 0 and !flow->DiscardFlow()
                     and flow->paths.size() > 0){
                     //flow->PrintInfo();
@@ -122,8 +125,11 @@ LogFileData* GetDataFromLogFile(string filename){
     }
 
     // Log the last flow
-    if (flow != NULL and flow->paths.size() > 0){
-        assert (flow->GetPathTaken() and flow->GetReversePathTaken());
+    if (flow != NULL and flow->paths.size() > 0 and flow->path_taken_vector.size() == 1){
+        assert (flow->GetPathTaken());
+        if (CONSIDER_REVERSE_PATH){
+            assert (flow->GetReversePathTaken());
+        }
         if (flow->GetLatestPacketsSent() > 0 and !flow->DiscardFlow() and flow->paths.size() > 0){
             //flow->PrintInfo();
             data->flows.push_back(flow);
@@ -150,6 +156,9 @@ unordered_map<Link, vector<int> >* LogFileData::GetForwardFlowsByLink(double max
     if (forward_flows_by_link != NULL) delete(forward_flows_by_link);
     forward_flows_by_link = new unordered_map<Link, vector<int> >();
     for (int ff=0; ff<flows.size(); ff++){
+        if (VERBOSE and ff%100000==0){
+            cout<<"GetForwardFlowsByLink "<<ff<<endl;
+        }
         auto flow_paths = flows[ff]->GetPaths(max_finish_time_ms);
         for (Path* path: *flow_paths){
             for (int i=1; i<path->size(); i++){
@@ -179,9 +188,9 @@ unordered_map<Link, vector<int> >* LogFileData::GetReverseFlowsByLink(double max
 unordered_map<Link, vector<int> >* LogFileData::GetFlowsByLink(double max_finish_time_ms){
     if (flows_by_link != NULL) delete(flows_by_link);
     GetForwardFlowsByLink(max_finish_time_ms);
-    GetReverseFlowsByLink(max_finish_time_ms);
     if (!CONSIDER_REVERSE_PATH) flows_by_link = forward_flows_by_link;
     else{
+        GetReverseFlowsByLink(max_finish_time_ms);
         flows_by_link = new unordered_map<Link, vector<int> >();
         for (Link link: inverse_links){
             set_union(forward_flows_by_link->at(link).begin(), forward_flows_by_link->at(link).end(),

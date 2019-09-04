@@ -14,7 +14,7 @@ int main(int argc, char *argv[]){
     int nopenmp_threads = atoi(argv[4]);
     cout << "Using " << nopenmp_threads << " openmp threads"<<endl;
     //LogFileData* data = GetDataFromLogFile(filename);
-    int nchunks = 4;
+    int nchunks = 32;
     LogFileData* data = GetDataFromLogFileDistributed(filename, nchunks, nchunks);
     Hypothesis failed_links_set;
     data->GetFailedLinksSet(failed_links_set);

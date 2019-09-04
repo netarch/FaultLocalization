@@ -6,7 +6,9 @@
 #include <cmath>
 #include <iostream>
 #include <omp.h>
+#include <sparsehash/dense_hash_map> 
 
+using google::dense_hash_map;
 using namespace std;
 
 //!TODO: Change to smart pointers for easier GC
@@ -124,8 +126,11 @@ void BayesianNet::LocalizeFailures(LogFileData* data, double min_start_time_ms,
 void BayesianNet::ComputeSingleLinkLogLikelihood(vector<pair<double, Hypothesis*> > &result,
                                         double min_start_time_ms, double max_finish_time_ms,
                                         int nopenmp_threads){
-    unordered_map<Link, double> likelihoods[nopenmp_threads];
-    double map_update_time[nopenmp_threads] = {0.0};
+    dense_hash_map<Link, double, hash<Link> > likelihoods[nopenmp_threads];
+    for (int i=0; i<nopenmp_threads; i++){
+        likelihoods[i].set_empty_key(make_pair(-1, -1));
+    }
+    //double map_update_time[nopenmp_threads] = {0.0};
     #pragma omp parallel for num_threads(nopenmp_threads)
     for (int ii=0; ii<data_cache->flows.size(); ii++){
         Flow* flow = data_cache->flows[ii];
@@ -146,22 +151,24 @@ void BayesianNet::ComputeSingleLinkLogLikelihood(vector<pair<double, Hypothesis*
             log_likelihood = BnfWeighted(naffected, npaths, naffected_r, npaths_r,
                                           weight.first, weight.second);
         }
-        auto start_map_update_time = chrono::high_resolution_clock::now();
+        //auto start_map_update_time = chrono::high_resolution_clock::now();
         for (Path* path: *flow_paths){
             for (int i=1; i<path->size(); i++){
                 Link link = make_pair(path->at(i-1), path->at(i));
                 likelihoods[thread_num][link] += log_likelihood;
             }
         }
-        map_update_time[thread_num] += chrono::duration_cast<chrono::microseconds>(
-                chrono::high_resolution_clock::now() - start_map_update_time).count()*1.0e-6;
+        //map_update_time[thread_num] += chrono::duration_cast<chrono::microseconds>(
+        //        chrono::high_resolution_clock::now() - start_map_update_time).count()*1.0e-6;
     }
     auto start_merge_time = chrono::high_resolution_clock::now();
     unordered_map<Link, double> final_likelihoods;
     for(int i=0; i<nopenmp_threads; i++){
+        /*
         if (VERBOSE){
             cout << "Likelihood map update time: "<< map_update_time[i] << " seconds - "<< i <<endl;
         }
+        */
         for(auto& it: likelihoods[i])
             final_likelihoods[it.first] += it.second;
     }

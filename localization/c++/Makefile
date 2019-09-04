@@ -1,5 +1,7 @@
 CC = g++
 CFLAGS = -std=c++11 -O3 -fopenmp -ffast-math -w -Wall -Wno-deprecated -Wno-unused-variable
+LIBS = -L/home/vharsh2/ns-allinone-3.24.1/ns-3.24.1/localization/c++/sparsehash/libs
+INCLUDE = -I/home/vharsh2/ns-allinone-3.24.1/ns-3.24.1/localization/c++/sparsehash/include
 
 all: loss_estimator
 
@@ -13,7 +15,7 @@ utils.o: utils.cpp utils.h flow.o
 	$(CC) $(CFLAGS) -c utils.cpp
 
 bayesian_net.o: bayesian_net.cpp bayesian_net.h flow.o utils.o
-	$(CC) $(CFLAGS) -c bayesian_net.cpp
+	$(CC) $(INCLUDE) $(CFLAGS) -c bayesian_net.cpp $(LIBS) 
 
 clean:	
 	rm -f *.o loss_estimator

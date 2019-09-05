@@ -145,23 +145,39 @@ LogFileData* GetDataFromLogFile(string filename){
     return data;
 }
 
-void LogFileData::FilterFlowsForConditional(double max_finish_time_ms){
-    vector<Flow*> filtered_flows;
-    for (Flow* f: flows){
+void LogFileData::FilterFlowsForConditional(double max_finish_time_ms, int nopenmp_threads){
+    vector<Flow*> filtered_flows[nopenmp_threads];
+    #pragma omp parallel for num_threads(nopenmp_threads)
+    for (int ff=0; ff<flows.size(); ff++){
+        int thread_num = omp_get_thread_num();
+        Flow* f = flows[ff];
         if (f->TracerouteFlow(max_finish_time_ms)){
-            filtered_flows.push_back(f);
+            filtered_flows[thread_num].push_back(f);
+        }
+        else{
+            free(f);
         }
     }
-    flows = filtered_flows;
+    flows.clear();
+    for (int t=0; t<nopenmp_threads; t++){
+        for (Flow* f: filtered_flows[t]){
+            flows.push_back(f);
+        }
+    }
 }
 
 unordered_map<Link, vector<int> >* LogFileData::GetForwardFlowsByLink(double max_finish_time_ms, int nopenmp_threads){
     if (forward_flows_by_link != NULL) delete(forward_flows_by_link);
-    forward_flows_by_link = new unordered_map<Link, vector<int> >();
 
-    dense_hash_map<Link, vector<int>, hash<Link> > forward_flows_by_link_threads[nopenmp_threads];
+    int nlinks = inverse_links.size();
+    dense_hash_map<Link, vector<int>, hash<Link> > forward_flows_by_link_threads[nopenmp_threads]
+                    = {dense_hash_map<Link, vector<int>, hash<Link> >(nlinks)};
+    #pragma omp parallel for num_threads(nopenmp_threads)
     for (int i=0; i<nopenmp_threads; i++){
         forward_flows_by_link_threads[i].set_empty_key(make_pair(-1, -1));
+        for (Link link: inverse_links){
+            forward_flows_by_link_threads[i].insert(make_pair(link, vector<int>()));
+        }
     }
     #pragma omp parallel for num_threads(nopenmp_threads)
     for (int ff=0; ff<flows.size(); ff++){
@@ -178,6 +194,14 @@ unordered_map<Link, vector<int> >* LogFileData::GetForwardFlowsByLink(double max
         }
     }
     auto start_merge_time = chrono::high_resolution_clock::now();
+    forward_flows_by_link = new unordered_map<Link, vector<int> >(nlinks);
+    for (Link link: inverse_links){
+        forward_flows_by_link->insert(make_pair(link, vector<int>()));
+    }
+    if (VERBOSE){
+        cout << "Initialized forward_flows_by_link in "<<chrono::duration_cast<chrono::milliseconds>(
+                chrono::high_resolution_clock::now() - start_merge_time).count()*1.0e-3 << " seconds"<<endl;
+    }
     #pragma omp parallel for num_threads(nopenmp_threads)
     for (int i=0; i<inverse_links.size(); i++){
         Link link = inverse_links[i];

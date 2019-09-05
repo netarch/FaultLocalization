@@ -18,7 +18,7 @@ struct LogFileData{
     unordered_map<Link, vector<int> >* GetReverseFlowsByLink(double max_finish_time_ms);
     unordered_map<Link, vector<int> >* GetFlowsByLink(double max_finish_time_ms, int nopenmp_threads);
     void GetFailedLinksSet(Hypothesis &failed_links_set);
-    void FilterFlowsForConditional(double max_finish_time_ms);
+    void FilterFlowsForConditional(double max_finish_time_ms, int nopenmp_threads);
 
     void AddChunkData(LogFileData* chunk_data);
 };

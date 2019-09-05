@@ -20,7 +20,7 @@ int main(int argc, char *argv[]){
     data->GetFailedLinksSet(failed_links_set);
     BayesianNet estimator;
     if (estimator.USE_CONDITIONAL){
-        data->FilterFlowsForConditional(max_finish_time_ms);
+        data->FilterFlowsForConditional(max_finish_time_ms, nopenmp_threads);
     }
     Hypothesis estimator_hypothesis;
     estimator.LocalizeFailures(data, min_start_time_ms, max_finish_time_ms,

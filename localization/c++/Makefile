@@ -1,5 +1,6 @@
 CC = g++
 CFLAGS = -std=c++11 -O3 -fopenmp -ffast-math -w -Wall -Wno-deprecated -Wno-unused-variable
+#CFLAGS = -g -std=c++11 -fopenmp -ffast-math -w -Wall -Wno-deprecated -Wno-unused-variable
 LIBS = -L/home/vharsh2/ns-allinone-3.24.1/ns-3.24.1/localization/c++/sparsehash/libs
 INCLUDE = -I/home/vharsh2/ns-allinone-3.24.1/ns-3.24.1/localization/c++/sparsehash/include
 

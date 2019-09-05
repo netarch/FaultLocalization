@@ -14,9 +14,9 @@ struct LogFileData{
     unordered_map<Link, vector<int> > *forward_flows_by_link, *reverse_flows_by_link, *flows_by_link;
 
     LogFileData (): forward_flows_by_link(NULL), reverse_flows_by_link(NULL), flows_by_link(NULL) {}
-    unordered_map<Link, vector<int> >* GetForwardFlowsByLink(double max_finish_time_ms);
+    unordered_map<Link, vector<int> >* GetForwardFlowsByLink(double max_finish_time_ms, int nopenmp_threads);
     unordered_map<Link, vector<int> >* GetReverseFlowsByLink(double max_finish_time_ms);
-    unordered_map<Link, vector<int> >* GetFlowsByLink(double max_finish_time_ms);
+    unordered_map<Link, vector<int> >* GetFlowsByLink(double max_finish_time_ms, int nopenmp_threads);
     void GetFailedLinksSet(Hypothesis &failed_links_set);
     void FilterFlowsForConditional(double max_finish_time_ms);
 

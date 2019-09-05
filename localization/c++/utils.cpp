@@ -5,7 +5,10 @@
 #include <sstream>
 #include <chrono>
 #include <algorithm>
+#include <omp.h>
+#include <sparsehash/dense_hash_map>
 
+using google::dense_hash_map;
 
 inline bool string_starts_with(const string &a, const string &b) {
     return (b.length() <= a.length() && equal(b.begin(), b.end(), a.begin()));
@@ -83,7 +86,7 @@ LogFileData* GetDataFromLogFile(string filename){
         }
         else if (string_starts_with(op, "flowpath_reverse")){
             Path* path = new Path();
-            int node;
+            int prev_node = -1, node;
             while (line_stream >> node){
                 path->push_back(node);
             }
@@ -152,20 +155,41 @@ void LogFileData::FilterFlowsForConditional(double max_finish_time_ms){
     flows = filtered_flows;
 }
 
-unordered_map<Link, vector<int> >* LogFileData::GetForwardFlowsByLink(double max_finish_time_ms){
+unordered_map<Link, vector<int> >* LogFileData::GetForwardFlowsByLink(double max_finish_time_ms, int nopenmp_threads){
     if (forward_flows_by_link != NULL) delete(forward_flows_by_link);
     forward_flows_by_link = new unordered_map<Link, vector<int> >();
+
+    dense_hash_map<Link, vector<int>, hash<Link> > forward_flows_by_link_threads[nopenmp_threads];
+    for (int i=0; i<nopenmp_threads; i++){
+        forward_flows_by_link_threads[i].set_empty_key(make_pair(-1, -1));
+    }
+    #pragma omp parallel for num_threads(nopenmp_threads)
     for (int ff=0; ff<flows.size(); ff++){
         if (VERBOSE and ff%100000==0){
             cout<<"GetForwardFlowsByLink "<<ff<<endl;
         }
+        int thread_num = omp_get_thread_num();
         auto flow_paths = flows[ff]->GetPaths(max_finish_time_ms);
         for (Path* path: *flow_paths){
             for (int i=1; i<path->size(); i++){
                 Link link(path->at(i-1), path->at(i));
-                (*forward_flows_by_link)[link].push_back(ff);
+                forward_flows_by_link_threads[thread_num][link].push_back(ff);
             }
         }
+    }
+    auto start_merge_time = chrono::high_resolution_clock::now();
+    #pragma omp parallel for num_threads(nopenmp_threads)
+    for (int i=0; i<inverse_links.size(); i++){
+        Link link = inverse_links[i];
+        vector<int>& v = (*forward_flows_by_link)[link];
+        for(int t=0;t<nopenmp_threads; t++){
+            vector<int>& c = forward_flows_by_link_threads[t][link];
+            v.insert(v.begin(), c.begin(), c.end());
+        }
+    }
+    if (VERBOSE){
+        cout << "Merged binned flows in "<<chrono::duration_cast<chrono::milliseconds>(
+                chrono::high_resolution_clock::now() - start_merge_time).count()*1.0e-3 << " seconds"<<endl;
     }
     return forward_flows_by_link;
 }
@@ -185,9 +209,9 @@ unordered_map<Link, vector<int> >* LogFileData::GetReverseFlowsByLink(double max
     return reverse_flows_by_link;
 }
 
-unordered_map<Link, vector<int> >* LogFileData::GetFlowsByLink(double max_finish_time_ms){
+unordered_map<Link, vector<int> >* LogFileData::GetFlowsByLink(double max_finish_time_ms, int nopenmp_threads){
     if (flows_by_link != NULL) delete(flows_by_link);
-    GetForwardFlowsByLink(max_finish_time_ms);
+    GetForwardFlowsByLink(max_finish_time_ms, nopenmp_threads);
     if (!CONSIDER_REVERSE_PATH) flows_by_link = forward_flows_by_link;
     else{
         GetReverseFlowsByLink(max_finish_time_ms);

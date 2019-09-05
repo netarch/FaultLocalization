@@ -18,7 +18,13 @@ void BayesianNet::LocalizeFailures(LogFileData* data, double min_start_time_ms,
                                 int nopenmp_threads){
     if (VERBOSE) cout << "Num flows "<<data->flows.size()<<endl;
     data_cache = data;
-    flows_by_link_cache = data_cache->GetFlowsByLink(max_finish_time_ms);
+    auto start_bin_time = chrono::high_resolution_clock::now();
+    flows_by_link_cache = data_cache->GetFlowsByLink(max_finish_time_ms, nopenmp_threads);
+    if (VERBOSE){
+        cout << "Finished binning flows by links in "<<chrono::duration_cast<chrono::milliseconds>(
+             chrono::high_resolution_clock::now() - start_bin_time).count()*1.0e-3
+             << " seconds" << endl;
+    }
     assert (flows_by_link_cache != NULL);
     unordered_map<Hypothesis*, double> all_hypothesis;
 

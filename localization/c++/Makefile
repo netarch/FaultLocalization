@@ -12,7 +12,7 @@ flow.o: flow.cpp flow.h defs.h
 	$(CC) $(CFLAGS) -c flow.cpp
 
 utils.o: utils.cpp utils.h flow.o
-	$(CC) $(CFLAGS) -c utils.cpp
+	$(CC) $(INCLUDE) $(CFLAGS) -c utils.cpp
 
 bayesian_net.o: bayesian_net.cpp bayesian_net.h flow.o utils.o
 	$(CC) $(INCLUDE) $(CFLAGS) -c bayesian_net.cpp $(LIBS) 

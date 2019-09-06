@@ -14,10 +14,10 @@ int main(int argc, char *argv[]){
     int nopenmp_threads = atoi(argv[4]);
     cout << "Using " << nopenmp_threads << " openmp threads"<<endl;
     //LogFileData* data = GetDataFromLogFile(filename);
-    int nchunks = 32;
+    int nchunks = 1;
     LogFileData* data = GetDataFromLogFileDistributed(filename, nchunks, nchunks);
     Hypothesis failed_links_set;
-    data->GetFailedLinksSet(failed_links_set);
+    data->GetFailedLinkIds(failed_links_set);
     BayesianNet estimator;
     if (estimator.USE_CONDITIONAL){
         data->FilterFlowsForConditional(max_finish_time_ms, nopenmp_threads);
@@ -26,7 +26,7 @@ int main(int argc, char *argv[]){
     estimator.LocalizeFailures(data, min_start_time_ms, max_finish_time_ms,
                                         estimator_hypothesis, nopenmp_threads);
     PDD precision_recall = GetPrecisionRecall(failed_links_set, estimator_hypothesis);
-    cout << "Output Hypothesis: " << estimator_hypothesis << " precsion_recall "
+    cout << "Output Hypothesis: " << data->IdsToLinks(estimator_hypothesis) << " precsion_recall "
          <<precision_recall.first << " " << precision_recall.second<<endl;
     return 0;
 }

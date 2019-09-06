@@ -6,9 +6,8 @@
 #include <cmath>
 #include <iostream>
 #include <omp.h>
-#include <sparsehash/dense_hash_map> 
-
-using google::dense_hash_map;
+//#include <sparsehash/dense_hash_map> 
+//using google::dense_hash_map;
 using namespace std;
 
 //!TODO: Change to smart pointers for easier GC
@@ -19,20 +18,24 @@ void BayesianNet::LocalizeFailures(LogFileData* data, double min_start_time_ms,
     if (VERBOSE) cout << "Num flows "<<data->flows.size()<<endl;
     data_cache = data;
     auto start_bin_time = chrono::high_resolution_clock::now();
-    flows_by_link_cache = data_cache->GetFlowsByLink(max_finish_time_ms, nopenmp_threads);
+    flows_by_link_id_cache = data_cache->GetFlowsByLinkId(max_finish_time_ms, nopenmp_threads);
     if (VERBOSE){
         cout << "Finished binning flows by links in "<<chrono::duration_cast<chrono::milliseconds>(
              chrono::high_resolution_clock::now() - start_bin_time).count()*1.0e-3
              << " seconds" << endl;
     }
-    assert (flows_by_link_cache != NULL);
+    assert (flows_by_link_id_cache != NULL);
     unordered_map<Hypothesis*, double> all_hypothesis;
 
     Hypothesis* no_failure_hypothesis = new Hypothesis();
     all_hypothesis[no_failure_hypothesis] = 0.0;
     vector<Hypothesis*> prev_hypothesis_space; 
     //Initial list of candidates is all links
-    vector<Link> candidates = data->inverse_links;
+    //!TODO
+    vector<int> candidates;
+    for (int link_id=0; link_id<data_cache->inverse_links.size(); link_id++){
+        candidates.push_back(link_id);
+    }
     prev_hypothesis_space.push_back(no_failure_hypothesis);
     int nfails = 1;
     bool repeat_nfails_1 = true;
@@ -49,9 +52,9 @@ void BayesianNet::LocalizeFailures(LogFileData* data, double min_start_time_ms,
             vector<pair<Hypothesis*, double> > base_hypothesis_likelihood;
             for(Hypothesis* h: prev_hypothesis_space){
                 assert (h != NULL);
-                for (Link &link: candidates){
-                    if (h->find(link) == h->end()){
-                        h->insert(link);
+                for (int &link_id: candidates){
+                    if (h->find(link_id) == h->end()){
+                        h->insert(link_id);
                         if (find_if(hypothesis_space.begin(), hypothesis_space.end(),
                                             HypothesisPointerCompare(h)) == hypothesis_space.end()){
                             Hypothesis *hnew = new Hypothesis(*h);
@@ -59,7 +62,7 @@ void BayesianNet::LocalizeFailures(LogFileData* data, double min_start_time_ms,
                             base_hypothesis_likelihood.push_back(make_pair(h, all_hypothesis[h]));
                             //base_hypothesis_likelihood.push_back(make_pair(no_failure_hypothesis, 0.0));
                         }
-                        h->erase(link);
+                        h->erase(link_id);
                     }
                 }
             }
@@ -74,8 +77,8 @@ void BayesianNet::LocalizeFailures(LogFileData* data, double min_start_time_ms,
             for (int i=0; i<min((int)result.size(), NUM_CANDIDATES); i++){
                 Hypothesis* h = result[i].second;
                 assert (h->size() == 1);
-                Link link = *(h->begin());
-                candidates.push_back(link);
+                int link_id = *(h->begin());
+                candidates.push_back(link_id);
             }
         }
         if (VERBOSE){
@@ -97,11 +100,11 @@ void BayesianNet::LocalizeFailures(LogFileData* data, double min_start_time_ms,
     }
     if (VERBOSE) {
         Hypothesis correct_hypothesis;
-        data_cache->GetFailedLinksSet(correct_hypothesis);
+        data_cache->GetFailedLinkIds(correct_hypothesis);
         double likelihood_correct_hypothesis = ComputeLogLikelihood(&correct_hypothesis,
                                                         no_failure_hypothesis, 0.0,
                                                         min_start_time_ms, max_finish_time_ms);
-        cout << "Correct Hypothesis " << correct_hypothesis << " likelihood " << likelihood_correct_hypothesis << endl;
+        cout << "Correct Hypothesis " << data_cache->IdsToLinks(correct_hypothesis) << " likelihood " << likelihood_correct_hypothesis << endl;
 
     }
 
@@ -120,7 +123,7 @@ void BayesianNet::LocalizeFailures(LogFileData* data, double min_start_time_ms,
             localized_links.insert(hypothesis->begin(), hypothesis->end());
         }
         if (VERBOSE){
-            cout << "Likely candidate "<<*hypothesis<<" "<<likelihood << endl;
+            cout << "Likely candidate "<<data_cache->IdsToLinks(*hypothesis)<<" "<<likelihood << endl;
         }
     }
     if (VERBOSE){
@@ -132,11 +135,16 @@ void BayesianNet::LocalizeFailures(LogFileData* data, double min_start_time_ms,
 void BayesianNet::ComputeSingleLinkLogLikelihood(vector<pair<double, Hypothesis*> > &result,
                                         double min_start_time_ms, double max_finish_time_ms,
                                         int nopenmp_threads){
-    dense_hash_map<Link, double, hash<Link> > likelihoods[nopenmp_threads];
-    for (int i=0; i<nopenmp_threads; i++){
-        likelihoods[i].set_empty_key(make_pair(-1, -1));
+    int nlinks = data_cache->inverse_links.size();
+    cout << "nlinks "<<nlinks<< " nopenmp_threads "<<nopenmp_threads<<endl;
+    vector<double> likelihoods[nopenmp_threads];
+    #pragma omp parallel for num_threads(nopenmp_threads)
+    for(int t=0; t<nopenmp_threads; t++){
+        likelihoods[t].resize(nlinks);
+        std::fill_n(likelihoods[t].begin(), nlinks, 0.0);
     }
     //double map_update_time[nopenmp_threads] = {0.0};
+    cout<<"Starting to compute single link likelihoods"<<endl;
     #pragma omp parallel for num_threads(nopenmp_threads)
     for (int ii=0; ii<data_cache->flows.size(); ii++){
         Flow* flow = data_cache->flows[ii];
@@ -159,36 +167,32 @@ void BayesianNet::ComputeSingleLinkLogLikelihood(vector<pair<double, Hypothesis*
         }
         //auto start_map_update_time = chrono::high_resolution_clock::now();
         for (Path* path: *flow_paths){
-            for (int i=1; i<path->size(); i++){
-                Link link = make_pair(path->at(i-1), path->at(i));
-                likelihoods[thread_num][link] += log_likelihood;
+            for (int link_id: *path){
+                likelihoods[thread_num][link_id] += log_likelihood;
             }
         }
         //map_update_time[thread_num] += chrono::duration_cast<chrono::microseconds>(
         //        chrono::high_resolution_clock::now() - start_map_update_time).count()*1.0e-6;
     }
     auto start_merge_time = chrono::high_resolution_clock::now();
-    unordered_map<Link, double> final_likelihoods;
-    for(int i=0; i<nopenmp_threads; i++){
-        /*
-        if (VERBOSE){
-            cout << "Likelihood map update time: "<< map_update_time[i] << " seconds - "<< i <<endl;
+    double final_likelihoods[nlinks];
+    fill(final_likelihoods, final_likelihoods + nlinks, 0.0);
+    #pragma omp parallel for num_threads(nopenmp_threads)
+    for (int link_id=0; link_id<nlinks; link_id++){
+        //!TODO: Try changing likelihoods 2d array from (threads X links) to (links X threads)
+        for(int t=0; t<nopenmp_threads; t++){
+            final_likelihoods[link_id] += likelihoods[t][link_id];
         }
-        */
-        for(auto& it: likelihoods[i])
-            final_likelihoods[it.first] += it.second;
     }
     if (VERBOSE){
         cout << "Merged likelihoods in "<<chrono::duration_cast<chrono::milliseconds>(
              chrono::high_resolution_clock::now() - start_merge_time).count()*1.0e-3 << " seconds"<<endl;
     }
-    int nlinks = data_cache->inverse_links.size();
     result.resize(nlinks);
-    for(int i=0; i<nlinks; i++){
-        Link link = data_cache->inverse_links[i];
+    for(int link_id=0; link_id<nlinks; link_id++){
         Hypothesis* h = new Hypothesis();
-        h->insert(link);
-        result[i] = make_pair(final_likelihoods[link], h);
+        h->insert(link_id);
+        result[link_id] = make_pair(final_likelihoods[link_id], h);
     }
 }
 
@@ -237,10 +241,10 @@ double BayesianNet::ComputeLogLikelihood(Hypothesis* hypothesis,
                     double min_start_time_ms, double max_finish_time_ms){
     double log_likelihood = 0.0;
     unordered_set<int> relevant_flows;
-    for (Link link: *hypothesis){
-        if (base_hypothesis->find(link) == base_hypothesis->end()){
-            vector<int> &link_flows = (*flows_by_link_cache)[link];
-            for(int f: link_flows){
+    for (int link_id: *hypothesis){
+        if (base_hypothesis->find(link_id) == base_hypothesis->end()){
+            vector<int> &link_id_flows = (*flows_by_link_id_cache)[link_id];
+            for(int f: link_id_flows){
                 Flow* flow = data_cache->flows[f];
                 //!TODO: Add option for active_flows_only
                 if (flow->start_time_ms >= min_start_time_ms and (!USE_CONDITIONAL or flow->TracerouteFlow(max_finish_time_ms))){
@@ -260,11 +264,10 @@ double BayesianNet::ComputeLogLikelihood(Hypothesis* hypothesis,
         //!TODO: Performance todo: check if dereferencing flow_paths ptr is okay in the for loop
         for (Path* path: *flow_paths){
             bool path_bad = false, path_bad_base = false;
-            for (int i=1; i<path->size(); i++){
-                Link link = make_pair(path->at(i-1), path->at(i));
-                path_bad = (path_bad or (hypothesis->find(link) != hypothesis->end()));
+            for (int link_id: *path){
+                path_bad = (path_bad or (hypothesis->find(link_id) != hypothesis->end()));
                 path_bad_base = (path_bad_base or 
-                                 (base_hypothesis->find(link) != base_hypothesis->end()));
+                                 (base_hypothesis->find(link_id) != base_hypothesis->end()));
             }
             naffected += path_bad;
             naffected_base += path_bad_base;

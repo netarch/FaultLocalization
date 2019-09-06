@@ -9,28 +9,26 @@ using namespace std;
 struct LogFileData{
     unordered_map<Link, double> failed_links;
     vector<Flow*> flows;
-    unordered_map<Link, int> links_to_indices;
+    unordered_map<Link, int> links_to_ids;
     vector<Link> inverse_links;
-    unordered_map<Link, vector<int> > *forward_flows_by_link, *reverse_flows_by_link, *flows_by_link;
+    vector<vector<int> > *forward_flows_by_link_id, *reverse_flows_by_link_id, *flows_by_link_id;
 
-    LogFileData (): forward_flows_by_link(NULL), reverse_flows_by_link(NULL), flows_by_link(NULL) {}
-    unordered_map<Link, vector<int> >* GetForwardFlowsByLink(double max_finish_time_ms, int nopenmp_threads);
-    unordered_map<Link, vector<int> >* GetReverseFlowsByLink(double max_finish_time_ms);
-    unordered_map<Link, vector<int> >* GetFlowsByLink(double max_finish_time_ms, int nopenmp_threads);
-    void GetFailedLinksSet(Hypothesis &failed_links_set);
+    LogFileData (): forward_flows_by_link_id(NULL), reverse_flows_by_link_id(NULL), flows_by_link_id(NULL) {}
+    vector<vector<int> >* GetForwardFlowsByLinkId(double max_finish_time_ms, int nopenmp_threads);
+    vector<vector<int> >* GetReverseFlowsByLinkId(double max_finish_time_ms);
+    vector<vector<int> >* GetFlowsByLinkId(double max_finish_time_ms, int nopenmp_threads);
+    void GetFailedLinkIds(Hypothesis &failed_links_set);
     void FilterFlowsForConditional(double max_finish_time_ms, int nopenmp_threads);
 
-    void AddChunkData(LogFileData* chunk_data);
+    int GetLinkId(Link link);
+    void AddChunkFlows(vector<Flow*> &chunk_flows);
+    void AddFailedLink(Link link, double failparam);
+
+    set<Link> IdsToLinks(Hypothesis &h);
+
 };
 
-struct LinkStats{
-    int src, dest;
-    double drop_rate;
-    LinkStats(int src_, int dest_, double drop_rate_): src(src_), dest(dest_), drop_rate(drop_rate_){}
-    double GetDropRate () { return drop_rate;}
-};
-
-LogFileData* GetDataFromLogFile(string filename);
+void GetDataFromLogFile(string filename, LogFileData* result);
 LogFileData* GetDataFromLogFileDistributed(string dirname, int nchunks, int nopenmp_threads);
 
 PDD GetPrecisionRecall(Hypothesis& failed_links, Hypothesis& predicted_hypothesis);

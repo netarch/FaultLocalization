@@ -43,7 +43,7 @@ private:
     // Noise parameters
     double p1 = 1.0-1.0e-3, p2 = 2.5e-4;
     LogFileData* data_cache;
-    unordered_map<Link, vector<int> >* flows_by_link_cache;
+    vector<vector<int> >* flows_by_link_id_cache;
 
     double function1_time_sec = 0.0;
 };

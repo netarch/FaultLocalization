@@ -6,9 +6,8 @@
 #include <chrono>
 #include <algorithm>
 #include <omp.h>
-#include <sparsehash/dense_hash_map>
-
-using google::dense_hash_map;
+//#include <sparsehash/dense_hash_map>
+//using google::dense_hash_map;
 
 inline bool string_starts_with(const string &a, const string &b) {
     return (b.length() <= a.length() && equal(b.begin(), b.end(), a.begin()));
@@ -16,26 +15,22 @@ inline bool string_starts_with(const string &a, const string &b) {
 
 LogFileData* GetDataFromLogFileDistributed(string dirname, int nchunks, int nopenmp_threads){ 
     auto start_time = chrono::high_resolution_clock::now();
-    LogFileData* chunk_data[nchunks];
+    LogFileData* all_data = new LogFileData();
     #pragma omp parallel for num_threads(nopenmp_threads)
     for(int i=0; i<nchunks; i++){
-        chunk_data[i] = GetDataFromLogFile(dirname + "/" + to_string(i));
+        GetDataFromLogFile(dirname + "/" + to_string(i), all_data);
     }
     if (VERBOSE){
         cout<<"Read log file chunks in "<<chrono::duration_cast<chrono::seconds>(
             chrono::high_resolution_clock::now() - start_time).count() << " seconds "<< endl;
     }
-    LogFileData* all_data = new LogFileData();
-    for(int i=0; i<nchunks; i++){
-        all_data->AddChunkData(chunk_data[i]); 
-        free(chunk_data[i]);
-    }
     return all_data;
 }
 
-LogFileData* GetDataFromLogFile(string filename){ 
+void GetDataFromLogFile(string filename, LogFileData *result){ 
     auto start_time = chrono::high_resolution_clock::now();
-    LogFileData* data = new LogFileData();
+    vector<Flow*> chunk_flows;
+    unordered_map<Link, int> links_to_ids_cache;
     ifstream infile(filename);
     string line, op;
     Flow *flow = NULL;
@@ -54,7 +49,7 @@ LogFileData* GetDataFromLogFile(string filename){
             float failparam;
             line_stream >> src >> dest >> failparam;
             //sscanf (linum + op.size(),"%d %*d %f", &src, &dest, &failparam);
-            data->failed_links[Link(src, dest)] = failparam;
+            result->AddFailedLink(Link(src, dest), failparam);
             if (VERBOSE){
                 cout<< "Failed link "<<src<<" "<<dest<<" "<<failparam<<endl; 
             }
@@ -69,7 +64,7 @@ LogFileData* GetDataFromLogFile(string filename){
                 if (flow->GetLatestPacketsSent() > 0 and !flow->DiscardFlow()
                     and flow->paths.size() > 0){
                     //flow->PrintInfo();
-                    data->flows.push_back(flow);
+                    chunk_flows.push_back(flow);
                 }
             }
             int src, dest, nbytes;
@@ -88,38 +83,48 @@ LogFileData* GetDataFromLogFile(string filename){
             Path* path = new Path();
             int prev_node = -1, node;
             while (line_stream >> node){
-                path->push_back(node);
+                if (prev_node != -1){
+                    Link link(prev_node, node);
+                    int link_id;
+                    auto it = links_to_ids_cache.find(link);
+                    if (it == links_to_ids_cache.end()){
+                        link_id = result->GetLinkId(link);
+                        links_to_ids_cache[link] = link_id;
+                    }
+                    else{
+                        link_id = it->second;
+                    }
+                    path->push_back(link_id);
+                }
+                prev_node = node;
             }
             if (path->size() > 0){
                 assert (flow != NULL);
                 flow->AddReversePath(path, (op.find("taken") != string::npos));
             }
-            for (int i=1; i<path->size(); i++){
-                Link link(path->at(i-1), path->at(i));
-                if (data->links_to_indices.find(link) == data->links_to_indices.end()){
-                    data->links_to_indices[link] = curr_link_index++;
-                    data->inverse_links.push_back(link);
-                    assert (data->inverse_links.size() == curr_link_index);
-                }
-            }
         }
         else if (string_starts_with(op, "flowpath")){
             Path* path = new Path();
-            int node;
+            int prev_node = -1, node;
             while (line_stream >> node){
-                path->push_back(node);
+                if (prev_node != -1){
+                    Link link(prev_node, node);
+                    int link_id;
+                    auto it = links_to_ids_cache.find(link);
+                    if (it == links_to_ids_cache.end()){
+                        link_id = result->GetLinkId(link);
+                        links_to_ids_cache[link] = link_id;
+                    }
+                    else{
+                        link_id = it->second;
+                    }
+                    path->push_back(link_id);
+                }
+                prev_node = node;
             }
             if (path->size() > 0){
                 assert (flow != NULL);
                 flow->AddPath(path, (op.find("taken") != string::npos));
-            }
-            for (int i=1; i<path->size(); i++){
-                Link link(path->at(i-1), path->at(i));
-                if (data->links_to_indices.find(link) == data->links_to_indices.end()){
-                    data->links_to_indices[link] = curr_link_index++;
-                    data->inverse_links.push_back(link);
-                    assert (data->inverse_links.size() == curr_link_index);
-                }
             }
         }
         else if (op == "link_statistics"){
@@ -135,14 +140,14 @@ LogFileData* GetDataFromLogFile(string filename){
         }
         if (flow->GetLatestPacketsSent() > 0 and !flow->DiscardFlow() and flow->paths.size() > 0){
             //flow->PrintInfo();
-            data->flows.push_back(flow);
+            chunk_flows.push_back(flow);
         }
     }
+    result->AddChunkFlows(chunk_flows);
     if (VERBOSE){
         cout<<"Read log file in "<<chrono::duration_cast<chrono::milliseconds>(
             chrono::high_resolution_clock::now() - start_time).count()/1000.0 << " seconds, numlines " << nlines << endl;
     }
-    return data;
 }
 
 void LogFileData::FilterFlowsForConditional(double max_finish_time_ms, int nopenmp_threads){
@@ -166,48 +171,42 @@ void LogFileData::FilterFlowsForConditional(double max_finish_time_ms, int nopen
     }
 }
 
-unordered_map<Link, vector<int> >* LogFileData::GetForwardFlowsByLink(double max_finish_time_ms, int nopenmp_threads){
-    if (forward_flows_by_link != NULL) delete(forward_flows_by_link);
+vector<vector<int> >* LogFileData::GetForwardFlowsByLinkId(double max_finish_time_ms, int nopenmp_threads){
+    if (forward_flows_by_link_id != NULL) delete(forward_flows_by_link_id);
 
     int nlinks = inverse_links.size();
-    dense_hash_map<Link, vector<int>, hash<Link> > forward_flows_by_link_threads[nopenmp_threads]
-                    = {dense_hash_map<Link, vector<int>, hash<Link> >(nlinks)};
+    vector<vector<int> > forward_flows_by_link_id_threads[nopenmp_threads];
     #pragma omp parallel for num_threads(nopenmp_threads)
-    for (int i=0; i<nopenmp_threads; i++){
-        forward_flows_by_link_threads[i].set_empty_key(make_pair(-1, -1));
-        for (Link link: inverse_links){
-            forward_flows_by_link_threads[i].insert(make_pair(link, vector<int>()));
-        }
+    for (int t=0; t<nopenmp_threads; t++){
+        forward_flows_by_link_id_threads[t].resize(nlinks);
     }
+    auto start_bin_time = chrono::high_resolution_clock::now();
     #pragma omp parallel for num_threads(nopenmp_threads)
     for (int ff=0; ff<flows.size(); ff++){
+        /*
         if (VERBOSE and ff%100000==0){
-            cout<<"GetForwardFlowsByLink "<<ff<<endl;
+            cout<<"GetForwardFlowsByLinkId "<<ff<<endl;
         }
+        */
         int thread_num = omp_get_thread_num();
         auto flow_paths = flows[ff]->GetPaths(max_finish_time_ms);
         for (Path* path: *flow_paths){
-            for (int i=1; i<path->size(); i++){
-                Link link(path->at(i-1), path->at(i));
-                forward_flows_by_link_threads[thread_num][link].push_back(ff);
+            for (int link_id: *path){
+                forward_flows_by_link_id_threads[thread_num][link_id].push_back(ff);
             }
         }
     }
-    auto start_merge_time = chrono::high_resolution_clock::now();
-    forward_flows_by_link = new unordered_map<Link, vector<int> >(nlinks);
-    for (Link link: inverse_links){
-        forward_flows_by_link->insert(make_pair(link, vector<int>()));
-    }
     if (VERBOSE){
-        cout << "Initialized forward_flows_by_link in "<<chrono::duration_cast<chrono::milliseconds>(
-                chrono::high_resolution_clock::now() - start_merge_time).count()*1.0e-3 << " seconds"<<endl;
+        cout << "Parallel binning of flows finished in "<<chrono::duration_cast<chrono::milliseconds>(
+                chrono::high_resolution_clock::now() - start_bin_time).count()*1.0e-3 << " seconds"<<endl;
     }
+    auto start_merge_time = chrono::high_resolution_clock::now();
+    forward_flows_by_link_id = new vector<vector<int> >(nlinks);
     #pragma omp parallel for num_threads(nopenmp_threads)
-    for (int i=0; i<inverse_links.size(); i++){
-        Link link = inverse_links[i];
-        vector<int>& v = (*forward_flows_by_link)[link];
+    for (int link_id=0; link_id<inverse_links.size(); link_id++){
+        vector<int>& v = (*forward_flows_by_link_id)[link_id];
         for(int t=0;t<nopenmp_threads; t++){
-            vector<int>& c = forward_flows_by_link_threads[t][link];
+            vector<int>& c = forward_flows_by_link_id_threads[t][link_id];
             v.insert(v.begin(), c.begin(), c.end());
         }
     }
@@ -215,65 +214,88 @@ unordered_map<Link, vector<int> >* LogFileData::GetForwardFlowsByLink(double max
         cout << "Merged binned flows in "<<chrono::duration_cast<chrono::milliseconds>(
                 chrono::high_resolution_clock::now() - start_merge_time).count()*1.0e-3 << " seconds"<<endl;
     }
-    return forward_flows_by_link;
+    return forward_flows_by_link_id;
 }
 
-unordered_map<Link, vector<int> >* LogFileData::GetReverseFlowsByLink(double max_finish_time_ms){
-    if (reverse_flows_by_link != NULL) delete(reverse_flows_by_link);
-    reverse_flows_by_link = new unordered_map<Link, vector<int> >();
+vector<vector<int> >* LogFileData::GetReverseFlowsByLinkId(double max_finish_time_ms){
+    if (reverse_flows_by_link_id != NULL) delete(reverse_flows_by_link_id);
+    reverse_flows_by_link_id = new vector<vector<int> >(inverse_links.size());
     for (int ff=0; ff<flows.size(); ff++){
         auto flow_reverse_paths = flows[ff]->GetReversePaths(max_finish_time_ms);
         for (Path* path: *flow_reverse_paths){
-            for (int i=1; i<path->size(); i++){
-                Link link(path->at(i-1), path->at(i));
-                (*reverse_flows_by_link)[link].push_back(ff);
+            for (int link_id: *path){
+                (*reverse_flows_by_link_id)[link_id].push_back(ff);
             }
         }
     }
-    return reverse_flows_by_link;
+    return reverse_flows_by_link_id;
 }
 
-unordered_map<Link, vector<int> >* LogFileData::GetFlowsByLink(double max_finish_time_ms, int nopenmp_threads){
-    if (flows_by_link != NULL) delete(flows_by_link);
-    GetForwardFlowsByLink(max_finish_time_ms, nopenmp_threads);
-    if (!CONSIDER_REVERSE_PATH) flows_by_link = forward_flows_by_link;
+vector<vector<int> >* LogFileData::GetFlowsByLinkId(double max_finish_time_ms, int nopenmp_threads){
+    if (flows_by_link_id != NULL) delete(flows_by_link_id);
+    GetForwardFlowsByLinkId(max_finish_time_ms, nopenmp_threads);
+    if (!CONSIDER_REVERSE_PATH) flows_by_link_id = forward_flows_by_link_id;
     else{
-        GetReverseFlowsByLink(max_finish_time_ms);
-        flows_by_link = new unordered_map<Link, vector<int> >();
-        for (Link link: inverse_links){
-            set_union(forward_flows_by_link->at(link).begin(), forward_flows_by_link->at(link).end(),
-                    reverse_flows_by_link->at(link).begin(), reverse_flows_by_link->at(link).end(),
-                    back_inserter(flows_by_link->at(link)));
+        GetReverseFlowsByLinkId(max_finish_time_ms);
+        flows_by_link_id = new vector<vector<int> >(inverse_links.size());
+        for (int link_id=0; link_id<inverse_links.size(); link_id++){
+            set_union(forward_flows_by_link_id->at(link_id).begin(),
+                      forward_flows_by_link_id->at(link_id).end(),
+                      reverse_flows_by_link_id->at(link_id).begin(),
+                      reverse_flows_by_link_id->at(link_id).end(),
+                      back_inserter(flows_by_link_id->at(link_id)));
             //!TODO: Check if flows_by_link actually gets populated
         }
     }
-    return flows_by_link;
+    return flows_by_link_id;
 }
 
-void LogFileData::GetFailedLinksSet(Hypothesis &failed_links_set){
+void LogFileData::GetFailedLinkIds(Hypothesis &failed_links_set){
     for (auto &it: failed_links){
-        failed_links_set.insert(it.first);
+        failed_links_set.insert(links_to_ids[it.first]);
     } 
 }
 
-void LogFileData::AddChunkData(LogFileData* chunk_data){
-    flows.insert(flows.end(), chunk_data->flows.begin(), chunk_data->flows.end());
-    for (auto &it: chunk_data->failed_links){
-        failed_links[it.first] = it.second;
+set<Link> LogFileData::IdsToLinks(Hypothesis &h){
+    set<Link> ret;
+    for (int link_id: h){
+        ret.insert(inverse_links[link_id]);
     }
-    for (Link l: chunk_data->inverse_links){
-        if (links_to_indices.find(l) == links_to_indices.end()){
-            links_to_indices[l] = inverse_links.size();
-            inverse_links.push_back(l);
+    return ret;
+}
+
+void LogFileData::AddChunkFlows(vector<Flow*> &chunk_flows){
+    #pragma omp critical (AddChunkFlows)
+    {
+        flows.insert(flows.end(), chunk_flows.begin(), chunk_flows.end());
+    }
+}
+        
+void LogFileData::AddFailedLink(Link link, double failparam){
+    #pragma omp critical (AddFailedLink)
+    {
+        failed_links[link] = failparam;
+    }
+}
+        
+int LogFileData::GetLinkId(Link link){
+    int ret;
+    #pragma omp critical (AddNewLink)
+    {
+        if (links_to_ids.find(link) == links_to_ids.end()){
+                links_to_ids[link] = inverse_links.size();
+                inverse_links.push_back(link);
         }
+        ret = links_to_ids[link];
     }
+    return ret;
 }
 
 PDD GetPrecisionRecall(Hypothesis& failed_links, Hypothesis& predicted_hypothesis){
-    vector<Link> correctly_predicted;
-    for (Link link: predicted_hypothesis){
-        if (failed_links.find(link) != failed_links.end()){
-            correctly_predicted.push_back(link);
+    vector<int> correctly_predicted;
+    for (int link_id: predicted_hypothesis){
+        if (failed_links.find(link_id) != failed_links.end()){
+            correctly_predicted.push_back(link_id);
         }
     }
     double precision = 1.0, recall = 1.0;

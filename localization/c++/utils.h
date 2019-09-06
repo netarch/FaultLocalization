@@ -15,6 +15,7 @@ struct LogFileData{
 
     LogFileData (): forward_flows_by_link_id(NULL), reverse_flows_by_link_id(NULL), flows_by_link_id(NULL) {}
     vector<vector<int> >* GetForwardFlowsByLinkId(double max_finish_time_ms, int nopenmp_threads);
+    vector<vector<int> >* GetForwardFlowsByLinkId1(double max_finish_time_ms, int nopenmp_threads);
     vector<vector<int> >* GetReverseFlowsByLinkId(double max_finish_time_ms);
     vector<vector<int> >* GetFlowsByLinkId(double max_finish_time_ms, int nopenmp_threads);
     void GetFailedLinkIds(Hypothesis &failed_links_set);

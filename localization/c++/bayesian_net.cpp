@@ -144,7 +144,6 @@ void BayesianNet::ComputeSingleLinkLogLikelihood(vector<pair<double, Hypothesis*
         std::fill_n(likelihoods[t].begin(), nlinks, 0.0);
     }
     //double map_update_time[nopenmp_threads] = {0.0};
-    cout<<"Starting to compute single link likelihoods"<<endl;
     #pragma omp parallel for num_threads(nopenmp_threads)
     for (int ii=0; ii<data_cache->flows.size(); ii++){
         Flow* flow = data_cache->flows[ii];
@@ -174,7 +173,6 @@ void BayesianNet::ComputeSingleLinkLogLikelihood(vector<pair<double, Hypothesis*
         //map_update_time[thread_num] += chrono::duration_cast<chrono::microseconds>(
         //        chrono::high_resolution_clock::now() - start_map_update_time).count()*1.0e-6;
     }
-    auto start_merge_time = chrono::high_resolution_clock::now();
     double final_likelihoods[nlinks];
     fill(final_likelihoods, final_likelihoods + nlinks, 0.0);
     #pragma omp parallel for num_threads(nopenmp_threads)
@@ -183,10 +181,6 @@ void BayesianNet::ComputeSingleLinkLogLikelihood(vector<pair<double, Hypothesis*
         for(int t=0; t<nopenmp_threads; t++){
             final_likelihoods[link_id] += likelihoods[t][link_id];
         }
-    }
-    if (VERBOSE){
-        cout << "Merged likelihoods in "<<chrono::duration_cast<chrono::milliseconds>(
-             chrono::high_resolution_clock::now() - start_merge_time).count()*1.0e-3 << " seconds"<<endl;
     }
     result.resize(nlinks);
     for(int link_id=0; link_id<nlinks; link_id++){

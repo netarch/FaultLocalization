@@ -6,6 +6,8 @@
 #include <chrono>
 #include <algorithm>
 #include <omp.h>
+#include <mutex>
+#include <atomic>
 //#include <sparsehash/dense_hash_map>
 //using google::dense_hash_map;
 
@@ -172,6 +174,25 @@ void LogFileData::FilterFlowsForConditional(double max_finish_time_ms, int nopen
 }
 
 vector<vector<int> >* LogFileData::GetForwardFlowsByLinkId(double max_finish_time_ms, int nopenmp_threads){
+    if (forward_flows_by_link_id != NULL) delete(forward_flows_by_link_id);
+    int nlinks = inverse_links.size();
+    forward_flows_by_link_id = new vector<vector<int> >(nlinks);
+    mutex link_locks[nlinks];
+    #pragma omp parallel for num_threads(nopenmp_threads)
+    for (int ff=0; ff<flows.size(); ff++){
+        auto flow_paths = flows[ff]->GetPaths(max_finish_time_ms);
+        for (Path* path: *flow_paths){
+            for (int link_id: *path){
+                link_locks[link_id].lock();
+                (*forward_flows_by_link_id)[link_id].push_back(ff);
+                link_locks[link_id].unlock();
+            }
+        }
+    }
+    return forward_flows_by_link_id;
+}
+
+vector<vector<int> >* LogFileData::GetForwardFlowsByLinkId1(double max_finish_time_ms, int nopenmp_threads){
     nopenmp_threads /= 2;
     if (forward_flows_by_link_id != NULL) delete(forward_flows_by_link_id);
     int nlinks = inverse_links.size();

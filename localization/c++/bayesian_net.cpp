@@ -6,8 +6,8 @@
 #include <cmath>
 #include <iostream>
 #include <omp.h>
-//#include <sparsehash/dense_hash_map> 
-//using google::dense_hash_map;
+#include <sparsehash/dense_hash_set> 
+using google::dense_hash_set;
 using namespace std;
 
 //!TODO: Change to smart pointers for easier GC
@@ -86,8 +86,10 @@ void BayesianNet::LocalizeFailures(LogFileData* data, double min_start_time_ms,
                  << nfails<<" failures in "<<chrono::duration_cast<chrono::milliseconds>(
                  chrono::high_resolution_clock::now() - start_stage_time).count()*1.0e-3
                  << " seconds" << endl;
-                 //<<" function1_time_sec " << function1_time_sec<<endl;
-            function1_time_sec = 0.0;
+            //for (int t = 0; t < nopenmp_threads; t++){
+            //    cout <<" function1_time_sec " << function1_time_sec[t] * 1.0e-9 <<endl;
+            //    function1_time_sec[t] = 0.0;
+            //}
         }
         nfails++;
         prev_hypothesis_space.clear();
@@ -199,8 +201,8 @@ void BayesianNet::ComputeLogLikelihood(vector<Hypothesis*> &hypothesis_space,
     #pragma omp parallel for num_threads(nopenmp_threads)
     for(int i=0; i<hypothesis_space.size(); i++){
         Hypothesis* h = hypothesis_space[i];
-        auto base = base_hypothesis_likelihood[i];
-        result[i] = make_pair(ComputeLogLikelihood(h, base.first, base.second,
+        auto& base = base_hypothesis_likelihood[i];
+        result[i] = pair<double, Hypothesis*>(ComputeLogLikelihood(h, base.first, base.second,
                                         min_start_time_ms, max_finish_time_ms), h);
     }
 }
@@ -210,8 +212,7 @@ inline double BayesianNet::BnfWeightedConditional(int naffected, int npaths,
                                        double weight_good, double weight_bad){
     // e2e: end-to-end
     int e2e_paths = npaths * npaths_r;
-    int e2e_correct_paths = (npaths - naffected) * (npaths_r - naffected_r);
-    int e2e_failed_paths = e2e_paths - e2e_correct_paths;
+    int e2e_failed_paths = e2e_paths - (npaths - naffected) * (npaths_r - naffected_r);
     double a = ((double)e2e_failed_paths)/e2e_paths;
     double val1 = (1.0 - a) + a * pow(((1.0 - p1)/p2), weight_bad) * pow((p1/(1.0-p2)), weight_good);
     double total_weight = weight_good + weight_bad;
@@ -224,8 +225,7 @@ inline double BayesianNet::BnfWeighted(int naffected, int npaths,
                                        double weight_good, double weight_bad){
     // e2e: end-to-end
     int e2e_paths = npaths * npaths_r;
-    int e2e_correct_paths = (npaths - naffected) * (npaths_r - naffected_r);
-    int e2e_failed_paths = e2e_paths - e2e_correct_paths;
+    int e2e_failed_paths = e2e_paths - (npaths - naffected) * (npaths_r - naffected_r);
     double a = ((double)e2e_failed_paths)/e2e_paths;
     return log((1.0 - a) + a * pow((1.0 - p1)/p2, weight_bad) * pow(p1/(1.0-p2), weight_good));
 }
@@ -234,7 +234,9 @@ double BayesianNet::ComputeLogLikelihood(Hypothesis* hypothesis,
                     Hypothesis* base_hypothesis, double base_likelihood,
                     double min_start_time_ms, double max_finish_time_ms){
     double log_likelihood = 0.0;
-    unordered_set<int> relevant_flows;
+    //unordered_set<int> relevant_flows;
+    dense_hash_set<int, hash<int> > relevant_flows;
+    relevant_flows.set_empty_key(-1);
     for (int link_id: *hypothesis){
         if (base_hypothesis->find(link_id) == base_hypothesis->end()){
             vector<int> &link_id_flows = (*flows_by_link_id_cache)[link_id];
@@ -291,7 +293,7 @@ double BayesianNet::ComputeLogLikelihood(Hypothesis* hypothesis,
             }
         }
     }
-    //function1_time_sec += chrono::duration_cast<chrono::nanoseconds>(
+    //function1_time_sec[omp_get_thread_num()] += chrono::duration_cast<chrono::nanoseconds>(
     //             chrono::high_resolution_clock::now() - start_compute_time).count();
     log_likelihood = max(-1.0e9, log_likelihood);
     //cout << *hypothesis << " " << log_likelihood + hypothesis->size() * PRIOR << endl;

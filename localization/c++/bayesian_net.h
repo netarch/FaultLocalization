@@ -45,7 +45,7 @@ private:
     LogFileData* data_cache;
     vector<vector<int> >* flows_by_link_id_cache;
 
-    double function1_time_sec = 0.0;
+    //double function1_time_sec[100];
 };
 
 #endif

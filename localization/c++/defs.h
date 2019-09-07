@@ -4,6 +4,7 @@
 #include <vector>
 #include <set>
 #include <unordered_set>
+#include <atomic>
 
 using namespace std;
 
@@ -86,5 +87,16 @@ ostream& operator<<(ostream& os, const unordered_set<T>& v) {
 const bool PATH_KNOWN=false;
 const bool CONSIDER_REVERSE_PATH=false;
 const bool VERBOSE=true;
+
+class SpinLock {
+    std::atomic_flag locked = ATOMIC_FLAG_INIT ;
+    public:
+    void lock() {
+        while (locked.test_and_set(std::memory_order_acquire)) { ; }
+    }
+    void unlock() {
+        locked.clear(std::memory_order_release);
+    }
+};
 
 #endif

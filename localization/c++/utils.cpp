@@ -173,7 +173,7 @@ void LogFileData::FilterFlowsForConditional(double max_finish_time_ms, int nopen
     }
 }
 
-vector<vector<int> >* LogFileData::GetForwardFlowsByLinkId(double max_finish_time_ms, int nopenmp_threads){
+vector<vector<int> >* LogFileData::GetForwardFlowsByLinkId1(double max_finish_time_ms, int nopenmp_threads){
     if (forward_flows_by_link_id != NULL) delete(forward_flows_by_link_id);
     int nlinks = inverse_links.size();
     forward_flows_by_link_id = new vector<vector<int> >(nlinks);
@@ -192,74 +192,59 @@ vector<vector<int> >* LogFileData::GetForwardFlowsByLinkId(double max_finish_tim
     return forward_flows_by_link_id;
 }
 
-vector<vector<int> >* LogFileData::GetForwardFlowsByLinkId1(double max_finish_time_ms, int nopenmp_threads){
-    nopenmp_threads /= 2;
+//Lockless version
+vector<vector<int> >* LogFileData::GetForwardFlowsByLinkId(double max_finish_time_ms, int nopenmp_threads){
     if (forward_flows_by_link_id != NULL) delete(forward_flows_by_link_id);
     int nlinks = inverse_links.size();
-    vector<vector<int> > forward_flows_by_link_id_parts[nopenmp_threads];
-    vector<int> sizes_by_link_id[nopenmp_threads];
-    #pragma omp parallel for num_threads(nopenmp_threads)
-    for (int t=0; t<nopenmp_threads; t++){
-        forward_flows_by_link_id_parts[t].resize(nlinks);
-        sizes_by_link_id[t].assign(nlinks, 0);
-    }
-    auto start_func_time = chrono::high_resolution_clock::now();
-    #pragma omp parallel for num_threads(nopenmp_threads)
-    for (int ff=0; ff<flows.size(); ff++){
-        int thread_num = omp_get_thread_num();
-        auto flow_paths = flows[ff]->GetPaths(max_finish_time_ms);
-        for (Path* path: *flow_paths){
-            for (int link_id: *path){
-                sizes_by_link_id[thread_num][link_id]++;
-            }
-        }
-    }
-    if (VERBOSE){
-        cout << "Binning part 1 finished in "<<chrono::duration_cast<chrono::milliseconds>(
-                chrono::high_resolution_clock::now() - start_func_time).count()*1.0e-3 << " seconds"<<endl;
-    }
-    start_func_time = chrono::high_resolution_clock::now();
-    #pragma omp parallel for num_threads(nopenmp_threads)
-    for (int t=0; t<nopenmp_threads; t++){
-        for (int link_id=0; link_id<nlinks; link_id++){
-            forward_flows_by_link_id_parts[t][link_id].resize(sizes_by_link_id[t][link_id]);
-        }
-    }
-    if (VERBOSE){
-        cout << "Binning part 2 finished in "<<chrono::duration_cast<chrono::milliseconds>(
-                chrono::high_resolution_clock::now() - start_func_time).count()*1.0e-3 << " seconds"<<endl;
-    }
-    start_func_time = chrono::high_resolution_clock::now();
-    #pragma omp parallel for num_threads(nopenmp_threads)
-    for (int ff=0; ff<flows.size(); ff++){
-        int thread_num = omp_get_thread_num();
-        auto flow_paths = flows[ff]->GetPaths(max_finish_time_ms);
-        for (Path* path: *flow_paths){
-            for (int link_id: *path){
-                int ind = --sizes_by_link_id[thread_num][link_id];
-                forward_flows_by_link_id_parts[thread_num][link_id][ind] = ff;
-            }
-        }
-    }
-    if (VERBOSE){
-        cout << "Binning part 3 finished in "<<chrono::duration_cast<chrono::milliseconds>(
-                chrono::high_resolution_clock::now() - start_func_time).count()*1.0e-3 << " seconds"<<endl;
-    }
-    start_func_time = chrono::high_resolution_clock::now();
     forward_flows_by_link_id = new vector<vector<int> >(nlinks);
-    int nthreads = nopenmp_threads;
-    #pragma omp parallel for num_threads(nthreads)
-    for (int link_id=0; link_id<inverse_links.size(); link_id++){
-        vector<int>& v = (*forward_flows_by_link_id)[link_id];
-        for(int t=0;t<nopenmp_threads; t++){
-            vector<int>& c = forward_flows_by_link_id_parts[t][link_id];
-            v.insert(v.begin(), c.begin(), c.end());
+    atomic<unsigned int> sizes[nlinks];
+    auto start_time = chrono::high_resolution_clock::now();
+    #pragma omp parallel for num_threads(nopenmp_threads)
+    for(int link_id=0; link_id<nlinks; link_id++){
+        sizes[link_id] = 0;
+    }
+    if (VERBOSE){
+        cout<<"Binning flows part 0 done in "<<chrono::duration_cast<chrono::milliseconds>(
+            chrono::high_resolution_clock::now() - start_time).count()*1.0e-3 << " seconds "<< endl;
+    }
+    start_time = chrono::high_resolution_clock::now();
+    #pragma omp parallel for num_threads(nopenmp_threads)
+    for (int ff=0; ff<flows.size(); ff++){
+        auto flow_paths = flows[ff]->GetPaths(max_finish_time_ms);
+        for (Path* path: *flow_paths){
+            for (int link_id: *path){
+                sizes[link_id]++;
+            }
         }
     }
     if (VERBOSE){
-        cout << "Merged binned flows in "<<chrono::duration_cast<chrono::milliseconds>(
-                chrono::high_resolution_clock::now() - start_func_time).count()*1.0e-3 << " seconds"<<endl;
+        cout<<"Binning flows part 1 done in "<<chrono::duration_cast<chrono::milliseconds>(
+            chrono::high_resolution_clock::now() - start_time).count()*1.0e-3 << " seconds "<< endl;
     }
+    start_time = chrono::high_resolution_clock::now();
+    #pragma omp parallel for num_threads(nopenmp_threads)
+    for(int link_id=0; link_id<nlinks; link_id++){
+        (*forward_flows_by_link_id)[link_id].resize(sizes[link_id]);
+    }
+    if (VERBOSE){
+        cout<<"Binning flows part 2 done in "<<chrono::duration_cast<chrono::milliseconds>(
+            chrono::high_resolution_clock::now() - start_time).count()*1.0e-3 << " seconds "<< endl;
+    }
+    start_time = chrono::high_resolution_clock::now();
+    #pragma omp parallel for num_threads(nopenmp_threads)
+    for (int ff=0; ff<flows.size(); ff++){
+        auto flow_paths = flows[ff]->GetPaths(max_finish_time_ms);
+        for (Path* path: *flow_paths){
+            for (int link_id: *path){
+                (*forward_flows_by_link_id)[link_id][--sizes[link_id]] = ff;
+            }
+        }
+    }
+    if (VERBOSE){
+        cout<<"Binning flows part 3 done in "<<chrono::duration_cast<chrono::milliseconds>(
+            chrono::high_resolution_clock::now() - start_time).count()*1.0e-3 << " seconds "<< endl;
+    }
+    start_time = chrono::high_resolution_clock::now();
     return forward_flows_by_link_id;
 }
 

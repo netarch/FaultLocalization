@@ -27,7 +27,8 @@ struct LogFileData{
 
     set<Link> IdsToLinks(Hypothesis &h);
 
-    void GetReducedData(unordered_map<Link, Link>& reduced_graph_map, LogFileData& reduced_data);
+    void GetReducedData(unordered_map<Link, Link>& reduced_graph_map, LogFileData& reduced_data,
+                        int nopenmp_threads);
 };
 
 void GetDataFromLogFile(string filename, LogFileData* result);

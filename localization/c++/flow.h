@@ -39,6 +39,7 @@ public:
     void AddReversePath(Path *path, bool is_reverse_path_taken=false);
     void SetPathTaken(Path *path);
     void SetReversePathTaken(Path *path);
+    void DoneAddingPaths();
 
     int GetLatestPacketsSent();
     int GetLatestPacketsLost();

@@ -38,6 +38,7 @@ void GetDataFromLogFile(string filename, LogFileData *result){
     Flow *flow = NULL;
     int curr_link_index = 0;
     int nlines = 0;
+    long long mem_taken = 0;
     while (getline(infile, line)){
         //const char *linum = line.c_str();
         istringstream line_stream (line);
@@ -58,6 +59,7 @@ void GetDataFromLogFile(string filename, LogFileData *result){
         }
         else if (op == "Flowid="){
             // Log the previous flow
+            if (flow != NULL) flow->DoneAddingPaths();
             if (flow != NULL and flow->paths.size() > 0 and flow->path_taken_vector.size() == 1){
                 assert (flow->GetPathTaken());
                 if (CONSIDER_REVERSE_PATH){
@@ -73,6 +75,7 @@ void GetDataFromLogFile(string filename, LogFileData *result){
             double start_time_ms;
             line_stream >> src >> dest >> nbytes >> start_time_ms;
             flow = new Flow(src, "", 0, dest, "", 0, nbytes, start_time_ms);
+            mem_taken += sizeof(Flow);
         }
         else if (op == "Snapshot"){
             double snapshot_time_ms;
@@ -101,9 +104,11 @@ void GetDataFromLogFile(string filename, LogFileData *result){
                 prev_node = node;
             }
             if (path->size() > 0){
+                path->shrink_to_fit();
                 assert (flow != NULL);
                 flow->AddReversePath(path, (op.find("taken") != string::npos));
             }
+            else delete(path);
         }
         else if (string_starts_with(op, "flowpath")){
             Path* path = new Path();
@@ -125,15 +130,18 @@ void GetDataFromLogFile(string filename, LogFileData *result){
                 prev_node = node;
             }
             if (path->size() > 0){
+                path->shrink_to_fit();
                 assert (flow != NULL);
                 flow->AddPath(path, (op.find("taken") != string::npos));
             }
+            else delete(path);
+            mem_taken += sizeof(*path) + sizeof(int) * path->capacity();
         }
         else if (op == "link_statistics"){
             assert (false);
         }
     }
-
+    if (flow != NULL) flow->DoneAddingPaths();
     // Log the last flow
     if (flow != NULL and flow->paths.size() > 0 and flow->path_taken_vector.size() == 1){
         assert (flow->GetPathTaken());
@@ -145,6 +153,9 @@ void GetDataFromLogFile(string filename, LogFileData *result){
             chunk_flows.push_back(flow);
         }
     }
+    mem_taken += sizeof(chunk_flows) + sizeof(Flow*) * chunk_flows.capacity();
+    cout << " Total space taken by forward paths " << mem_taken/1024 << endl;
+
     result->AddChunkFlows(chunk_flows);
     if (VERBOSE){
         cout<<"Read log file in "<<chrono::duration_cast<chrono::milliseconds>(
@@ -154,7 +165,7 @@ void GetDataFromLogFile(string filename, LogFileData *result){
 
 
 void LogFileData::GetReducedData(unordered_map<Link, Link>& reduced_graph_map,
-                                 LogFileData& reduced_data) {
+                                 LogFileData& reduced_data, int nopenmp_threads) {
     for (auto& it: failed_links){
         Link l = it.first;
         Link rl = (reduced_graph_map.find(l) == reduced_graph_map.end()? l: reduced_graph_map[l]);
@@ -162,6 +173,9 @@ void LogFileData::GetReducedData(unordered_map<Link, Link>& reduced_graph_map,
             //!HACK: set dummy failparam
             reduced_data.failed_links.insert(make_pair(rl, 0.0));
         }
+    }
+    for (auto& it: reduced_data.failed_links){
+        cout << "Failed reduced link "<< it.first << endl;
     }
 
     for(auto &it: links_to_ids){
@@ -172,10 +186,18 @@ void LogFileData::GetReducedData(unordered_map<Link, Link>& reduced_graph_map,
             reduced_data.inverse_links.push_back(rl);
         }
     }
+    cout << "Finished assigning ids to reduced links, nlinks(reduced) " << reduced_data.inverse_links.size() << endl;
 
-    for(Flow* f: flows){
-        Flow* rf = new Flow(*f, reduced_graph_map, *this, reduced_data);
-        reduced_data.flows.push_back(rf); 
+    //mutex lock;
+    reduced_data.flows.resize(flows.size());
+    atomic<int> flow_ctr = 0;
+    #pragma omp parallel for num_threads(nopenmp_threads)
+    for (int ff=0; ff<flows.size(); ff++){
+        Flow* rf = new Flow(*flows[ff], reduced_graph_map, *this, reduced_data);
+        //lock.lock();
+        reduced_data.flows[flow_ctr++] = rf;
+        //reduced_data.flows.push_back(rf); 
+        //lock.unlock();
     }
 }
 
@@ -190,7 +212,7 @@ void LogFileData::FilterFlowsForConditional(double max_finish_time_ms, int nopen
             filtered_flows[thread_num].push_back(f);
         }
         else{
-            free(f);
+            delete(f);
         }
     }
     flows.clear();

@@ -9,6 +9,7 @@
 using namespace std;
 
 
+//Maybe take this mapping as an input file
 void ReducedGraphMappingLeafSpine(string topology_file, unordered_map<Link, Link> &to_reduced_graph,
                                   unordered_map<Link, vector<Link> >& from_reduced_graph){
     ifstream tfile(topology_file);
@@ -20,6 +21,13 @@ void ReducedGraphMappingLeafSpine(string topology_file, unordered_map<Link, Link
         if (line.find("->") == string::npos){
             int spine, leaf;
             line_stream >> spine >> leaf;
+            if (spine >= 90){
+                //! MAJOR MAJOR HACK. 
+                //swap leaf and spine
+                int temp = spine;
+                spine = leaf;
+                leaf = temp;
+            }
 
             Link downlink(spine, leaf), reduced_downlink(spine_sw_id, leaf);
             to_reduced_graph[downlink] = reduced_downlink;
@@ -57,8 +65,13 @@ int main(int argc, char *argv[]){
     unordered_map<Link, Link> to_reduced_graph;
     unordered_map<Link, vector<Link> > from_reduced_graph;
     ReducedGraphMappingLeafSpine(topology_file, to_reduced_graph, from_reduced_graph);
+    cout << "Obtained reduced graph mappings" <<endl;
+    cout << "Number of reduced nodes " << from_reduced_graph.size() << endl;
     LogFileData* reduced_data = new LogFileData();
-    data->GetReducedData(to_reduced_graph, *reduced_data);
+    auto start_time = chrono::high_resolution_clock::now();
+    data->GetReducedData(to_reduced_graph, *reduced_data, nopenmp_threads);
+    cout << "Obtained reduced data for running analysis in " << chrono::duration_cast<chrono::milliseconds>(
+            chrono::high_resolution_clock::now() - start_time).count()*1.0e-3 << " seconds" << endl;
     Hypothesis estimator_hypothesis;
     estimator.LocalizeFailures(reduced_data, min_start_time_ms, max_finish_time_ms,
                                         estimator_hypothesis, nopenmp_threads);

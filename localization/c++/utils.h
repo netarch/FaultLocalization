@@ -27,11 +27,13 @@ struct LogFileData{
 
     set<Link> IdsToLinks(Hypothesis &h);
 
+    void GetReducedData(unordered_map<Link, Link>& reduced_graph_map, LogFileData& reduced_data);
 };
 
 void GetDataFromLogFile(string filename, LogFileData* result);
 LogFileData* GetDataFromLogFileDistributed(string dirname, int nchunks, int nopenmp_threads);
-
+Path* GetReducedPath(Path *path, unordered_map<Link, Link> &reduced_graph_map,
+                                 LogFileData &data, LogFileData &reduced_data);
 PDD GetPrecisionRecall(Hypothesis& failed_links, Hypothesis& predicted_hypothesis);
 
 #endif

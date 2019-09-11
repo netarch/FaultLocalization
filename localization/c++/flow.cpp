@@ -1,9 +1,64 @@
 #include "flow.h"
 #include <assert.h>
 
+
+Path* GetReducedPath(Path *path, unordered_map<Link, Link> &reduced_graph_map,
+                                 LogFileData &data, LogFileData &reduced_data);
+
+
 Flow::Flow(int src_, string srcip_, int srcport_, int dest_, string destip_, int destport_, int nbytes_, double start_time_ms_):
     src(src_), srcip(srcip_), srcport(srcport_), dest(dest_), destip(destip_), destport(destport_),
     nbytes(nbytes_), start_time_ms(start_time_ms_), curr_snapshot_ptr(-1) {}
+
+Flow::Flow(Flow &flow, unordered_map<Link, Link> &reduced_graph_map, LogFileData &data,
+                                                             LogFileData &reduced_data):
+    src(flow.src), srcip(flow.srcip), srcport(flow.srcport),
+    dest(flow.dest), destip(flow.destip), destport(flow.destport),
+    nbytes(flow.nbytes), start_time_ms(flow.start_time_ms),
+    curr_snapshot_ptr(-1), snapshots(flow.snapshots){
+
+    // populate forward paths
+    for (Path *path: flow.paths){
+        Path *reduced_path = GetReducedPath(path, reduced_graph_map, data, reduced_data);
+        bool new_path = true;
+        for (Path *path: paths){
+            if (*path == *reduced_path){
+                new_path = false;
+                break;
+            }
+        }
+        if (new_path) paths.push_back(reduced_path);
+        else free(reduced_path);
+    }
+
+    // populate reverse paths
+    for (Path *reverse_path: flow.reverse_paths){
+        Path *reduced_reverse_path = GetReducedPath(reverse_path, reduced_graph_map, data, reduced_data);
+        bool new_path = true;
+        for (Path *reverse_path: reverse_paths){
+            if (*reverse_path == *reduced_reverse_path){
+                new_path = false;
+                break;
+            }
+        }
+        if (new_path) reverse_paths.push_back(reduced_reverse_path);
+        else free(reduced_reverse_path);
+    }
+
+    if (flow.path_taken_vector.size() > 0){
+        Path *reduced_path_taken = GetReducedPath(path_taken_vector[0], reduced_graph_map, data,
+                                                  reduced_data);
+        SetPathTaken(reduced_path_taken);
+    }
+    if (flow.reverse_path_taken_vector.size() > 0){
+        Path *reduced_reverse_path_taken = GetReducedPath(reverse_path_taken_vector[0],
+                                           reduced_graph_map, data, reduced_data);
+        SetReversePathTaken(reduced_reverse_path_taken);
+
+    }
+}
+
+
 
 void Flow::AddPath(Path *path, bool is_path_taken){
     paths.push_back(path);

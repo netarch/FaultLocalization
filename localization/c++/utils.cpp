@@ -152,6 +152,34 @@ void GetDataFromLogFile(string filename, LogFileData *result){
     }
 }
 
+
+void LogFileData::GetReducedData(unordered_map<Link, Link>& reduced_graph_map,
+                                 LogFileData& reduced_data) {
+    for (auto& it: failed_links){
+        Link l = it.first;
+        Link rl = (reduced_graph_map.find(l) == reduced_graph_map.end()? l: reduced_graph_map[l]);
+        if (reduced_data.failed_links.find(rl) == reduced_data.failed_links.end()){
+            //!HACK: set dummy failparam
+            reduced_data.failed_links.insert(make_pair(rl, 0.0));
+        }
+    }
+
+    for(auto &it: links_to_ids){
+        Link l = it.first;
+        Link rl = (reduced_graph_map.find(l) == reduced_graph_map.end()? l: reduced_graph_map[l]);
+        if (reduced_data.links_to_ids.find(rl) == reduced_data.links_to_ids.end()){
+            reduced_data.links_to_ids[rl] = reduced_data.inverse_links.size();
+            reduced_data.inverse_links.push_back(rl);
+        }
+    }
+
+    for(Flow* f: flows){
+        Flow* rf = new Flow(*f, reduced_graph_map, *this, reduced_data);
+        reduced_data.flows.push_back(rf); 
+    }
+}
+
+
 void LogFileData::FilterFlowsForConditional(double max_finish_time_ms, int nopenmp_threads){
     vector<Flow*> filtered_flows[nopenmp_threads];
     #pragma omp parallel for num_threads(nopenmp_threads)
@@ -321,6 +349,20 @@ int LogFileData::GetLinkId(Link link){
     }
     return ret;
 }
+
+Path* GetReducedPath(Path *path, unordered_map<Link, Link> &reduced_graph_map,
+                                            LogFileData &data, LogFileData &reduced_data){
+    Path *reduced_path = new Path();
+    // convert link_ids in path to reduced link_ids
+    for (int link_id: *path){
+        Link l = data.inverse_links[link_id];
+        Link rl = (reduced_graph_map.find(l) == reduced_graph_map.end()? l: reduced_graph_map[l]);
+        int link_id_r = reduced_data.links_to_ids[rl];
+        reduced_path->push_back(link_id_r);
+    }
+    return reduced_path;
+}
+
 
 PDD GetPrecisionRecall(Hypothesis& failed_links, Hypothesis& predicted_hypothesis){
     vector<int> correctly_predicted;

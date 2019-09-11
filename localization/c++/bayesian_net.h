@@ -13,7 +13,7 @@ class BayesianNet : public Estimator{
     const int NUM_TOP_HYPOTHESIS_AT_EACH_STAGE = 5;
     // For printing purposes
     const int N_MAX_K_LIKELIHOODS = 20;
-    const bool USE_CONDITIONAL = false;
+    const bool USE_CONDITIONAL = true;
     const double PRIOR = -10.0;
 
 private:
@@ -44,7 +44,6 @@ private:
     double p1 = 1.0-1.0e-3, p2 = 2.5e-4;
     LogFileData* data_cache;
     vector<vector<int> >* flows_by_link_id_cache;
-
     //double function1_time_sec[100];
 };
 

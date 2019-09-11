@@ -3,12 +3,13 @@
 
 #include <iostream>
 #include <vector>
+#include <unordered_map>
 #include <list>
-
 #include "defs.h"
 
 using namespace std;
 
+class LogFileData;
 
 struct FlowSnapshot{
     double snapshot_time_ms;
@@ -28,6 +29,10 @@ public:
     // Initialize flow without snapshot
     Flow(int src_, string srcip_, int srcport_, int dest_, string destip_, int destport_,
          int nbytes_, double start_time_ms_);
+
+    //!TODO
+    Flow(Flow &flow, unordered_map<Link, Link> &reduced_graph_map, LogFileData &data,
+                                                          LogFileData &reduced_data);
 
     void AddPath(Path *path, bool is_path_taken=false);
     // A reverse path is from the destination to the source

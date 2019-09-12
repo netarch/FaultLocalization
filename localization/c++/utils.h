@@ -6,6 +6,7 @@
 #include <set>
 using namespace std;
 
+
 struct LogFileData{
     unordered_map<Link, double> failed_links;
     vector<Flow*> flows;

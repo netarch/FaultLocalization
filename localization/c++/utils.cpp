@@ -8,8 +8,8 @@
 #include <omp.h>
 #include <mutex>
 #include <atomic>
-//#include <sparsehash/dense_hash_map>
-//using google::dense_hash_map;
+#include <sparsehash/dense_hash_map>
+using google::dense_hash_map;
 
 inline bool string_starts_with(const string &a, const string &b) {
     return (b.length() <= a.length() && equal(b.begin(), b.end(), a.begin()));
@@ -32,7 +32,11 @@ LogFileData* GetDataFromLogFileDistributed(string dirname, int nchunks, int nope
 void GetDataFromLogFile(string filename, LogFileData *result){ 
     auto start_time = chrono::high_resolution_clock::now();
     vector<Flow*> chunk_flows;
-    unordered_map<Link, int> links_to_ids_cache;
+    //unordered_map<Link, int> links_to_ids_cache;
+    dense_hash_map<Link, int, hash<Link> > links_to_ids_cache;
+    links_to_ids_cache.set_empty_key(Link(-1, -1));
+    vector<int> temp_path;
+    temp_path.reserve(10);
     ifstream infile(filename);
     string line, op;
     Flow *flow = NULL;
@@ -83,9 +87,10 @@ void GetDataFromLogFile(string filename, LogFileData *result){
             line_stream >> snapshot_time_ms >> packets_sent >> packets_lost >> packets_randomly_lost;
             assert (flow != NULL);
             flow->AddSnapshot(snapshot_time_ms, packets_sent, packets_lost, packets_randomly_lost);
+            mem_taken += sizeof(FlowSnapshot);
         }
         else if (string_starts_with(op, "flowpath_reverse")){
-            Path* path = new Path();
+            temp_path.clear();
             int prev_node = -1, node;
             while (line_stream >> node){
                 if (prev_node != -1){
@@ -99,19 +104,20 @@ void GetDataFromLogFile(string filename, LogFileData *result){
                     else{
                         link_id = it->second;
                     }
-                    path->push_back(link_id);
+                    temp_path.push_back(link_id);
                 }
                 prev_node = node;
             }
+            Path* path = new Path(temp_path);
             if (path->size() > 0){
-                path->shrink_to_fit();
+                //path->shrink_to_fit();
                 assert (flow != NULL);
                 flow->AddReversePath(path, (op.find("taken") != string::npos));
             }
             else delete(path);
         }
         else if (string_starts_with(op, "flowpath")){
-            Path* path = new Path();
+            temp_path.clear();
             int prev_node = -1, node;
             while (line_stream >> node){
                 if (prev_node != -1){
@@ -125,24 +131,24 @@ void GetDataFromLogFile(string filename, LogFileData *result){
                     else{
                         link_id = it->second;
                     }
-                    path->push_back(link_id);
+                    temp_path.push_back(link_id);
                 }
                 prev_node = node;
             }
+            Path* path = new Path(temp_path);
             if (path->size() > 0){
-                path->shrink_to_fit();
+                mem_taken += sizeof(*path) + sizeof(int) * path->size();
                 assert (flow != NULL);
                 flow->AddPath(path, (op.find("taken") != string::npos));
             }
             else delete(path);
-            mem_taken += sizeof(*path) + sizeof(int) * path->capacity();
         }
         else if (op == "link_statistics"){
             assert (false);
         }
     }
-    if (flow != NULL) flow->DoneAddingPaths();
     // Log the last flow
+    if (flow != NULL) flow->DoneAddingPaths();
     if (flow != NULL and flow->paths.size() > 0 and flow->path_taken_vector.size() == 1){
         assert (flow->GetPathTaken());
         if (CONSIDER_REVERSE_PATH){
@@ -154,8 +160,7 @@ void GetDataFromLogFile(string filename, LogFileData *result){
         }
     }
     mem_taken += sizeof(chunk_flows) + sizeof(Flow*) * chunk_flows.capacity();
-    cout << " Total space taken by forward paths " << mem_taken/1024 << endl;
-
+    cout << "Total space taken by forward paths " << mem_taken/1024 << endl;
     result->AddChunkFlows(chunk_flows);
     if (VERBOSE){
         cout<<"Read log file in "<<chrono::duration_cast<chrono::milliseconds>(
@@ -272,7 +277,8 @@ vector<vector<int> >* LogFileData::GetForwardFlowsByLinkId(double max_finish_tim
             chrono::high_resolution_clock::now() - start_time).count()*1.0e-3 << " seconds "<< endl;
     }
     start_time = chrono::high_resolution_clock::now();
-    #pragma omp parallel for num_threads(nopenmp_threads)
+    int nthreads = min(3, nopenmp_threads);
+    #pragma omp parallel for num_threads(nthreads)
     for(int link_id=0; link_id<nlinks; link_id++){
         (*forward_flows_by_link_id)[link_id].resize(sizes[link_id]);
     }
@@ -374,7 +380,7 @@ int LogFileData::GetLinkId(Link link){
 
 Path* GetReducedPath(Path *path, unordered_map<Link, Link> &reduced_graph_map,
                                             LogFileData &data, LogFileData &reduced_data){
-    Path *reduced_path = new Path();
+    Path *reduced_path = new Path(path->size());
     // convert link_ids in path to reduced link_ids
     for (int link_id: *path){
         Link l = data.inverse_links[link_id];

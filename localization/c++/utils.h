@@ -4,8 +4,37 @@
 #include "flow.h"
 #include <unordered_map>
 #include <set>
+#include <mutex>
+#include <shared_mutex>
+#include <sparsehash/dense_hash_map>
+using google::dense_hash_map;
 using namespace std;
 
+struct MemoizedPaths{
+    vector<Path*> paths;
+    shared_mutex lock;
+    Path* GetPath(vector<int>& vi_path){
+        //!TODO: 
+        //!TODO: 
+        //!TODO: this is the culprit, causing threads to spin
+        //!TODO: 
+        //!TODO: 
+        lock.lock();
+        Path* ret = NULL;
+        for (Path* path: paths){
+            if (*path == vi_path){
+                ret = path;
+                break;
+            }
+        }
+        if (ret == NULL){
+            ret = new Path(vi_path);
+            paths.push_back(ret);
+        }
+        lock.unlock();
+        return ret; 
+    }
+};
 
 struct LogFileData{
     unordered_map<Link, double> failed_links;
@@ -13,8 +42,12 @@ struct LogFileData{
     unordered_map<Link, int> links_to_ids;
     vector<Link> inverse_links;
     vector<vector<int> > *forward_flows_by_link_id, *reverse_flows_by_link_id, *flows_by_link_id;
+    dense_hash_map<PII, MemoizedPaths*, hash<PII> > memoized_paths;
+    shared_mutex memoized_paths_lock;
 
-    LogFileData (): forward_flows_by_link_id(NULL), reverse_flows_by_link_id(NULL), flows_by_link_id(NULL) {}
+    LogFileData (): forward_flows_by_link_id(NULL), reverse_flows_by_link_id(NULL), flows_by_link_id(NULL) {
+    memoized_paths.set_empty_key(PII(-1, -1));
+    }
     vector<vector<int> >* GetForwardFlowsByLinkId(double max_finish_time_ms, int nopenmp_threads);
     vector<vector<int> >* GetForwardFlowsByLinkId1(double max_finish_time_ms, int nopenmp_threads);
     vector<vector<int> >* GetReverseFlowsByLinkId(double max_finish_time_ms);
@@ -30,6 +63,7 @@ struct LogFileData{
 
     void GetReducedData(unordered_map<Link, Link>& reduced_graph_map, LogFileData& reduced_data,
                         int nopenmp_threads);
+
 };
 
 void GetDataFromLogFile(string filename, LogFileData* result);

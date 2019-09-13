@@ -7,6 +7,7 @@
 #include <algorithm>
 #include <omp.h>
 #include <mutex>
+#include <shared_mutex>
 #include <atomic>
 #include <sparsehash/dense_hash_map>
 using google::dense_hash_map;
@@ -35,8 +36,8 @@ void GetDataFromLogFile(string filename, LogFileData *result){
     //unordered_map<Link, int> links_to_ids_cache;
     dense_hash_map<Link, int, hash<Link> > links_to_ids_cache;
     links_to_ids_cache.set_empty_key(Link(-1, -1));
-    vector<int> temp_path;
-    temp_path.reserve(10);
+    vector<int> temp_path (10);
+    vector<int> path_nodes (10);
     ifstream infile(filename);
     string line, op;
     Flow *flow = NULL;
@@ -72,6 +73,9 @@ void GetDataFromLogFile(string filename, LogFileData *result){
                 if (flow->GetLatestPacketsSent() > 0 and !flow->DiscardFlow()
                     and flow->paths.size() > 0){
                     //flow->PrintInfo();
+                    if (chunk_flows.size() % 10000==0){
+                        cout << "Finished "<<chunk_flows.size() << " flows from " << filename << endl;
+                    }
                     chunk_flows.push_back(flow);
                 }
             }
@@ -91,9 +95,10 @@ void GetDataFromLogFile(string filename, LogFileData *result){
         }
         else if (string_starts_with(op, "flowpath_reverse")){
             temp_path.clear();
-            int prev_node = -1, node;
+            path_nodes.clear();
+            int prev_node, node, nodenum=0;
             while (line_stream >> node){
-                if (prev_node != -1){
+                if (nodenum > 0){
                     Link link(prev_node, node);
                     int link_id;
                     auto it = links_to_ids_cache.find(link);
@@ -106,21 +111,56 @@ void GetDataFromLogFile(string filename, LogFileData *result){
                     }
                     temp_path.push_back(link_id);
                 }
+                path_nodes.push_back(node);
                 prev_node = node;
+                ++nodenum;
             }
-            Path* path = new Path(temp_path);
-            if (path->size() > 0){
-                //path->shrink_to_fit();
-                assert (flow != NULL);
-                flow->AddReversePath(path, (op.find("taken") != string::npos));
+            if ((MEMOIZE_PATHS and temp_path.size() < 2) or (!MEMOIZE_PATHS and temp_path.size() == 0)){
+                continue;
             }
-            else delete(path);
+            Path* path;
+            if (MEMOIZE_PATHS) {
+                flow->SetReverseFirstLinkId(temp_path.front());
+                flow->SetReverseLastLinkId(temp_path.back());
+                temp_path.erase(temp_path.begin());
+                temp_path.pop_back();
+                assert (path_nodes.size() >= 2);
+                MemoizedPaths *memoized_paths;
+                PII st(path_nodes[1], *(path_nodes.rbegin()-1));
+                result->memoized_paths_lock.lock_shared();
+                auto it = result->memoized_paths.find(st);
+                result->memoized_paths_lock.unlock_shared();
+                if (it == result->memoized_paths.end()){
+                    result->memoized_paths_lock.lock();
+                    // need to check a second time for correctness
+                    it = result->memoized_paths.find(st);
+                    if (it == result->memoized_paths.end()){
+                        memoized_paths = new MemoizedPaths();
+                        result->memoized_paths.insert(make_pair(st, memoized_paths));
+                    }
+                    else{
+                        memoized_paths = it->second;
+                    }
+                    result->memoized_paths_lock.unlock();
+                }
+                else{
+                    memoized_paths = it->second;
+                }
+                path = memoized_paths->GetPath(temp_path);
+            }
+            else{
+                path = new Path(temp_path);
+            }
+            //path->shrink_to_fit();
+            assert (flow != NULL);
+            flow->AddReversePath(path, (op.find("taken") != string::npos));
         }
         else if (string_starts_with(op, "flowpath")){
             temp_path.clear();
-            int prev_node = -1, node;
+            path_nodes.clear();
+            int prev_node, node, nodenum=0;
             while (line_stream >> node){
-                if (prev_node != -1){
+                if (nodenum > 0){
                     Link link(prev_node, node);
                     int link_id;
                     auto it = links_to_ids_cache.find(link);
@@ -133,15 +173,49 @@ void GetDataFromLogFile(string filename, LogFileData *result){
                     }
                     temp_path.push_back(link_id);
                 }
+                path_nodes.push_back(node);
                 prev_node = node;
+                ++nodenum;
             }
-            Path* path = new Path(temp_path);
-            if (path->size() > 0){
-                mem_taken += sizeof(*path) + sizeof(int) * path->size();
-                assert (flow != NULL);
-                flow->AddPath(path, (op.find("taken") != string::npos));
+            if ((MEMOIZE_PATHS and temp_path.size() < 2) or (!MEMOIZE_PATHS and temp_path.size()== 0)){
+                continue;
             }
-            else delete(path);
+            Path* path;
+            if (MEMOIZE_PATHS) {
+                flow->SetFirstLinkId(temp_path.front());
+                flow->SetLastLinkId(temp_path.back());
+                temp_path.erase(temp_path.begin());
+                temp_path.pop_back();
+                assert (path_nodes.size() >= 2);
+                MemoizedPaths *memoized_paths;
+                PII st(path_nodes[1], *(path_nodes.rbegin()-1));
+                result->memoized_paths_lock.lock_shared();
+                auto it = result->memoized_paths.find(st);
+                result->memoized_paths_lock.unlock_shared();
+                if (it == result->memoized_paths.end()){
+                    result->memoized_paths_lock.lock();
+                    // need to check a second time for correctness
+                    it = result->memoized_paths.find(st);
+                    if (it == result->memoized_paths.end()){
+                        memoized_paths = new MemoizedPaths();
+                        result->memoized_paths.insert(make_pair(st, memoized_paths));
+                    }
+                    else{
+                        memoized_paths = it->second;
+                    }
+                    result->memoized_paths_lock.unlock();
+                }
+                else{
+                    memoized_paths = it->second;
+                }
+                path = memoized_paths->GetPath(temp_path);
+            }
+            else{
+                path = new Path(temp_path);
+            }
+            mem_taken += sizeof(*path) + sizeof(int) * path->size();
+            assert (flow != NULL);
+            flow->AddPath(path, (op.find("taken") != string::npos));
         }
         else if (op == "link_statistics"){
             assert (false);
@@ -235,7 +309,18 @@ vector<vector<int> >* LogFileData::GetForwardFlowsByLinkId1(double max_finish_ti
     mutex link_locks[nlinks];
     #pragma omp parallel for num_threads(nopenmp_threads)
     for (int ff=0; ff<flows.size(); ff++){
-        auto flow_paths = flows[ff]->GetPaths(max_finish_time_ms);
+        Flow *flow = flows[ff];
+        auto flow_paths = flow->GetPaths(max_finish_time_ms);
+        if (MEMOIZE_PATHS){
+            // src --> src_tor
+            link_locks[flow->first_link_id].lock();
+            (*forward_flows_by_link_id)[flow->first_link_id].push_back(ff);
+            link_locks[flow->first_link_id].unlock();
+            // dest_tor --> dest
+            link_locks[flow->last_link_id].lock();
+            (*forward_flows_by_link_id)[flow->last_link_id].push_back(ff);
+            link_locks[flow->last_link_id].unlock();
+        }
         for (Path* path: *flow_paths){
             for (int link_id: *path){
                 link_locks[link_id].lock();
@@ -265,7 +350,12 @@ vector<vector<int> >* LogFileData::GetForwardFlowsByLinkId(double max_finish_tim
     start_time = chrono::high_resolution_clock::now();
     #pragma omp parallel for num_threads(nopenmp_threads)
     for (int ff=0; ff<flows.size(); ff++){
-        auto flow_paths = flows[ff]->GetPaths(max_finish_time_ms);
+        Flow *flow = flows[ff];
+        auto flow_paths = flow->GetPaths(max_finish_time_ms);
+        if (MEMOIZE_PATHS){
+            sizes[flow->first_link_id]++;
+            sizes[flow->last_link_id]++;
+        }
         for (Path* path: *flow_paths){
             for (int link_id: *path){
                 sizes[link_id]++;
@@ -289,7 +379,12 @@ vector<vector<int> >* LogFileData::GetForwardFlowsByLinkId(double max_finish_tim
     start_time = chrono::high_resolution_clock::now();
     #pragma omp parallel for num_threads(nopenmp_threads)
     for (int ff=0; ff<flows.size(); ff++){
-        auto flow_paths = flows[ff]->GetPaths(max_finish_time_ms);
+        Flow *flow =  flows[ff];
+        auto flow_paths = flow->GetPaths(max_finish_time_ms);
+        if (MEMOIZE_PATHS){
+            (*forward_flows_by_link_id)[flow->first_link_id][--sizes[flow->first_link_id]] = ff;
+            (*forward_flows_by_link_id)[flow->last_link_id][--sizes[flow->last_link_id]] = ff;
+        }
         for (Path* path: *flow_paths){
             for (int link_id: *path){
                 (*forward_flows_by_link_id)[link_id][--sizes[link_id]] = ff;
@@ -308,7 +403,12 @@ vector<vector<int> >* LogFileData::GetReverseFlowsByLinkId(double max_finish_tim
     if (reverse_flows_by_link_id != NULL) delete(reverse_flows_by_link_id);
     reverse_flows_by_link_id = new vector<vector<int> >(inverse_links.size());
     for (int ff=0; ff<flows.size(); ff++){
-        auto flow_reverse_paths = flows[ff]->GetReversePaths(max_finish_time_ms);
+        Flow *flow = flows[ff];
+        auto flow_reverse_paths = flow->GetReversePaths(max_finish_time_ms);
+        if (MEMOIZE_PATHS){
+            (*reverse_flows_by_link_id)[flow->reverse_first_link_id].push_back(ff);
+            (*reverse_flows_by_link_id)[flow->reverse_last_link_id].push_back(ff);
+        }
         for (Path* path: *flow_reverse_paths){
             for (int link_id: *path){
                 (*reverse_flows_by_link_id)[link_id].push_back(ff);

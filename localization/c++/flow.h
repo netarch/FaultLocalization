@@ -74,9 +74,18 @@ public:
     // Assign two weights to each flow : (good_weight, bad_weight)
     PII LabelWeightsFunc(double max_finish_time_ms);
 
+    void SetFirstLinkId(int link_id);
+    void SetLastLinkId(int link_id);
+    void SetReverseFirstLinkId(int link_id);
+    void SetReverseLastLinkId(int link_id);
+
     vector<Path*> paths, reverse_paths;
     double start_time_ms;
     int src, dest;
+    // Server to ToR links that are common to all paths
+    int first_link_id, last_link_id;
+    // Server to ToR links that are common to all reverse paths
+    int reverse_first_link_id, reverse_last_link_id;
     // Should be of size 1 always
     vector<Path*> path_taken_vector, reverse_path_taken_vector;
 private:

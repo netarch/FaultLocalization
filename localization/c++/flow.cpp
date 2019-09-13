@@ -210,6 +210,22 @@ inline int Flow::GetPacketsLost(double max_finish_time_ms){
     return 0;
 }
 
+void Flow::SetFirstLinkId(int link_id){
+    first_link_id = link_id;
+}
+
+void Flow::SetLastLinkId(int link_id){
+    last_link_id = link_id;
+}
+
+void Flow::SetReverseFirstLinkId(int link_id){
+    reverse_first_link_id = link_id;
+}
+
+void Flow::SetReverseLastLinkId(int link_id){
+    reverse_last_link_id = link_id;
+}
+
 bool Flow::IsFlowActive(){
     return (paths.size() == 1);
 }

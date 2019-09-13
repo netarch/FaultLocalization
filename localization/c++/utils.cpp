@@ -43,7 +43,7 @@ void GetDataFromLogFile(string filename, LogFileData *result){
     Flow *flow = NULL;
     int curr_link_index = 0;
     int nlines = 0;
-    long long mem_taken = 0;
+    //long long mem_taken = 0;
     while (getline(infile, line)){
         //const char *linum = line.c_str();
         istringstream line_stream (line);
@@ -72,10 +72,9 @@ void GetDataFromLogFile(string filename, LogFileData *result){
                 }
                 if (flow->GetLatestPacketsSent() > 0 and !flow->DiscardFlow()
                     and flow->paths.size() > 0){
-                    //flow->PrintInfo();
-                    if (chunk_flows.size() % 10000==0){
-                        cout << "Finished "<<chunk_flows.size() << " flows from " << filename << endl;
-                    }
+                    //if (chunk_flows.size() % 10000==0){
+                    //    cout << "Finished "<<chunk_flows.size() << " flows from " << filename << endl;
+                    //}
                     chunk_flows.push_back(flow);
                 }
             }
@@ -83,7 +82,7 @@ void GetDataFromLogFile(string filename, LogFileData *result){
             double start_time_ms;
             line_stream >> src >> dest >> nbytes >> start_time_ms;
             flow = new Flow(src, "", 0, dest, "", 0, nbytes, start_time_ms);
-            mem_taken += sizeof(Flow);
+            //mem_taken += sizeof(Flow);
         }
         else if (op == "Snapshot"){
             double snapshot_time_ms;
@@ -91,7 +90,7 @@ void GetDataFromLogFile(string filename, LogFileData *result){
             line_stream >> snapshot_time_ms >> packets_sent >> packets_lost >> packets_randomly_lost;
             assert (flow != NULL);
             flow->AddSnapshot(snapshot_time_ms, packets_sent, packets_lost, packets_randomly_lost);
-            mem_taken += sizeof(FlowSnapshot);
+            //mem_taken += sizeof(FlowSnapshot);
         }
         else if (string_starts_with(op, "flowpath_reverse")){
             temp_path.clear();
@@ -213,7 +212,7 @@ void GetDataFromLogFile(string filename, LogFileData *result){
             else{
                 path = new Path(temp_path);
             }
-            mem_taken += sizeof(*path) + sizeof(int) * path->size();
+            //mem_taken += sizeof(*path) + sizeof(int) * path->size();
             assert (flow != NULL);
             flow->AddPath(path, (op.find("taken") != string::npos));
         }
@@ -233,8 +232,8 @@ void GetDataFromLogFile(string filename, LogFileData *result){
             chunk_flows.push_back(flow);
         }
     }
-    mem_taken += sizeof(chunk_flows) + sizeof(Flow*) * chunk_flows.capacity();
-    cout << "Total space taken by forward paths " << mem_taken/1024 << endl;
+    //mem_taken += sizeof(chunk_flows) + sizeof(Flow*) * chunk_flows.capacity();
+    //cout << "Total space taken by forward paths " << mem_taken/1024 << endl;
     result->AddChunkFlows(chunk_flows);
     if (VERBOSE){
         cout<<"Read log file in "<<chrono::duration_cast<chrono::milliseconds>(
@@ -302,7 +301,7 @@ void LogFileData::FilterFlowsForConditional(double max_finish_time_ms, int nopen
     }
 }
 
-vector<vector<int> >* LogFileData::GetForwardFlowsByLinkId1(double max_finish_time_ms, int nopenmp_threads){
+vector<vector<int> >* LogFileData::GetForwardFlowsByLinkId(double max_finish_time_ms, int nopenmp_threads){
     if (forward_flows_by_link_id != NULL) delete(forward_flows_by_link_id);
     int nlinks = inverse_links.size();
     forward_flows_by_link_id = new vector<vector<int> >(nlinks);
@@ -333,7 +332,7 @@ vector<vector<int> >* LogFileData::GetForwardFlowsByLinkId1(double max_finish_ti
 }
 
 //Lockless version
-vector<vector<int> >* LogFileData::GetForwardFlowsByLinkId(double max_finish_time_ms, int nopenmp_threads){
+vector<vector<int> >* LogFileData::GetForwardFlowsByLinkId1(double max_finish_time_ms, int nopenmp_threads){
     if (forward_flows_by_link_id != NULL) delete(forward_flows_by_link_id);
     int nlinks = inverse_links.size();
     forward_flows_by_link_id = new vector<vector<int> >(nlinks);

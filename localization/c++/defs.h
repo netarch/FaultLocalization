@@ -9,6 +9,7 @@
 using namespace std;
 
 #define MAX_PATH_LENGTH 4
+#define NDEBUG
 
 template <typename T>
 struct SmallVector{

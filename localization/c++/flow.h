@@ -61,7 +61,7 @@ public:
     Path* GetReversePathTaken();
 
     // Forward the snapshot ptr to the latest snapshot before max_finish_time_ms
-    void UpdateSnapshotPtr(double max_finish_time_ms);
+    inline void UpdateSnapshotPtr(double max_finish_time_ms);
     // According to the latest snapshot before max_finish_time_ms
     double GetDropRate(double max_finish_time_ms);
     int GetPacketsLost(double max_finish_time_ms);

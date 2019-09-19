@@ -186,6 +186,7 @@ void Flow::UpdateSnapshotPtr(double max_finish_time_ms){
         }
     }
     */
+    //!TODO(Bug): There is a race condition here!
     assert (curr_snapshot_ptr == -1 ||
             snapshots[curr_snapshot_ptr]->snapshot_time_ms < max_finish_time_ms);
     while (curr_snapshot_ptr + 1 < snapshots.size() && 

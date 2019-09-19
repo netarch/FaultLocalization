@@ -48,8 +48,10 @@ void BayesianNet::LocalizeFailures(LogFileData* data, double min_start_time_ms,
                                        max_finish_time_ms, nopenmp_threads);
         }
         else{
+            // Inefficient if |hypothesis_space| is large, say > 1000
             vector<Hypothesis*> hypothesis_space;
             vector<pair<Hypothesis*, double> > base_hypothesis_likelihood;
+            //auto start_init_candidates = chrono::high_resolution_clock::now();
             for(Hypothesis* h: prev_hypothesis_space){
                 assert (h != NULL);
                 for (int link_id: candidates){
@@ -66,6 +68,13 @@ void BayesianNet::LocalizeFailures(LogFileData* data, double min_start_time_ms,
                     }
                 }
             }
+            /*
+            if (VERBOSE){
+                cout << "Finished initializing candidates flows in "<<chrono::duration_cast<chrono::milliseconds>(
+                     chrono::high_resolution_clock::now() - start_init_candidates).count()*1.0e-3
+                     << " seconds" << endl;
+            }
+            */
             ComputeLogLikelihood(hypothesis_space, base_hypothesis_likelihood, result,
                              min_start_time_ms, max_finish_time_ms, nopenmp_threads);
         }
@@ -198,11 +207,17 @@ void BayesianNet::ComputeSingleLinkLogLikelihood(vector<pair<double, Hypothesis*
             final_likelihoods[link_id] += likelihoods[t][link_id];
         }
     }
+    auto start_init_candidates = chrono::high_resolution_clock::now();
     result.resize(nlinks);
     for(int link_id=0; link_id<nlinks; link_id++){
         Hypothesis* h = new Hypothesis();
         h->insert(link_id);
         result[link_id] = make_pair(final_likelihoods[link_id], h);
+    }
+    if (VERBOSE){
+        cout << "Finished initializing candidates flows in "<<chrono::duration_cast<chrono::milliseconds>(
+             chrono::high_resolution_clock::now() - start_init_candidates).count()*1.0e-3
+             << " seconds" << endl;
     }
 }
 
@@ -212,12 +227,19 @@ void BayesianNet::ComputeLogLikelihood(vector<Hypothesis*> &hypothesis_space,
                  double min_start_time_ms, double max_finish_time_ms,
                  int nopenmp_threads){
     result.resize(hypothesis_space.size());
+    //#pragma omp parallel for num_threads(nopenmp_threads) schedule(dynamic, 1)
+    vector<int> relevant_flows[hypothesis_space.size()];
     #pragma omp parallel for num_threads(nopenmp_threads)
     for(int i=0; i<hypothesis_space.size(); i++){
         Hypothesis* h = hypothesis_space[i];
         auto& base = base_hypothesis_likelihood[i];
+        GetRelevantFlows(h, base.first, min_start_time_ms, max_finish_time_ms, relevant_flows[i]);
+    }
+    for(int i=0; i<hypothesis_space.size(); i++){
+        Hypothesis* h = hypothesis_space[i];
+        auto& base = base_hypothesis_likelihood[i];
         result[i] = pair<double, Hypothesis*>(ComputeLogLikelihood(h, base.first, base.second,
-                                        min_start_time_ms, max_finish_time_ms), h);
+                    min_start_time_ms, max_finish_time_ms, relevant_flows[i]), h);
     }
 }
 
@@ -244,28 +266,50 @@ inline double BayesianNet::BnfWeighted(int naffected, int npaths,
     return log((1.0 - a) + a * pow((1.0 - p1)/p2, weight_bad) * pow(p1/(1.0-p2), weight_good));
 }
 
-double BayesianNet::ComputeLogLikelihood(Hypothesis* hypothesis,
-                    Hypothesis* base_hypothesis, double base_likelihood,
-                    double min_start_time_ms, double max_finish_time_ms){
-    double log_likelihood = 0.0;
-    //unordered_set<int> relevant_flows;
-    dense_hash_set<int, hash<int> > relevant_flows;
-    relevant_flows.set_empty_key(-1);
+
+
+void BayesianNet::GetRelevantFlows(Hypothesis* hypothesis, Hypothesis* base_hypothesis,
+                                   double min_start_time_ms, double max_finish_time_ms,
+                                   vector<int>& relevant_flows){
+    auto start_init_time = chrono::high_resolution_clock::now();
+    dense_hash_set<int, hash<int> > relevant_flows_set;
+    relevant_flows_set.set_empty_key(-1);
     for (int link_id: *hypothesis){
         if (base_hypothesis->find(link_id) == base_hypothesis->end()){
             vector<int> &link_id_flows = (*flows_by_link_id_cache)[link_id];
             for(int f: link_id_flows){
                 Flow* flow = data_cache->flows[f];
                 //!TODO: Add option for active_flows_only
-                if (flow->start_time_ms >= min_start_time_ms and (!USE_CONDITIONAL or flow->TracerouteFlow(max_finish_time_ms))){
-                    relevant_flows.insert(f);
+                if (flow->start_time_ms >= min_start_time_ms and
+                    (!USE_CONDITIONAL or flow->TracerouteFlow(max_finish_time_ms))){
+                    relevant_flows_set.insert(f);
                 }
             }
         }
     }
-    //auto start_compute_time = chrono::high_resolution_clock::now();
-    for (int ff: relevant_flows){
-        Flow *flow = data_cache->flows[ff];
+    relevant_flows.insert(relevant_flows.begin(), relevant_flows_set.begin(), relevant_flows_set.end());
+}
+
+double BayesianNet::ComputeLogLikelihood(Hypothesis* hypothesis, Hypothesis* base_hypothesis,
+                    double base_likelihood, double min_start_time_ms,
+                    double max_finish_time_ms){
+    vector<int> relevant_flows;
+    GetRelevantFlows(hypothesis, base_hypothesis, min_start_time_ms, max_finish_time_ms, relevant_flows);
+    return ComputeLogLikelihood(hypothesis, base_hypothesis, base_likelihood, min_start_time_ms,
+                                max_finish_time_ms, relevant_flows);
+}
+
+double BayesianNet::ComputeLogLikelihood(Hypothesis* hypothesis, Hypothesis* base_hypothesis,
+                    double base_likelihood, double min_start_time_ms,
+                    double max_finish_time_ms, vector<int> &relevant_flows){
+    auto start_compute_time = chrono::high_resolution_clock::now();
+    //for (int ff: relevant_flows){
+    //    Flow *flow = data_cache->flows[ff];
+    atomic<double> log_likelihood_atomic = 0.0;
+    #pragma omp parallel for num_threads(40)
+    for (int ii=0; ii<relevant_flows.size(); ii++){
+        Flow *flow = data_cache->flows[relevant_flows[ii]];
+        double log_likelihood = 0.0;
         vector<Path*>* flow_paths = flow->GetPaths(max_finish_time_ms);
         PII weight = flow->LabelWeightsFunc(max_finish_time_ms);
         if (weight.first == 0 and weight.second == 0) continue;
@@ -273,8 +317,8 @@ double BayesianNet::ComputeLogLikelihood(Hypothesis* hypothesis,
         int npaths = flow_paths->size(), naffected=0, naffected_base=0;
         // If common links of all paths are in hypothesis, then all paths are affected
         if (MEMOIZE_PATHS and ((hypothesis->find(flow->first_link_id) != hypothesis->end())
-                                or (hypothesis->find(flow->last_link_id) != hypothesis->end()))){
-                naffected = npaths;
+                            or (hypothesis->find(flow->last_link_id) != hypothesis->end()))){
+            naffected = npaths;
         }
         else{
             for (Path* path: *flow_paths){
@@ -286,8 +330,8 @@ double BayesianNet::ComputeLogLikelihood(Hypothesis* hypothesis,
             }
         }
         if (MEMOIZE_PATHS and (base_hypothesis->find(flow->first_link_id) != base_hypothesis->end())
-                              or (base_hypothesis->find(flow->last_link_id) != base_hypothesis->end())){
-                naffected_base = npaths;
+                           or (base_hypothesis->find(flow->last_link_id) != base_hypothesis->end())){
+            naffected_base = npaths;
         }
         else{
             for (Path* path: *flow_paths){
@@ -309,24 +353,38 @@ double BayesianNet::ComputeLogLikelihood(Hypothesis* hypothesis,
         //!TODO: implement REVERSE_PATH case
         if (USE_CONDITIONAL) {
             log_likelihood += BnfWeightedConditional(naffected, npaths, naffected_r, npaths_r,
-                                          weight.first, weight.second);
+                                                     weight.first, weight.second);
             if (naffected_base > 0 or naffected_base_r > 0){
-                log_likelihood -= BnfWeightedConditional(naffected_base, npaths,
-                                  naffected_base_r, npaths_r, weight.first, weight.second);
+                log_likelihood -= BnfWeightedConditional(naffected_base, npaths, naffected_base_r,
+                                                         npaths_r, weight.first, weight.second);
             }
         }
         else {
             log_likelihood += BnfWeighted(naffected, npaths, naffected_r, npaths_r,
                                           weight.first, weight.second);
             if (naffected_base > 0 or naffected_base_r > 0){
-                log_likelihood -= BnfWeighted(naffected_base, npaths,
-                                  naffected_base_r, npaths_r, weight.first, weight.second);
+                log_likelihood -= BnfWeighted(naffected_base, npaths, naffected_base_r,
+                                              npaths_r, weight.first, weight.second);
             }
         }
+        atomic_add_double(log_likelihood_atomic, log_likelihood);
     }
+    double compute_time_seconds = chrono::duration_cast<chrono::nanoseconds>(
+                 chrono::high_resolution_clock::now() - start_compute_time).count() * 1.0e-9;
+    //if (compute_time_seconds > 0.01) cout << "compute_time_seconds " << compute_time_seconds << endl;
     //function1_time_sec[omp_get_thread_num()] += chrono::duration_cast<chrono::nanoseconds>(
     //             chrono::high_resolution_clock::now() - start_compute_time).count();
-    log_likelihood = max(-1.0e9, log_likelihood);
+    //log_likelihood = max(-1.0e9, log_likelihood);
+    double log_likelihood = max(-1.0e9, (double)log_likelihood_atomic);
     //cout << *hypothesis << " " << log_likelihood + hypothesis->size() * PRIOR << endl;
     return base_likelihood + log_likelihood + (hypothesis->size() - base_hypothesis->size()) * PRIOR;
+}
+
+inline double atomic_add_double(atomic<double> &d, double val){
+    double old_val = d.load(memory_order_consume);
+    double new_val = old_val + val;
+    while (!d.compare_exchange_weak(old_val, new_val, memory_order_release, memory_order_consume)){
+        new_val = d + val;
+    }
+    return new_val;
 }

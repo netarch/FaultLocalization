@@ -21,9 +21,17 @@ private:
                     double min_start_time_ms, double  max_finish_time_ms,
                     int nopenmp_threads);
 
-    double ComputeLogLikelihood(Hypothesis* hypothesis,
-                    Hypothesis* base_hypothesis, double base_likelihood,
-                    double min_start_time_ms, double max_finish_time_ms);
+    void GetRelevantFlows(Hypothesis* hypothesis, Hypothesis* base_hypothesis,
+                                   double min_start_time_ms, double max_finish_time_ms,
+                                   vector<int>& relevant_flows);
+
+    double ComputeLogLikelihood(Hypothesis* hypothesis, Hypothesis* base_hypothesis,
+                    double base_likelihood, double min_start_time_ms,
+                    double max_finish_time_ms, vector<int> &relevant_flows);
+
+    double ComputeLogLikelihood(Hypothesis* hypothesis, Hypothesis* base_hypothesis,
+                    double base_likelihood, double min_start_time_ms,
+                    double max_finish_time_ms);
 
     void ComputeLogLikelihood(vector<Hypothesis*> &hypothesis_space,
                     vector<pair<Hypothesis*, double> > &base_hypothesis_likelihood,
@@ -47,5 +55,13 @@ private:
     vector<vector<int> >* flows_by_link_id_cache;
     //double function1_time_sec[100];
 };
+
+/*
+ * Perform an atomic addition to the double via spin-locking
+ * on compare_exchange_weak. Memory ordering is release on write
+ * consume on read
+ * Inspired from: https://www.reddit.com/r/cpp/comments/338pcj/atomic_addition_of_floats_using_compare_exchange/
+ */
+inline double atomic_add_double(atomic<double> &d, double val);
 
 #endif

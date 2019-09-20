@@ -22,7 +22,7 @@ void ReducedGraphMappingLeafSpine(string topology_file, unordered_map<Link, Link
             int spine, leaf;
             line_stream >> spine >> leaf;
             if (spine >= 90){
-                //! MAJOR MAJOR HACK. 
+                //! MAJOR MAJOR HACK FOR A SPECIFIC TOPOLOGY
                 //swap leaf and spine
                 int temp = spine;
                 spine = leaf;
@@ -58,6 +58,7 @@ int main(int argc, char *argv[]){
     int nchunks = 32;
     LogFileData* data = GetDataFromLogFileDistributed(flow_file, nchunks, nchunks);
     BayesianNet estimator;
+    estimator.SetReducedAnalysis(true);
     if (estimator.USE_CONDITIONAL){
         data->FilterFlowsForConditional(max_finish_time_ms, nopenmp_threads);
     }
@@ -65,13 +66,17 @@ int main(int argc, char *argv[]){
     unordered_map<Link, Link> to_reduced_graph;
     unordered_map<Link, vector<Link> > from_reduced_graph;
     ReducedGraphMappingLeafSpine(topology_file, to_reduced_graph, from_reduced_graph);
+    unordered_map<int, int> num_reduced_links_map;
     cout << "Obtained reduced graph mappings" <<endl;
     cout << "Number of reduced nodes " << from_reduced_graph.size() << endl;
     LogFileData* reduced_data = new LogFileData();
     auto start_time = chrono::high_resolution_clock::now();
     data->GetReducedData(to_reduced_graph, *reduced_data, nopenmp_threads);
+    GetNumReducedLinksMap(to_reduced_graph, *data, *reduced_data, num_reduced_links_map);
+    estimator.SetNumReducedLinksMap(&num_reduced_links_map);
     cout << "Obtained reduced data for running analysis in " << chrono::duration_cast<chrono::milliseconds>(
             chrono::high_resolution_clock::now() - start_time).count()*1.0e-3 << " seconds" << endl;
+
     Hypothesis estimator_hypothesis;
     estimator.LocalizeFailures(reduced_data, min_start_time_ms, max_finish_time_ms,
                                         estimator_hypothesis, nopenmp_threads);

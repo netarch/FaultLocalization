@@ -88,6 +88,9 @@ public:
     int reverse_first_link_id, reverse_last_link_id;
     // Should be of size 1 always
     vector<Path*> path_taken_vector, reverse_path_taken_vector;
+
+    /* For reduced computations */
+    int npaths_unreduced, npaths_reverse_unreduced;
 private:
     string srcip, destip;
     int srcport, destport;

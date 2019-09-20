@@ -72,8 +72,15 @@ struct LogFileData{
 
 void GetDataFromLogFile(string filename, LogFileData* result);
 LogFileData* GetDataFromLogFileDistributed(string dirname, int nchunks, int nopenmp_threads);
+PDD GetPrecisionRecall(Hypothesis& failed_links, Hypothesis& predicted_hypothesis);
+
+/* For reduced analysis */
+int GetReducedLinkId(int link_id, unordered_map<Link, Link> &reduced_graph_map,
+                                  LogFileData &data, LogFileData &reduced_data);
 Path* GetReducedPath(Path *path, unordered_map<Link, Link> &reduced_graph_map,
                                  LogFileData &data, LogFileData &reduced_data);
-PDD GetPrecisionRecall(Hypothesis& failed_links, Hypothesis& predicted_hypothesis);
+void GetNumReducedLinksMap(unordered_map<Link, Link> &reduced_graph_map,
+                                LogFileData &data, LogFileData &reduced_data,
+                                unordered_map<int, int> &result_map);
 
 #endif

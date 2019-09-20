@@ -15,6 +15,11 @@ class BayesianNet : public Estimator{
     const int N_MAX_K_LIKELIHOODS = 20;
     const bool USE_CONDITIONAL = false;
     const double PRIOR = -10.0;
+    bool REDUCED_ANALYSIS = false;
+    void SetReducedAnalysis(bool val) { REDUCED_ANALYSIS = val; }
+    void SetNumReducedLinksMap(unordered_map<int, int>* num_reduced_links_map_) {
+        num_reduced_links_map = num_reduced_links_map_;
+    }
 
 private:
     void ComputeSingleLinkLogLikelihood(vector<pair<double, Hypothesis*> > &result,
@@ -25,10 +30,15 @@ private:
                                    double min_start_time_ms, double max_finish_time_ms,
                                    vector<int>& relevant_flows);
 
-    double ComputeLogLikelihood(Hypothesis* hypothesis, Hypothesis* base_hypothesis,
-                    double base_likelihood, double min_start_time_ms,
-                    double max_finish_time_ms, vector<int> &relevant_flows);
+    double ComputeLogLikelihoodUnreduced(Hypothesis* hypothesis, Hypothesis* base_hypothesis,
+                    double base_likelihood, double min_start_time_ms, double max_finish_time_ms,
+                    vector<int> &relevant_flows, int nopenmp_threads=1);
 
+    double ComputeLogLikelihoodReduced(Hypothesis* hypothesis, Hypothesis* base_hypothesis,
+                    double base_likelihood, double min_start_time_ms, double max_finish_time_ms,
+                    vector<int> &relevant_flows, int nopenmp_threads=1);
+
+    // computes relevant_flows and calls the other version
     double ComputeLogLikelihood(Hypothesis* hypothesis, Hypothesis* base_hypothesis,
                     double base_likelihood, double min_start_time_ms,
                     double max_finish_time_ms);
@@ -48,11 +58,16 @@ private:
     inline double BnfWeightedConditional(int naffected, int npaths, int naffected_r,
                     int npaths_r, double weight_good, double weight_bad);
 
+    inline double BnfWeightedUnconditional(int naffected, int npaths, int naffected_r,
+                    int npaths_r, double weight_good, double weight_bad);
+
     // Noise parameters
     double p1 = 1.0-1.0e-3, p2 = 2.5e-4;
-    //double p1 = 1.0 - 0.5e-3, p2 = 1.0e-4;
+    //double p1 = 1.0 - 1.0e-3, p2 = 1.0e-4;
     LogFileData* data_cache;
     vector<vector<int> >* flows_by_link_id_cache;
+    // For reduced analysis
+    unordered_map<int, int>* num_reduced_links_map;
     //double function1_time_sec[100];
 };
 

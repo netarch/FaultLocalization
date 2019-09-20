@@ -5,6 +5,9 @@
 Path* GetReducedPath(Path *path, unordered_map<Link, Link> &reduced_graph_map,
                                  LogFileData &data, LogFileData &reduced_data);
 
+int GetReducedLinkId(int link_id, unordered_map<Link, Link> &reduced_graph_map,
+                                 LogFileData &data, LogFileData &reduced_data);
+
 
 Flow::Flow(int src_, string srcip_, int srcport_, int dest_, string destip_, int destport_, int nbytes_, double start_time_ms_):
     src(src_), srcip(srcip_), srcport(srcport_), dest(dest_), destip(destip_), destport(destport_),
@@ -16,6 +19,15 @@ Flow::Flow(Flow &flow, unordered_map<Link, Link> &reduced_graph_map, LogFileData
     dest(flow.dest), destip(flow.destip), destport(flow.destport),
     nbytes(flow.nbytes), start_time_ms(flow.start_time_ms),
     curr_snapshot_ptr(-1), snapshots(flow.snapshots){
+
+    if constexpr (MEMOIZE_PATHS) { 
+        first_link_id = GetReducedLinkId(flow.first_link_id, reduced_graph_map, data, reduced_data);
+        last_link_id = GetReducedLinkId(flow.last_link_id, reduced_graph_map, data, reduced_data);
+        if constexpr (CONSIDER_REVERSE_PATH) {
+            reverse_first_link_id = GetReducedLinkId(flow.reverse_first_link_id, reduced_graph_map, data, reduced_data);
+            reverse_last_link_id = GetReducedLinkId(flow.reverse_last_link_id, reduced_graph_map, data, reduced_data);
+        }
+    }
 
     // populate forward paths
     for (Path *path: flow.paths){
@@ -44,6 +56,8 @@ Flow::Flow(Flow &flow, unordered_map<Link, Link> &reduced_graph_map, LogFileData
         if (new_path) reverse_paths.push_back(reduced_reverse_path);
         else delete(reduced_reverse_path);
     }
+    npaths_unreduced = flow.paths.size();
+    npaths_reverse_unreduced = flow.reverse_paths.size();
 
     if (flow.path_taken_vector.size() > 0){
         Path *reduced_path_taken = GetReducedPath(flow.path_taken_vector[0], reduced_graph_map, data,

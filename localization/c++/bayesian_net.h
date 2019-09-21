@@ -30,6 +30,8 @@ private:
                                    double min_start_time_ms, double max_finish_time_ms,
                                    vector<int>& relevant_flows);
 
+    inline bool HypothesisLinkInPath(Path *path, Hypothesis *hypothesis);
+
     array<int, 6> ComputeFlowPathCountersUnreduced(Flow *flow, Hypothesis *hypothesis,
                                            Hypothesis *base_hypothesis, double max_finish_time_ms);
 
@@ -71,12 +73,11 @@ private:
 
     // Noise parameters
     double p1 = 1.0-1.0e-3, p2 = 2.5e-4;
-    //double p1 = 1.0 - 2.5e-3, p2 = 5.0e-4;
+    //double p1 = 1.0 - 2.5e-3, p2 = 2.5e-4;
     LogFileData* data_cache;
     vector<vector<int> >* flows_by_link_id_cache;
     // For reduced analysis
     unordered_map<int, int>* num_reduced_links_map;
-    //double function1_time_sec[100];
 };
 
 #endif

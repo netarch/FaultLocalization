@@ -21,8 +21,9 @@ void ReducedGraphMappingLeafSpine(string topology_file, unordered_map<Link, Link
         if (line.find("->") == string::npos){
             int spine, leaf;
             line_stream >> spine >> leaf;
-            if (spine >= 90){
-                //! MAJOR MAJOR HACK FOR A SPECIFIC TOPOLOGY
+            int nspines = 30;
+            if (spine >= nspines){
+                //! MAJOR MAJOR HACK FOR A SPECIFIC LEAFSPINE TOPOLOGY
                 //swap leaf and spine
                 int temp = spine;
                 spine = leaf;
@@ -55,7 +56,7 @@ int main(int argc, char *argv[]){
     cout << "Using topology file "<< topology_file <<endl;
     cout << "Using " << nopenmp_threads << " openmp threads"<<endl;
     //LogFileData* data = GetDataFromLogFile(filename);
-    int nchunks = 32;
+    int nchunks = 40;
     LogFileData* data = GetDataFromLogFileDistributed(flow_file, nchunks, nchunks);
     BayesianNet estimator;
     estimator.SetReducedAnalysis(true);

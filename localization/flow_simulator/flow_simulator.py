@@ -62,7 +62,7 @@ servers_per_rack = int(nservers/nracks)
 print("Num racks", nracks, "Servers per rack", servers_per_rack)
 
 #nflows = random.randint(200000, 400000)
-nflows = 100 * nservers
+nflows = 200 * nservers
 #nflows = 250
 servers_busy = []
 servers_idle = []
@@ -109,7 +109,7 @@ def get_flows(nflows, G, fail_prob, servers_busy, servers_idle, outfile, respons
         #src = random.randint(0, servers-1)
         #dst = random.randint(0, servers-1)
         flowsize = (np.random.pareto(shape) + 1) * scale
-        while flowsize > 200 * 1024 * 1024:
+        while flowsize > 200 * 1024 * 1024 or flowsize < 10 * 1024:
             flowsize = (np.random.pareto(shape) + 1) * scale
         #print(src, dst, flowsize)
         packets_sent = math.ceil(flowsize/packetsize)
@@ -136,7 +136,7 @@ def get_flows(nflows, G, fail_prob, servers_busy, servers_idle, outfile, respons
     response_queue.put(sumflowsize)
     return
 
-nprocesses = 32
+nprocesses = 40
 outfiles = [open(outfilename + "/" + str(i),"w+") for i in range(nprocesses)]
 for (u,v) in failed_links:
     print("Failing_link", u, v, fail_prob[(u,v)], file=outfiles[0])

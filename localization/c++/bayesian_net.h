@@ -30,6 +30,12 @@ private:
                                    double min_start_time_ms, double max_finish_time_ms,
                                    vector<int>& relevant_flows);
 
+    array<int, 6> ComputeFlowPathCountersUnreduced(Flow *flow, Hypothesis *hypothesis,
+                                           Hypothesis *base_hypothesis, double max_finish_time_ms);
+
+    array<int, 6> ComputeFlowPathCountersReduced(Flow *flow, Hypothesis *hypothesis,
+                                           Hypothesis *base_hypothesis, double max_finish_time_ms);
+
     double ComputeLogLikelihoodUnreduced(Hypothesis* hypothesis, Hypothesis* base_hypothesis,
                     double base_likelihood, double min_start_time_ms, double max_finish_time_ms,
                     vector<int> &relevant_flows, int nopenmp_threads=1);
@@ -61,22 +67,16 @@ private:
     inline double BnfWeightedUnconditional(int naffected, int npaths, int naffected_r,
                     int npaths_r, double weight_good, double weight_bad);
 
+    void SortCandidatesWrtNumRelevantFlows(vector<int> &candidates);
+
     // Noise parameters
     double p1 = 1.0-1.0e-3, p2 = 2.5e-4;
-    //double p1 = 1.0 - 1.0e-3, p2 = 1.0e-4;
+    //double p1 = 1.0 - 2.5e-3, p2 = 5.0e-4;
     LogFileData* data_cache;
     vector<vector<int> >* flows_by_link_id_cache;
     // For reduced analysis
     unordered_map<int, int>* num_reduced_links_map;
     //double function1_time_sec[100];
 };
-
-/*
- * Perform an atomic addition to the double via spin-locking
- * on compare_exchange_weak. Memory ordering is release on write
- * consume on read
- * Inspired from: https://www.reddit.com/r/cpp/comments/338pcj/atomic_addition_of_floats_using_compare_exchange/
- */
-inline double atomic_add_double(atomic<double> &d, double val);
 
 #endif

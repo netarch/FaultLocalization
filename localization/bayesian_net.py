@@ -134,7 +134,7 @@ def compute_log_likelihood(hypothesis, flows_by_link, flows, min_start_time_ms, 
         log_likelihood += bnf_weighted(naffected, npaths, naffected_r, npaths_r, p1, p2, weight[0], weight[1])
         if naffected_base > 0 or naffected_base_r > 0:
             log_likelihood -= bnf_weighted(naffected_base, npaths, naffected_base_r, npaths_r, p1, p2, weight[0], weight[1])
-    prior = 10
+    prior = 5
     return base_likelihood + log_likelihood + (len(base_hypothesis) -  len(hypothesis)) * prior
 
 '''
@@ -194,6 +194,7 @@ def compute_log_likelihood_conditional(hypothesis, flows_by_link, flows, min_sta
         #log_likelihood += bnf_good(naffected, npaths, naffected_r, npaths_r, p1, p2) * weight[0]
         #log_likelihood += bnf_bad(naffected, npaths, naffected_r, npaths_r, p1, p2) * weight[1]
         if flow.is_active_flow():
+            assert (False)
             log_likelihood += bnf_weighted(naffected, npaths, naffected_r, npaths_r, p1, p2, weight[0], weight[1])
             if naffected_base > 0 or naffected_base_r > 0:
                 log_likelihood -= bnf_weighted(naffected_base, npaths, naffected_base_r, npaths_r, p1, p2, weight[0], weight[1])
@@ -203,7 +204,7 @@ def compute_log_likelihood_conditional(hypothesis, flows_by_link, flows, min_sta
                 log_likelihood -= bnf_weighted_conditional(naffected_base, npaths, naffected_base_r, npaths_r, p1, p2, weight[0], weight[1])
         else:
             assert(False)
-    prior = 10
+    prior = 5.0
     return base_likelihood + log_likelihood + (len(base_hypothesis) -  len(hypothesis)) * prior
    
 
@@ -234,6 +235,8 @@ def bayesian_network_cilia(flows, links, inverse_links, flows_by_link, forward_f
 
     if USE_CONDITIONAL: 
         flows = [flow for flow in flows if flow.start_time_ms >= min_start_time_ms and flow.any_snapshot_before(max_finish_time_ms) and flow.traceroute_flow(max_finish_time_ms)]
+        if utils.VERBOSE:
+            print("Num conditional flows", len(flows))
         forward_flows_by_link = get_forward_flows_by_link(flows, inverse_links, max_finish_time_ms)
         reverse_flows_by_link = dict()
         flows_by_link = get_flows_by_link(forward_flows_by_link, reverse_flows_by_link, inverse_links)
@@ -307,7 +310,7 @@ def bayesian_network_cilia(flows, links, inverse_links, flows_by_link, forward_f
             start = int(i * num_hypothesis/nprocesses)
             end = int(min(num_hypothesis, (i+1) * num_hypothesis/nprocesses))
             #!TODO: Hack. The 3rd argument will restrict flows to active flows only for nfails==1
-            active_flows_only = (nfails==1 and repeat_nfails_1)
+            active_flows_only = False #(nfails==1 and repeat_nfails_1)
             request_queues[i].put((list(hypothesis_space[start:end]), (nfails==MAX_FAILS or nprocesses==1), active_flows_only))
 
         if (nprocesses == 1):

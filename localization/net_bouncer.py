@@ -79,14 +79,15 @@ def net_bouncer(flows, links, inverse_links, flows_by_link, forward_flows_by_lin
     maxiter = 50
     error = F(X)
     for it in range(maxiter):
-        start_time = time.time()
+        iter_start_time = time.time()
         X_new = np.zeros(nlinks)
         for i in range(nlinks):
             X_new[i] = max(0.0, min(argmin_F_xi(X, i), 1.0))
         X = X_new
         new_error = F(X)
         error_diff = error - new_error
-        print("Iteration", it, "Error", new_error, "finished in", time.time()-start_time)
+        if utils.VERBOSE:
+            print("Iteration", it, "Error", new_error, "finished in", time.time()-iter_start_time)
         if abs(error_diff) < 1.0e-6:
             break
         error = new_error
@@ -100,7 +101,7 @@ def net_bouncer(flows, links, inverse_links, flows_by_link, forward_flows_by_lin
             ret_hypothesis.append(inverse_links[i])
     precision, recall = get_precision_recall(failed_links, ret_hypothesis)
     if utils.VERBOSE:
-        print ("Output Hypothesis: ", list(ret_hypothesis))
+        print ("Output Hypothesis: ", list(ret_hypothesis), "Time taken", time.time() - start_time, "seconds")
     return (precision, recall), None
 
     

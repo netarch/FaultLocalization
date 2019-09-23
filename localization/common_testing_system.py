@@ -100,7 +100,7 @@ def get_precision_recall_trend_file(filename, min_start_time_ms, max_finish_time
     precision_recalls = []
     last_print_time = min_start_time_ms
     retinfo = []
-    for finish_time_ms in np.arange(min_start_time_ms + 1000.0 + step, max_finish_time_ms, step):
+    for finish_time_ms in np.arange(min_start_time_ms + 0.0 + step, max_finish_time_ms, step):
         flows, links, inverse_links, flows_by_link, forward_flows_by_link, reverse_flows_by_link, link_statistics, failed_links = get_data_structures_from_logdata(logdata, finish_time_ms)
         if (finish_time_ms - last_print_time >= 1 * step):
             last_print_time = min_start_time_ms
@@ -150,7 +150,7 @@ def get_precision_recall_trend_files_parallel(files, min_start_time_ms, max_fini
     precision_recall_mean = []
     precision_recall_square_mean = []
     retinfo = []
-    for finish_time in np.arange(min_start_time_ms + 1000.0 + step, max_finish_time_ms, step):
+    for finish_time in np.arange(min_start_time_ms + 0.0 + step, max_finish_time_ms, step):
         precision_recall_mean.append((0.0, 0.0))
         precision_recall_square_mean.append((0.0, 0.0))
 

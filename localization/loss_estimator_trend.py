@@ -15,14 +15,14 @@ from net_bouncer import *
 from doubleO7 import *
 
 def get_files():
-    file_prefix = "/home/vharsh2/scratch/logs/active_passive/new/plog"
-    ignore_files = [(2,3)]
-    #file_prefix = "/home/vharsh2/scratch/logs/ls_x30_y10/old/plog"
-    #ignore_files = []
+    #file_prefix = "/home/vharsh2/scratch/logs/active_passive/new/plog"
+    #ignore_files = [(2,3)]
+    file_prefix = "/home/vharsh2/scratch/logs/ls_x30_y10/old/plog"
+    ignore_files = []
     files = []
     for f in range(1,9):
-        #for s in [3,4,5,6]:
-        for s in [1,2,3,4]:
+        for s in [3,4]:
+        #for s in [1,2,3,4]:
             if (f, s) not in ignore_files:
                 files.append(file_prefix + "_" + str(f) + "_0_" + str(s))
     #for s in range(1,17):
@@ -100,11 +100,11 @@ def get_precision_recall_trend_estimator(min_start_time_ms, max_finish_time_ms, 
     for f in files:
         print("File: ", f)
     step = (max_finish_time_ms - min_start_time_ms)/10
-    step = 2.0 * 1000.0
+    step = 0.05 * 1000.0
     precision_recall, info = get_precision_recall_trend(files, min_start_time_ms, max_finish_time_ms, step, estimator_func, params, nprocesses)
     for i in range(len(precision_recall)):
         p, r, p_stddev, r_stddev = precision_recall[i]
-        print("Max_finish_time_ms: ", min_start_time_ms + 1000.0 + (i+1)*step, p, r, p_stddev, r_stddev)
+        print("Max_finish_time_ms: ", min_start_time_ms + 0.0 + (i+1)*step, p, r, p_stddev, r_stddev)
 
 def get_precision_recall_trend_bayesian_cilia(min_start_time_ms, max_finish_time_ms, nprocesses):
     #(1.0 - 2e-3, 1.2e-4 works well)
@@ -120,14 +120,18 @@ def get_precision_recall_trend_007(min_start_time_ms, max_finish_time_ms, fail_p
 
 def get_precision_recall_bayesian_cilia_params(min_start_time_ms, max_finish_time_ms, nprocesses):
     files = get_files()
-    p1 = list(np.arange(0.001, 0.01, 0.001))
+    p1 = list(np.arange(0.0005, 0.005, 0.0005))
+    #p2 = [x/10.0 for x in p1]
     p1 = [1.0 - x for x in p1]
-    #p2 = list(np.arange(0.0001, 0.001, 0.0001))
-    p2 = [0.001]
+    p2 = list(np.arange(0.00005, 0.0005, 0.00005))
     params_list = []
     for p1_i in p1:
         for p2_i in p2:
             params_list.append((p1_i, p2_i))
+    '''
+    for p1_i in p1:
+    	params_list.append((p1_i, (1-p1_i)/10.0))
+    '''
     nprocesses = min(len(files), nprocesses)
     precision_recall = explore_params_estimator_files(files, min_start_time_ms, max_finish_time_ms, bayesian_network_cilia, params_list, nprocesses)
     for params in params_list:
@@ -152,7 +156,7 @@ def get_precision_recall_net_bouncer_params(min_start_time_ms, max_finish_time_m
 
 def get_precision_recall_007_params(min_start_time_ms, max_finish_time_ms, nprocesses):
     files = get_files()
-    fail_percentiles = list(np.arange(0.001, 0.02, 0.00125))
+    fail_percentiles = list(np.arange(0.001, 0.02, 0.0005))
     print(fail_percentiles)
     params_list = [(x,) for x in fail_percentiles]
     nprocesses = min(len(files), nprocesses)
@@ -163,14 +167,14 @@ def get_precision_recall_007_params(min_start_time_ms, max_finish_time_ms, nproc
 if __name__ == '__main__':
     min_start_time_sec = float(sys.argv[1])
     max_finish_time_sec = float(sys.argv[2])
-    nprocesses = 16
+    nprocesses = 8
     utils.VERBOSE = False
     start_time = time.time()
-    get_precision_recall_trend_bayesian_cilia(min_start_time_sec * 1000.0, max_finish_time_sec * 1000.0, nprocesses)
+    #get_precision_recall_trend_bayesian_cilia(min_start_time_sec * 1000.0, max_finish_time_sec * 1000.0, nprocesses)
     #print("Execution time", time.time() - start_time, "seconds")
     #get_precision_recall_trend_net_bouncer(min_start_time_sec * 1000.0, max_finish_time_sec * 1000.0, nprocesses)
     fail_percentile = 0.0135
     #get_precision_recall_trend_007(min_start_time_sec * 1000.0, max_finish_time_sec * 1000.0, fail_percentile, nprocesses)
-    #get_precision_recall_007_params(min_start_time_sec * 1000.0, max_finish_time_sec * 1000.0, nprocesses)
+    get_precision_recall_bayesian_cilia_params(min_start_time_sec * 1000.0, max_finish_time_sec * 1000.0, nprocesses)
     print("Execution time", time.time() - start_time, "seconds")
 

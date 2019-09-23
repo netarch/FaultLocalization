@@ -3,12 +3,13 @@
 
 #include <iostream>
 #include <vector>
+#include <unordered_map>
 #include <list>
-
 #include "defs.h"
 
 using namespace std;
 
+class LogFileData;
 
 struct FlowSnapshot{
     double snapshot_time_ms;
@@ -29,11 +30,16 @@ public:
     Flow(int src_, string srcip_, int srcport_, int dest_, string destip_, int destport_,
          int nbytes_, double start_time_ms_);
 
+    //!TODO
+    Flow(Flow &flow, unordered_map<Link, Link> &reduced_graph_map, LogFileData &data,
+                                                          LogFileData &reduced_data);
+
     void AddPath(Path *path, bool is_path_taken=false);
     // A reverse path is from the destination to the source
     void AddReversePath(Path *path, bool is_reverse_path_taken=false);
     void SetPathTaken(Path *path);
     void SetReversePathTaken(Path *path);
+    void DoneAddingPaths();
 
     int GetLatestPacketsSent();
     int GetLatestPacketsLost();
@@ -55,7 +61,7 @@ public:
     Path* GetReversePathTaken();
 
     // Forward the snapshot ptr to the latest snapshot before max_finish_time_ms
-    void UpdateSnapshotPtr(double max_finish_time_ms);
+    inline void UpdateSnapshotPtr(double max_finish_time_ms);
     // According to the latest snapshot before max_finish_time_ms
     double GetDropRate(double max_finish_time_ms);
     int GetPacketsLost(double max_finish_time_ms);
@@ -68,17 +74,29 @@ public:
     // Assign two weights to each flow : (good_weight, bad_weight)
     PII LabelWeightsFunc(double max_finish_time_ms);
 
+    void SetFirstLinkId(int link_id);
+    void SetLastLinkId(int link_id);
+    void SetReverseFirstLinkId(int link_id);
+    void SetReverseLastLinkId(int link_id);
+
     vector<Path*> paths, reverse_paths;
     double start_time_ms;
     int src, dest;
+    // Server to ToR links that are common to all paths
+    int first_link_id, last_link_id;
+    // Server to ToR links that are common to all reverse paths
+    int reverse_first_link_id, reverse_last_link_id;
+    // Should be of size 1 always
+    vector<Path*> path_taken_vector, reverse_path_taken_vector;
+
+    /* For reduced computations */
+    int npaths_unreduced, npaths_reverse_unreduced;
 private:
     string srcip, destip;
     int srcport, destport;
     int nbytes;
     vector<FlowSnapshot*> snapshots;
     int curr_snapshot_ptr;
-    // Should be of size 1 always
-    vector<Path*> path_taken_vector, reverse_path_taken_vector;
 };
 
 #endif

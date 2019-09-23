@@ -1,9 +1,84 @@
 #include "flow.h"
 #include <assert.h>
 
+
+Path* GetReducedPath(Path *path, unordered_map<Link, Link> &reduced_graph_map,
+                                 LogFileData &data, LogFileData &reduced_data);
+
+int GetReducedLinkId(int link_id, unordered_map<Link, Link> &reduced_graph_map,
+                                 LogFileData &data, LogFileData &reduced_data);
+
+
 Flow::Flow(int src_, string srcip_, int srcport_, int dest_, string destip_, int destport_, int nbytes_, double start_time_ms_):
     src(src_), srcip(srcip_), srcport(srcport_), dest(dest_), destip(destip_), destport(destport_),
     nbytes(nbytes_), start_time_ms(start_time_ms_), curr_snapshot_ptr(-1) {}
+
+Flow::Flow(Flow &flow, unordered_map<Link, Link> &reduced_graph_map, LogFileData &data,
+                                                             LogFileData &reduced_data):
+    src(flow.src), srcip(flow.srcip), srcport(flow.srcport),
+    dest(flow.dest), destip(flow.destip), destport(flow.destport),
+    nbytes(flow.nbytes), start_time_ms(flow.start_time_ms),
+    curr_snapshot_ptr(-1), snapshots(flow.snapshots){
+
+    if constexpr (MEMOIZE_PATHS) { 
+        first_link_id = GetReducedLinkId(flow.first_link_id, reduced_graph_map, data, reduced_data);
+        last_link_id = GetReducedLinkId(flow.last_link_id, reduced_graph_map, data, reduced_data);
+        if constexpr (CONSIDER_REVERSE_PATH) {
+            reverse_first_link_id = GetReducedLinkId(flow.reverse_first_link_id, reduced_graph_map, data, reduced_data);
+            reverse_last_link_id = GetReducedLinkId(flow.reverse_last_link_id, reduced_graph_map, data, reduced_data);
+        }
+    }
+
+    // populate forward paths
+    for (Path *path: flow.paths){
+        Path *reduced_path = GetReducedPath(path, reduced_graph_map, data, reduced_data);
+        bool new_path = true;
+        for (Path *path: paths){
+            if (*path == *reduced_path){
+                new_path = false;
+                break;
+            }
+        }
+        if (new_path) paths.push_back(reduced_path);
+        else delete(reduced_path);
+    }
+
+    // populate reverse paths
+    for (Path *reverse_path: flow.reverse_paths){
+        Path *reduced_reverse_path = GetReducedPath(reverse_path, reduced_graph_map, data, reduced_data);
+        bool new_path = true;
+        for (Path *reverse_path: reverse_paths){
+            if (*reverse_path == *reduced_reverse_path){
+                new_path = false;
+                break;
+            }
+        }
+        if (new_path) reverse_paths.push_back(reduced_reverse_path);
+        else delete(reduced_reverse_path);
+    }
+    npaths_unreduced = flow.paths.size();
+    npaths_reverse_unreduced = flow.reverse_paths.size();
+
+    if (flow.path_taken_vector.size() > 0){
+        Path *reduced_path_taken = GetReducedPath(flow.path_taken_vector[0], reduced_graph_map, data,
+                                                  reduced_data);
+        SetPathTaken(reduced_path_taken);
+    }
+    if (flow.reverse_path_taken_vector.size() > 0){
+        Path *reduced_reverse_path_taken = GetReducedPath(flow.reverse_path_taken_vector[0],
+                                           reduced_graph_map, data, reduced_data);
+        SetReversePathTaken(reduced_reverse_path_taken);
+
+    }
+}
+
+void Flow::DoneAddingPaths(){
+    paths.shrink_to_fit();
+    reverse_paths.shrink_to_fit();
+    path_taken_vector.shrink_to_fit();
+    reverse_path_taken_vector.shrink_to_fit();
+    snapshots.shrink_to_fit();
+}
 
 void Flow::AddPath(Path *path, bool is_path_taken){
     paths.push_back(path);
@@ -125,6 +200,7 @@ void Flow::UpdateSnapshotPtr(double max_finish_time_ms){
         }
     }
     */
+    //!TODO(Bug): There is a race condition here!
     assert (curr_snapshot_ptr == -1 ||
             snapshots[curr_snapshot_ptr]->snapshot_time_ms < max_finish_time_ms);
     while (curr_snapshot_ptr + 1 < snapshots.size() && 
@@ -149,15 +225,31 @@ inline int Flow::GetPacketsLost(double max_finish_time_ms){
     return 0;
 }
 
-inline bool Flow::IsFlowActive(){
+void Flow::SetFirstLinkId(int link_id){
+    first_link_id = link_id;
+}
+
+void Flow::SetLastLinkId(int link_id){
+    last_link_id = link_id;
+}
+
+void Flow::SetReverseFirstLinkId(int link_id){
+    reverse_first_link_id = link_id;
+}
+
+void Flow::SetReverseLastLinkId(int link_id){
+    reverse_last_link_id = link_id;
+}
+
+bool Flow::IsFlowActive(){
     return (paths.size() == 1);
 }
 
-inline bool Flow::TracerouteFlow(double max_finish_time_ms){
+bool Flow::TracerouteFlow(double max_finish_time_ms){
     return (PATH_KNOWN || GetPacketsLost(max_finish_time_ms) > 0 || IsFlowActive());
 }
 
-inline bool Flow::IsFlowBad(double max_finish_time_ms){
+bool Flow::IsFlowBad(double max_finish_time_ms){
     return (GetPacketsLost(max_finish_time_ms) > 0);
 }
 
@@ -173,5 +265,5 @@ PII Flow::LabelWeightsFunc(double max_finish_time_ms){
 
 bool Flow::DiscardFlow(){
     return false;
-    //return !(src < 256 && dest <256)
+    //return (src < 256 && dest <256);
 }

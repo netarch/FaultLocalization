@@ -47,6 +47,8 @@ class Topology{
 
     void chooseFailedLinks(int nfails);
 
+    double getFailparam(pair<int, int> link);
+
     //Only the network links in the path
     vector<vector<int> > getPaths(int srchost, int desthost);
 
@@ -59,6 +61,8 @@ class Topology{
     pair<int, int> getRackHostsLimit(int rack); //rack contains hosts from [l,r) ===> return (l, r)
 
     int getHostRack(int host);
+    int GetHostNumber(int rack, int ind);
+    int OffsetHost(int host);
     int getNumHostsInRack(int rack);
     int getHostIndexInRack(int host);
     int getFirstOctetOfTor(int tor);
@@ -66,9 +70,10 @@ class Topology{
 
     double get_drop_rate_link_uniform(double min_drop_rate, double max_drop_rate);
     double get_drop_rate_failed_link();
+    double GetFailParam(pair<int, int> link, double failparam);
     void connect_switches_and_switches(PointToPointHelper &p2p, Ptr<RateErrorModel> rem, NodeContainer &tors, double failparam);
 
-    void connect_switches_and_hosts(PointToPointHelper &p2p, NodeContainer &tors, NodeContainer *rackhosts);
+    void connect_switches_and_hosts(PointToPointHelper &p2p, NodeContainer &tors, NodeContainer *rackhosts, double failparam);
 
     void compute_all_pair_shortest_pathlens();
 

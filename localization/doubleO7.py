@@ -29,7 +29,7 @@ def compute_max_traceroute(badflows):
 def doubleO7(flows, links, inverse_links, flows_by_link, forward_flows_by_link, reverse_flows_by_link, failed_links, link_statistics, min_start_time_ms, max_finish_time_ms, params, nprocesses):
     start_time = time.time()
     fail_percentile = params[0] 
-    badflows = [flow for flow in flows if flow.start_time_ms >= min_start_time_ms and flow.label_weights_func(max_finish_time_ms)[1]>0]
+    badflows = [flow for flow in flows if flow.start_time_ms >= min_start_time_ms and flow.label_weights_func_007(max_finish_time_ms)[1]>0]
     numbadflows = len(badflows)
     num_trs = compute_max_traceroute(badflows)
     #if num_trs > 250:
@@ -66,7 +66,7 @@ def doubleO7(flows, links, inverse_links, flows_by_link, forward_flows_by_link, 
                         numlinks += 1
             if not discard_flow:
                 filtered_badflows.append(flow)
-                flowvote = float(flow.label_weights_func(max_finish_time_ms)[1])
+                flowvote = float(flow.label_weights_func_007(max_finish_time_ms)[1])
                 vote = flowvote/numlinks
                 sumvotes += flowvote
                 for path in flow_paths:

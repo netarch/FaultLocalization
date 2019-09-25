@@ -24,26 +24,26 @@ using namespace std;
 // Function to create address string from numbers
 //
 char * ipOctectsToString(int first, int second, int third, int fourth){
-	char *address =  new char[30];
-	char firstOctet[30], secondOctet[30], thirdOctet[30], fourthOctet[30];	
-	//address = firstOctet.secondOctet.thirdOctet.fourthOctet;
+    char *address =  new char[30];
+    char firstOctet[30], secondOctet[30], thirdOctet[30], fourthOctet[30];  
+    //address = firstOctet.secondOctet.thirdOctet.fourthOctet;
     assert(first < 256 && second < 256 && third < 256 && fourth < 256);
 
-	bzero(address,30);
-	snprintf(firstOctet,10,"%d",first);
-	strcat(firstOctet,".");
-	snprintf(secondOctet,10,"%d",second);
-	strcat(secondOctet,".");
-	snprintf(thirdOctet,10,"%d",third);
-	strcat(thirdOctet,".");
-	snprintf(fourthOctet,10,"%d",fourth);
+    bzero(address,30);
+    snprintf(firstOctet,10,"%d",first);
+    strcat(firstOctet,".");
+    snprintf(secondOctet,10,"%d",second);
+    strcat(secondOctet,".");
+    snprintf(thirdOctet,10,"%d",third);
+    strcat(thirdOctet,".");
+    snprintf(fourthOctet,10,"%d",fourth);
 
-	strcat(thirdOctet,fourthOctet);
-	strcat(secondOctet,thirdOctet);
-	strcat(firstOctet,secondOctet);
-	strcat(address,firstOctet);
+    strcat(thirdOctet,fourthOctet);
+    strcat(secondOctet,thirdOctet);
+    strcat(firstOctet,secondOctet);
+    strcat(address,firstOctet);
 
-	return address;
+    return address;
 }
 
 void Topology::readServerTmFromFile(string tmfile){
@@ -131,19 +131,27 @@ void Topology::readTopologyFromFile(string topofile){
 }
 
 void Topology::chooseFailedLinks(int nfails){
-    vector<pair<int, int> > networkEdges;
+    vector<pair<int, int> > edges_list;
     for(int s=0; s<networkLinks.size(); s++){
         for(int ind=0; ind<networkLinks[s].size(); ind++){
-            networkEdges.push_back(pair<int, int>(s, networkLinks[s][ind]));
+            edges_list.push_back(pair<int, int>(s, networkLinks[s][ind]));
+        }
+    }
+    for(int t=0; t<num_tor; t++){ 
+        for(int h=0; h<hostsInTor[t].size(); h++){
+            int host = hostsInTor[t][h];
+            int offset_host = OffsetHost(host);
+            edges_list.push_back(pair<int, int>(t, offset_host));
+            edges_list.push_back(pair<int, int>(offset_host, t));
         }
     }
     failedLinks.clear();
     for (int i=0; i<nfails; i++){
-        int ind = rand()%networkEdges.size();
-        while(failedLinks.find(networkEdges[ind])!=failedLinks.end()){
-            ind = rand()%networkEdges.size();
+        int ind = rand()%edges_list.size();
+        while(failedLinks.find(edges_list[ind])!=failedLinks.end()){
+            ind = rand()%edges_list.size();
         }
-        failedLinks.insert(networkEdges[ind]);
+        failedLinks.insert(edges_list[ind]);
     }
 }
 
@@ -156,6 +164,7 @@ vector<vector<int> > Topology::getPaths(int srchost, int desthost){
     vector<vector<int> > shortest_paths;
     queue<vector<int> > shortest_paths_till_now;
     vector<int> path_till_now;
+    path_till_now.push_back(OffsetHost(srchost));
     path_till_now.push_back(srcrack);
     shortest_paths_till_now.push(path_till_now);
     while(!shortest_paths_till_now.empty()){
@@ -164,6 +173,7 @@ vector<vector<int> > Topology::getPaths(int srchost, int desthost){
         int last_vertex = path_till_now.back();
         if (last_vertex == destrack){
             //found a shortest path
+            path_till_now.push_back(OffsetHost(desthost));
             shortest_paths.push_back(path_till_now);
         }
         else{
@@ -208,8 +218,18 @@ pair<int, int> Topology::getRackHostsLimit(int rack){ //rack contains hosts from
     return ret;
 }
 
+int Topology::OffsetHost(int host){
+    int offset= 10000;
+    return host + offset;
+}
+
 int Topology::getHostRack(int host){
     return hostToTor[host];
+}
+
+int Topology::GetHostNumber(int rack, int ind){
+    assert (ind < hostsInTor[rack].size());
+    return hostsInTor[rack][ind];
 }
 
 int Topology::getNumHostsInRack(int rack){
@@ -246,39 +266,36 @@ double Topology::get_drop_rate_failed_link(){
 }
 
 
+double Topology::GetFailParam(pair<int, int> link, double failparam){
+    //random drop rate b/w 5*10^-5 and 10^-4
+    double min_drop_rate_correct_link = 0.00005;
+    double max_drop_rate_correct_link = 0.0001;
+    double silent_drop_rate = get_drop_rate_link_uniform(min_drop_rate_correct_link, max_drop_rate_correct_link);
+    if(failedLinks.find(link) != failedLinks.end()){
+        //failparam is appropriately set, so use that
+        if (failparam > max_drop_rate_correct_link) silent_drop_rate = failparam;
+        else silent_drop_rate = get_drop_rate_failed_link();
+        std::cout<<"Failing_link "<<link.first<<" "<<link.second<<" "<<silent_drop_rate<<endl;
+    }
+    return silent_drop_rate;
+}
+
 void Topology::connect_switches_and_switches(PointToPointHelper &p2p, Ptr<RateErrorModel> rem, NodeContainer &tors, double failparam){
-    vector<NetDeviceContainer> ss[num_tor]; 	
+    vector<NetDeviceContainer> ss[num_tor];     
     vector<Ipv4InterfaceContainer> ipSsContainer[num_tor];
     for(int i=0; i<num_tor; i++){
         ss[i].resize(networkLinks[i].size());
         ipSsContainer[i].resize(networkLinks[i].size());
     }
-    //random drop rate b/w 5*10^-5 and 10^-4
-    double min_drop_rate_correct_link = 0.00005;
-    double max_drop_rate_correct_link = 0.0001;
     for (int i=0;i<num_tor;i++){
         for (int h=0;h<networkLinks[i].size();h++){
             int nbr = networkLinks[i][h];
             if (nbr < i) continue;
-            double silent_drop_rate1 = get_drop_rate_link_uniform(min_drop_rate_correct_link, max_drop_rate_correct_link);
-            double silent_drop_rate2 = get_drop_rate_link_uniform(min_drop_rate_correct_link, max_drop_rate_correct_link);
+            double silent_drop_rate1 = GetFailParam(pair<int, int>(i, nbr), failparam);
+            double silent_drop_rate2 = GetFailParam(pair<int, int>(nbr, i), failparam);
             ss[i][h] = p2p.Install(tors.Get(i), tors.Get(nbr));
-            if(failedLinks.find(pair<int, int>(i, nbr)) != failedLinks.end()){
-                //failparam is appropriately set, so use that
-                if (failparam > max_drop_rate_correct_link) silent_drop_rate1 = failparam;
-                else silent_drop_rate1 = get_drop_rate_failed_link();
-                std::cout<<"Failing_link "<<i<<" "<<nbr<<" "<<silent_drop_rate1<<endl;
-            }
-            if(failedLinks.find(pair<int, int>(nbr, i)) != failedLinks.end()){
-                //failparam is appropriately set, so use that
-                if (failparam > max_drop_rate_correct_link) silent_drop_rate2 = failparam;
-                else silent_drop_rate2 = get_drop_rate_failed_link();
-                std::cout<<"Failing_link "<<nbr<<" "<<i<<" "<<silent_drop_rate2<<endl;
-            }
-            
             Ptr<NetDevice> device;
             Ptr<PointToPointNetDevice> p2pDevice;
-
             //i --> nbr
             if (silent_drop_rate1 > 0.0) {
                 Ptr<RateErrorModel> rem1 = CreateObjectWithAttributes<RateErrorModel> (
@@ -288,7 +305,6 @@ void Topology::connect_switches_and_switches(PointToPointHelper &p2p, Ptr<RateEr
                 p2pDevice = device->GetObject<PointToPointNetDevice> ();;
                 p2pDevice->SetAttribute ("ReceiveErrorModel", PointerValue (rem1));
             }
-
             //nbr --> i
             if (silent_drop_rate2 > 0.0) {
                 Ptr<RateErrorModel> rem2 = CreateObjectWithAttributes<RateErrorModel> (
@@ -307,20 +323,46 @@ void Topology::connect_switches_and_switches(PointToPointHelper &p2p, Ptr<RateEr
             //cout<<subnet<<" , "<<base<<endl;
             address.SetBase (subnet, "255.255.255.0",base);
             ipSsContainer[i][h] = address.Assign(ss[i][h]);
-        }			
+        }           
     }
 }
 
-void Topology::connect_switches_and_hosts(PointToPointHelper &p2p, NodeContainer &tors, NodeContainer *rackhosts){
-    vector<NetDeviceContainer> sh[num_tor]; 	
+void Topology::connect_switches_and_hosts(PointToPointHelper &p2p, NodeContainer &tors, NodeContainer *rackhosts, double failparam){
+    vector<NetDeviceContainer> sh[num_tor];     
     vector<Ipv4InterfaceContainer> ipShContainer[num_tor];
     for(int i=0; i<num_tor; i++){
         sh[i].resize(getNumHostsInRack(i));
         ipShContainer[i].resize(getNumHostsInRack(i));
     }
     for (int i=0;i<num_tor;i++){
-        for (int h=0; h<getNumHostsInRack(i); h++){			
+        for (int h=0; h<getNumHostsInRack(i); h++){         
+
+            int offset_host = OffsetHost(GetHostNumber(i, h));
+            double silent_drop_rate1 = GetFailParam(pair<int, int>(i, offset_host), failparam);
+            double silent_drop_rate2 = GetFailParam(pair<int, int>(offset_host, i), failparam);
+
+            Ptr<NetDevice> device;
+            Ptr<PointToPointNetDevice> p2pDevice;
             sh[i][h] = p2p.Install(tors.Get(i), rackhosts[i].Get(h));
+            //i --> host
+            if (silent_drop_rate1 > 0.0) {
+                Ptr<RateErrorModel> rem1 = CreateObjectWithAttributes<RateErrorModel> (
+                                    "ErrorRate", DoubleValue (silent_drop_rate1),
+                                    "ErrorUnit", EnumValue (RateErrorModel::ERROR_UNIT_PACKET));
+                device =  sh[i][h].Get(1);
+                p2pDevice = device->GetObject<PointToPointNetDevice> ();;
+                p2pDevice->SetAttribute ("ReceiveErrorModel", PointerValue (rem1));
+            }
+            //host --> i
+            if (silent_drop_rate2 > 0.0) {
+                Ptr<RateErrorModel> rem2 = CreateObjectWithAttributes<RateErrorModel> (
+                                    "ErrorRate", DoubleValue (silent_drop_rate2),
+                                    "ErrorUnit", EnumValue (RateErrorModel::ERROR_UNIT_PACKET));
+                device =  sh[i][h].Get(0);
+                p2pDevice = device->GetObject<PointToPointNetDevice> ();;
+                p2pDevice->SetAttribute ("ReceiveErrorModel", PointerValue (rem2));
+            }
+
             //Assign subnet
             pair<char* , char*> subnet_base = getHostBaseIpAddress(i, h);
             char *subnet = subnet_base.first;
@@ -399,20 +441,21 @@ void Topology::print_ip_addresses(){
             Ipv4Address address1 = address.NewAddress(); //avoid postfix, infix issues by avoiding inline call
             Ipv4Address address2 = address.NewAddress();
             cout<<"link_ip "<<address1<<" "<<address2<<" "<<i<<" "<<nbr<<endl;
-        }		
+        }       
     }
-    for (int i=0;i<total_host;i++){
-        //char* address = getHostIpAddress(i);
-        //cout<<"host_ip "<<address<<" "<<i<<endl;
-        int rack = getHostRack(i);
-        int h = getHostIndexInRack(i);
+    for (map<int, int>::iterator it = hostToTor.begin(); it != hostToTor.end(); it++){
+        int host = it->first;
+        int rack = it->second;
+        int h = getHostIndexInRack(host);
         pair<char* , char*> subnet_base = getHostBaseIpAddress(rack, h);
         char *subnet = subnet_base.first;
         char *base =subnet_base.second;
         address.SetBase (subnet, "255.255.255.0",base);
         Ipv4Address address1 = address.NewAddress();
         Ipv4Address address2 = address.NewAddress();
-        cout<<"host_ip "<<address1<<" "<<address2<<" "<<i<<" "<<rack<<endl;
+        cout<<"host_ip "<<address1<<" "<<address2<<" "<<host<<" "<<rack<<endl;
+        //char* address = getHostIpAddress(host);
+        //cout<<"host_ip "<<address<<" "<<host<<endl;
     }
 }
 

@@ -73,6 +73,8 @@ def get_data_from_logfile(filename):
                 if flow != None and len(flow.paths)>0: #log the previous flow
                     assert (flow.path_taken != None)
                     assert (flow.reverse_path_taken != None)
+                    #if len(flow.paths) == 1:
+                        #flow.print_flow_metrics(sys.stdout)
                     if flow.get_latest_packets_sent() > 0:
                         #print(flow.starttime_ms)
                         if flow.get_latest_packets_lost() > 0:

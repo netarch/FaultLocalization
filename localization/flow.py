@@ -126,9 +126,11 @@ class Flow:
             snapshot = self.snapshots[self.snapshot_ptr]
             return snapshot[2]
         return 0
-            
+ 
     def is_active_flow(self):
-        return (len(self.paths) == 1)
+        return False
+        #return (self.src < 256 and self.dest < 256)
+        #return (len(self.paths) == 1)
 
     def traceroute_flow(self, max_finish_time_ms):
         #return (PATH_KNOWN or self.is_active_flow())
@@ -147,6 +149,16 @@ class Flow:
             snapshot = self.snapshots[self.snapshot_ptr]
             gw = snapshot[1] - snapshot[2]
             bw = snapshot[2]
+        return (gw, bw)
+
+    def label_weights_func_007(self, max_finish_time_ms):
+        self.update_snapshot_ptr(max_finish_time_ms)
+        gw = 0
+        bw = 0
+        if self.snapshot_ptr >= 0:
+            snapshot = self.snapshots[self.snapshot_ptr]
+            gw = min(1, snapshot[1] - snapshot[2])
+            bw = min(1, snapshot[2])
         return (gw, bw)
 
     def discard_flow(self):

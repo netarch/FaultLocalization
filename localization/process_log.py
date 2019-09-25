@@ -16,9 +16,17 @@ class Link:
         self.src = src
         self.dest = dest
 
-    
-def convert_path(p, hostip_to_host, linkip_to_link, host_switch_ip, flow):
-    path = []
+def offset_host(host):
+    host_offset = 10000
+    return host + host_offset
+
+def offset_endhosts_in_path(path):
+    ret = path
+    ret[0] = offset_host(ret[0])
+    ret[-1] = offset_host(ret[-1])
+    return ret
+
+def convert_path(p, hostip_to_host, linkip_to_link, host_switch_ip, flow, reverse_path):
     assert (len(p) >= 1)
     srchost = p[0]
     destrack = p[-1]
@@ -27,11 +35,17 @@ def convert_path(p, hostip_to_host, linkip_to_link, host_switch_ip, flow):
         flow.print_flow_metrics(sys.stdout)
         return False
     assert (srchost in hostip_to_host and destrack in host_switch_ip)
+    path = []
+    path.append(hostip_to_host[srchost])
     for i in range(1, len(p)-1):
         link = linkip_to_link[p[i]]
         assert (link.srcip == p[i])
         path.append(link.src)
     path.append(host_switch_ip[destrack])
+    if (not reverse_path):
+        path.append(flow.dest)
+    else:
+        path.append(flow.src)
     return path
 
 
@@ -47,6 +61,7 @@ def process_logfile(filename, min_start_time_ms, max_start_time_ms, outfilename)
     outfile = open(outfilename,"w+")
     nignored = 0
     nviolated = 0
+    host_offest = 10000
     with open(filename, encoding = "ISO-8859-1") as f:
         flow = None
         for line in f.readlines():
@@ -59,6 +74,7 @@ def process_logfile(filename, min_start_time_ms, max_start_time_ms, outfilename)
             if not start_simulation:
                 continue;
             elif "link_ip" in line:
+                # Only network links
                 srcip = tokens[1]
                 destip = tokens[2]
                 src = int(tokens[3])
@@ -68,7 +84,7 @@ def process_logfile(filename, min_start_time_ms, max_start_time_ms, outfilename)
             elif "host_ip" in line:
                 host_ip1 = tokens[1] #switch
                 host_ip2 = tokens[2] #host
-                host = int(tokens[3])
+                host = offset_host(int(tokens[3]))
                 rack = int(tokens[4])
                 hostip_to_host[host_ip2] = host
                 host_to_hostip[host] = host_ip2
@@ -88,8 +104,8 @@ def process_logfile(filename, min_start_time_ms, max_start_time_ms, outfilename)
                 flow_route_taken[flow].append(hop_ip)
             elif "Flowid" in line:
                 #Flowid 0 2 10.0.0.2 10.0.1.2 100000000 +1039438292.0ns 74215 0 0 70011
-                src = int(tokens[1])
-                dest = int(tokens[2])
+                src = offset_host(int(tokens[1]))
+                dest = offset_host(int(tokens[2]))
                 srcip = tokens[3]
                 destip = tokens[4]
                 srcport = int(tokens[5])
@@ -125,6 +141,7 @@ def process_logfile(filename, min_start_time_ms, max_start_time_ms, outfilename)
                 for i in range(1, len(tokens)):
                     path.append(int(tokens[i]))
                 if(len(path) > 0):
+                    path = offset_endhosts_in_path(path)
                     curr_flow.add_reverse_path(path)
             elif "flowpath" in line:
                 #flowpath 0 2 1
@@ -132,6 +149,7 @@ def process_logfile(filename, min_start_time_ms, max_start_time_ms, outfilename)
                 for i in range(1, len(tokens)):
                     path.append(int(tokens[i]))
                 if(len(path) > 0):
+                    path = offset_endhosts_in_path(path)
                     curr_flow.add_path(path)
             else:
                 pass
@@ -152,8 +170,8 @@ def process_logfile(filename, min_start_time_ms, max_start_time_ms, outfilename)
                 continue
             flow.set_path_taken(flow_route_taken[flow_tuple])
             flow.set_reverse_path_taken(flow_route_taken[reverse_flow_tuple])
-            flow.set_path_taken(convert_path(flow.path_taken, hostip_to_host, linkip_to_link, host_switch_ip, flow))
-            reverse_path = convert_path(flow.reverse_path_taken, hostip_to_host, linkip_to_link, host_switch_ip, flow)
+            flow.set_path_taken(convert_path(flow.path_taken, hostip_to_host, linkip_to_link, host_switch_ip, flow, reverse_path=False))
+            reverse_path = convert_path(flow.reverse_path_taken, hostip_to_host, linkip_to_link, host_switch_ip, flow, reverse_path=True)
             if (reverse_path != False):
                 flow.set_reverse_path_taken(reverse_path)
                 flow.printinfo(outfile)

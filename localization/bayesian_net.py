@@ -67,7 +67,7 @@ def bnf_weighted_path_individual(p_arr, correct_p_arr, weight_good, weight_bad):
         likelihood_numerator += (p ** weight_bad) * ((1.0 - p) ** weight_good)
         likelihood_denominator += (p0 ** weight_bad) * ((1.0 - p0) ** weight_good)
     return math.log(likelihood_numerator/likelihood_denominator)
-        
+
 def compute_log_likelihood(hypothesis, flows_by_link, flows, min_start_time_ms, max_finish_time_ms, p1, p2, base_hypothesis_likelihood=([], 0.0), active_flows_only=False):
     log_likelihood = 0.0
     base_hypothesis, base_likelihood = base_hypothesis_likelihood
@@ -206,7 +206,6 @@ def compute_log_likelihood_conditional(hypothesis, flows_by_link, flows, min_sta
             assert(False)
     prior = 5.0
     return base_likelihood + log_likelihood + (len(base_hypothesis) -  len(hypothesis)) * prior
-   
 
 def compute_likelihoods_daemon(request_queue, flows_by_link, flows, min_start_time_ms_, max_finish_time_ms_, p1_, p2_, response_queue, final_request):
     min_start_time_ms = min_start_time_ms_

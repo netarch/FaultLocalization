@@ -314,7 +314,7 @@ int main(int argc, char *argv[])
 
 //=========== Connect switches to hosts ===========//
 //
-    topology.connect_switches_and_hosts(p2p, tors, rackhosts);
+    topology.connect_switches_and_hosts(p2p, tors, rackhosts, silent_drop_rate);
 	std::cout << "Finished connecting tors and hosts  "<< "\n";
 
 //=========== Connect  switches to switches ===========//

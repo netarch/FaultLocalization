@@ -17,7 +17,7 @@ from doubleO7 import *
 def get_files():
     #file_prefix = "/home/vharsh2/scratch/logs/active_passive/new/plog"
     #ignore_files = [(2,3)]
-    file_prefix = "/home/vharsh2/scratch/logs/ls_x30_y10/old/plog"
+    file_prefix = "/home/vharsh2/scratch/logs/ls_x30_y10/plog"
     ignore_files = []
     files = []
     for f in range(1,9):
@@ -173,7 +173,7 @@ if __name__ == '__main__':
     #get_precision_recall_trend_bayesian_cilia(min_start_time_sec * 1000.0, max_finish_time_sec * 1000.0, nprocesses)
     #print("Execution time", time.time() - start_time, "seconds")
     #get_precision_recall_trend_net_bouncer(min_start_time_sec * 1000.0, max_finish_time_sec * 1000.0, nprocesses)
-    fail_percentile = 0.0135
+    #fail_percentile = 0.0135
     #get_precision_recall_trend_007(min_start_time_sec * 1000.0, max_finish_time_sec * 1000.0, fail_percentile, nprocesses)
     get_precision_recall_bayesian_cilia_params(min_start_time_sec * 1000.0, max_finish_time_sec * 1000.0, nprocesses)
     print("Execution time", time.time() - start_time, "seconds")

@@ -17,7 +17,7 @@ class Link:
         self.dest = dest
 
 def offset_host(host):
-    host_offset = 10000
+    host_offset = 0
     return host + host_offset
 
 def offset_endhosts_in_path(path):
@@ -69,7 +69,7 @@ def process_logfile(filename, min_start_time_ms, max_start_time_ms, outfilename)
                 print(line.rstrip(), file=outfile);
                 continue
             tokens = line.split()
-            if (not start_simulation) and ("Start Simulation.." in line):
+            if (not start_simulation) and ("Starting simulation.." in line):
                 start_simulation = True
             if not start_simulation:
                 continue;

@@ -14,7 +14,7 @@ class BayesianNet : public Estimator{
     // For printing purposes
     const int N_MAX_K_LIKELIHOODS = 20;
     const bool USE_CONDITIONAL = false;
-    const double PRIOR = -10.0;
+    const double PRIOR = -15.0;
     bool REDUCED_ANALYSIS = false;
     void SetReducedAnalysis(bool val) { REDUCED_ANALYSIS = val; }
     void SetNumReducedLinksMap(unordered_map<int, int>* num_reduced_links_map_) {
@@ -72,8 +72,8 @@ private:
     void SortCandidatesWrtNumRelevantFlows(vector<int> &candidates);
 
     // Noise parameters
-    double p1 = 1.0-1.0e-3, p2 = 2.5e-4;
-    //double p1 = 1.0 - 2.5e-3, p2 = 2.5e-4;
+    //double p1 = 1.0-1.0e-3, p2 = 2.5e-4;
+    double p1 = 1.0 - 2.5e-3, p2 = 5e-4;
     LogFileData* data_cache;
     vector<vector<int> >* flows_by_link_id_cache;
     // For reduced analysis

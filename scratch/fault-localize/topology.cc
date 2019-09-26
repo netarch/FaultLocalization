@@ -23,7 +23,7 @@ using namespace std;
 
 // Function to create address string from numbers
 //
-char * ipOctectsToString(int first, int second, int third, int fourth){
+char * IpOctectsToString(int first, int second, int third, int fourth){
     char *address =  new char[30];
     char firstOctet[30], secondOctet[30], thirdOctet[30], fourthOctet[30];  
     //address = firstOctet.secondOctet.thirdOctet.fourthOctet;
@@ -46,15 +46,15 @@ char * ipOctectsToString(int first, int second, int third, int fourth){
     return address;
 }
 
-void Topology::readServerTmFromFile(string tmfile){
+void Topology::ReadServerTmFromFile(string tm_filename){
     //< read TM from the TM File
-    ifstream myfile(tmfile.c_str());
+    ifstream myfile(tm_filename.c_str());
     string line;
     if (myfile.is_open()){
         string delimiter = ",";
         while(myfile.good()){
             getline(myfile, line);
-            std::replace(line.begin(), line.end(), ',', ' ');  // replace ',' by ' '
+            std::replace(line.begin(), line.end(), ',', ' ');
             vector<double> array;
             stringstream ss(line);
             double temp;
@@ -62,28 +62,28 @@ void Topology::readServerTmFromFile(string tmfile){
                 array.push_back(temp); 
                 //cout<<temp<<",";
             }
-            serverTM.push_back(array);
+            server_TM.push_back(array);
             //cout<<endl;
         }
         myfile.close();
     }
 }
 
-void Topology::readTopologyFromFile(string topofile){
+void Topology::ReadTopologyFromFile(string topology_filename){
     //< read graph from the graphFile
-    ifstream myfile(topofile.c_str());
+    ifstream myfile(topology_filename.c_str());
     string line;
-    vector<pair<int, int> > networkEdges, hostEdges;
+    vector<pair<int, int> > network_edges, host_edges;
     if (myfile.is_open()){
         while(myfile.good()){
             getline(myfile, line);
             if (line.find("->") == string::npos && line.find(" ") == string::npos) break;
-            if(line.find(" ") != string::npos){ //num_tor --> rack link
+            if(line.find(" ") != string::npos){ //switch --> switch link
                 assert(line.find("->") == string::npos);
                 int sw1 = atoi(line.substr(0, line.find(" ")).c_str());
                 int sw2 = atoi(line.substr(line.find(" ") + 1).c_str());
                 num_tor = max(max(num_tor, sw1+1), sw2+1); 
-                networkEdges.push_back(pair<int, int>(sw1, sw2));
+                network_edges.push_back(pair<int, int>(sw1, sw2));
                 //cout<<"(sw1, sw2, num_tor): "<<sw1<<", "<<sw2<<", "<<num_tor<<endl;
             }
             if(line.find("->") != string::npos){ //host --> rack link
@@ -94,8 +94,8 @@ void Topology::readTopologyFromFile(string topofile){
                     cout<<"Graph file has out of bounds nodes, "<<host<<"->"<<rack<<", NSW: "<<num_tor<<endl;
                     exit(0);
                 }
-                hostEdges.push_back(pair<int, int>(host, rack));
-                hostToTor[host] = rack;
+                host_edges.push_back(pair<int, int>(host, rack));
+                host_to_tor[host] = rack;
                 total_host++;
                 //cout<<"(host, rack, num_tor): "<<host<<", "<<rack<<", "<<num_tor<<endl;
             }
@@ -104,82 +104,82 @@ void Topology::readTopologyFromFile(string topofile){
     }
     cout<<"num_tor: "<<num_tor<<endl;
     cout<<"total_host: "<<total_host<<endl;
-    cout<<"num_network_edges: "<<networkEdges.size()<<endl;
-    cout<<"num_host_edges: "<<hostEdges.size()<<endl;
-    networkLinks.resize(num_tor);
-    hostsInTor.resize(num_tor);
-    for(int i=0; i<networkEdges.size(); i++){
-        pair<int, int> link = networkEdges[i];
-        networkLinks[link.first].push_back(link.second);
-        networkLinks[link.second].push_back(link.first);
+    cout<<"num_network_edges: "<<network_edges.size()<<endl;
+    cout<<"num_host_edges: "<<host_edges.size()<<endl;
+    network_links.resize(num_tor);
+    hosts_in_tor.resize(num_tor);
+    for(int i=0; i<network_edges.size(); i++){
+        pair<int, int> link = network_edges[i];
+        network_links[link.first].push_back(link.second);
+        network_links[link.second].push_back(link.first);
     }
-    for(int i=0; i<hostEdges.size(); i++){
-        pair<int, int> hostlink = hostEdges[i];
-        hostsInTor[hostlink.second].push_back(hostlink.first);
+    for(int i=0; i<host_edges.size(); i++){
+        pair<int, int> hostlink = host_edges[i];
+        hosts_in_tor[hostlink.second].push_back(hostlink.first);
     }
     //sanity check
     for(int i=0; i<num_tor; i++){ 
-        sort(hostsInTor[i].begin(), hostsInTor[i].end());
-        for(int t=1; t<hostsInTor[i].size(); t++){
-            if(hostsInTor[i][t] != hostsInTor[i][t-1]+1){
+        sort(hosts_in_tor[i].begin(), hosts_in_tor[i].end());
+        for(int t=1; t<hosts_in_tor[i].size(); t++){
+            if(hosts_in_tor[i][t] != hosts_in_tor[i][t-1]+1){
                 cout<<"Hosts in Rack "<<i<<" are not contiguous"<<endl;
                 exit(0);
             }
         }
     }
-    compute_all_pair_shortest_pathlens();
+    ComputeAllPairShortestPathlens();
 }
 
-void Topology::chooseFailedLinks(int nfails){
+void Topology::ChooseFailedLinks(int nfails){
     vector<pair<int, int> > edges_list;
-    for(int s=0; s<networkLinks.size(); s++){
-        for(int ind=0; ind<networkLinks[s].size(); ind++){
-            edges_list.push_back(pair<int, int>(s, networkLinks[s][ind]));
+    for(int s=0; s<network_links.size(); s++){
+        for(int ind=0; ind<network_links[s].size(); ind++){
+            edges_list.push_back(pair<int, int>(s, network_links[s][ind]));
         }
     }
     for(int t=0; t<num_tor; t++){ 
-        for(int h=0; h<hostsInTor[t].size(); h++){
-            int host = hostsInTor[t][h];
+        for(int h=0; h<hosts_in_tor[t].size(); h++){
+            int host = hosts_in_tor[t][h];
             int offset_host = OffsetHost(host);
             edges_list.push_back(pair<int, int>(t, offset_host));
             edges_list.push_back(pair<int, int>(offset_host, t));
         }
     }
-    failedLinks.clear();
+    failed_links.clear();
     for (int i=0; i<nfails; i++){
         int ind = rand()%edges_list.size();
-        while(failedLinks.find(edges_list[ind])!=failedLinks.end()){
+        while(failed_links.find(edges_list[ind])!=failed_links.end()){
             ind = rand()%edges_list.size();
         }
-        failedLinks.insert(edges_list[ind]);
+        failed_links.insert(edges_list[ind]);
     }
 }
 
-vector<vector<int> > Topology::getPaths(int srchost, int desthost){
-    char* srchost_ip = getHostIpAddress(srchost);
-    char* desthost_ip = getHostIpAddress(desthost);
-    int srcrack = getHostRack(srchost);
-    int destrack = getHostRack(desthost);
+vector<vector<int> > Topology::GetPaths(int src_host, int dest_host){
+    char* src_host_ip = GetHostIpAddress(src_host);
+    char* dest_host_ip = GetHostIpAddress(dest_host);
+    int src_rack = GetHostRack(src_host);
+    int dest_rack = GetHostRack(dest_host);
 
     vector<vector<int> > shortest_paths;
     queue<vector<int> > shortest_paths_till_now;
     vector<int> path_till_now;
-    path_till_now.push_back(OffsetHost(srchost));
-    path_till_now.push_back(srcrack);
+    path_till_now.push_back(OffsetHost(src_host));
+    path_till_now.push_back(src_rack);
     shortest_paths_till_now.push(path_till_now);
     while(!shortest_paths_till_now.empty()){
         path_till_now = shortest_paths_till_now.front();
         shortest_paths_till_now.pop();
         int last_vertex = path_till_now.back();
-        if (last_vertex == destrack){
+        if (last_vertex == dest_rack){
             //found a shortest path
-            path_till_now.push_back(OffsetHost(desthost));
+            path_till_now.push_back(OffsetHost(dest_host));
             shortest_paths.push_back(path_till_now);
         }
         else{
             //extend path along neighbours which are on shortest paths
-            for(int nbr: networkLinks[last_vertex]){
-                if(shortest_pathlens[last_vertex][destrack] == 1 + shortest_pathlens[nbr][destrack]){
+            for(int nbr: network_links[last_vertex]){
+                if(shortest_pathlens[last_vertex][dest_rack] == 1 + shortest_pathlens[nbr][dest_rack]){
                     vector<int> extended_path(path_till_now);
                     extended_path.push_back(nbr);
                     shortest_paths_till_now.push(extended_path);
@@ -191,29 +191,29 @@ vector<vector<int> > Topology::getPaths(int srchost, int desthost){
     return shortest_paths;
 }
 
-pair<char*, char*> Topology::getLinkBaseIpAddress(int sw, int h){
-    char* subnet = ipOctectsToString(10, (getFirstOctetOfTor(sw) | 128), getSecondOctetOfTor(sw), 0);
-    char* base = ipOctectsToString(0, 0, 0, 2 + getNumHostsInRack(sw) + 2*h); 
+pair<char*, char*> Topology::GetLinkBaseIpAddress(int sw, int h){
+    char* subnet = IpOctectsToString(10, (GetFirstOctetOfTor(sw) | 128), GetSecondOctetOfTor(sw), 0);
+    char* base = IpOctectsToString(0, 0, 0, 2 + GetNumHostsInRack(sw) + 2*h); 
     return pair<char*, char*>(subnet, base);
 }
 
-char* Topology::getHostIpAddress(int host){
-    int rack = getHostRack(host);
-    int ind = getHostIndexInRack(host);
-    return ipOctectsToString(10, getFirstOctetOfTor(rack), getSecondOctetOfTor(rack), ind*2 + 2);
+char* Topology::GetHostIpAddress(int host){
+    int rack = GetHostRack(host);
+    int ind = GetHostIndexInRack(host);
+    return IpOctectsToString(10, GetFirstOctetOfTor(rack), GetSecondOctetOfTor(rack), ind*2 + 2);
 }
 
-pair<char*, char*> Topology::getHostBaseIpAddress(int sw, int h){
-    char* subnet = ipOctectsToString(10, getFirstOctetOfTor(sw), getSecondOctetOfTor(sw), 0);
-    char* base = ipOctectsToString(0, 0, 0, (h*2) + 1); 
+pair<char*, char*> Topology::GetHostBaseIpAddress(int sw, int h){
+    char* subnet = IpOctectsToString(10, GetFirstOctetOfTor(sw), GetSecondOctetOfTor(sw), 0);
+    char* base = IpOctectsToString(0, 0, 0, (h*2) + 1); 
     return pair<char*, char*>(subnet, base);
 }
 
-pair<int, int> Topology::getRackHostsLimit(int rack){ //rack contains hosts from [l,r) ===> return (l, r)
+pair<int, int> Topology::GetRackHostsLimit(int rack){ //rack contains hosts from [l,r) ===> return (l, r)
     pair<int, int> ret(0, 0);
-    if(hostsInTor[rack].size() > 0){
-        ret.first = hostsInTor[rack][0];
-        ret.second = hostsInTor[rack].back()+1;
+    if(hosts_in_tor[rack].size() > 0){
+        ret.first = hosts_in_tor[rack][0];
+        ret.second = hosts_in_tor[rack].back()+1;
     }
     return ret;
 }
@@ -223,87 +223,90 @@ int Topology::OffsetHost(int host){
     return host + offset;
 }
 
-int Topology::getHostRack(int host){
-    return hostToTor[host];
+int Topology::GetHostRack(int host){
+    return host_to_tor[host];
 }
 
 int Topology::GetHostNumber(int rack, int ind){
-    assert (ind < hostsInTor[rack].size());
-    return hostsInTor[rack][ind];
+    assert (ind < hosts_in_tor[rack].size());
+    return hosts_in_tor[rack][ind];
 }
 
-int Topology::getNumHostsInRack(int rack){
-    return hostsInTor[rack].size();
+int Topology::GetNumHostsInRack(int rack){
+    return hosts_in_tor[rack].size();
 }
 
-int Topology::getHostIndexInRack(int host){
-    return host - getRackHostsLimit(getHostRack(host)).first;
+int Topology::GetHostIndexInRack(int host){
+    return host - GetRackHostsLimit(GetHostRack(host)).first;
 }
 
-int Topology::getFirstOctetOfTor(int tor){
+int Topology::GetFirstOctetOfTor(int tor){
     return tor/256;
 }
 
-int Topology::getSecondOctetOfTor(int tor){
+int Topology::GetSecondOctetOfTor(int tor){
     return tor%256;
 }
 
-double Topology::get_drop_rate_link_uniform(double min_drop_rate, double max_drop_rate){
+double Topology::GetDropRateLinkUniform(double min_drop_rate, double max_drop_rate){
     return min_drop_rate + drand48() * (max_drop_rate - min_drop_rate);
 }
 
-double Topology::get_drop_rate_failed_link(){
+double Topology::GetDropRateFailedLink(){
     //if (drand48() <= 0.5){
         double min_drop_rate_failed_link = 0.001;
         double max_drop_rate_failed_link = 0.005;
-        return get_drop_rate_link_uniform(min_drop_rate_failed_link, max_drop_rate_failed_link);
+        return GetDropRateLinkUniform(min_drop_rate_failed_link, max_drop_rate_failed_link);
     //}
     //else{
     //    double min_drop_rate_failed_link = 0.05;
     //    double max_drop_rate_failed_link = 0.1;
-    //    return get_drop_rate_link_uniform(min_drop_rate_failed_link, max_drop_rate_failed_link);
+    //    return GetDropRateLinkUniform(min_drop_rate_failed_link, max_drop_rate_failed_link);
     //}
 }
 
 
-double Topology::GetFailParam(pair<int, int> link, double failparam){
+double Topology::GetFailParam(pair<int, int> link, double fail_param){
     //random drop rate b/w 5*10^-5 and 10^-4
     double min_drop_rate_correct_link = 0.00005;
     double max_drop_rate_correct_link = 0.0001;
-    double silent_drop_rate = get_drop_rate_link_uniform(min_drop_rate_correct_link, max_drop_rate_correct_link);
-    if(failedLinks.find(link) != failedLinks.end()){
-        //failparam is appropriately set, so use that
-        if (failparam > max_drop_rate_correct_link) silent_drop_rate = failparam;
-        else silent_drop_rate = get_drop_rate_failed_link();
+    double silent_drop_rate;
+    if(failed_links.find(link) != failed_links.end()){
+        //fail_param is appropriately set, so use that
+        if (fail_param > max_drop_rate_correct_link) silent_drop_rate = fail_param;
+        else silent_drop_rate = GetDropRateFailedLink();
         std::cout<<"Failing_link "<<link.first<<" "<<link.second<<" "<<silent_drop_rate<<endl;
+    }
+    else{
+        silent_drop_rate = GetDropRateLinkUniform(min_drop_rate_correct_link, max_drop_rate_correct_link);
     }
     return silent_drop_rate;
 }
 
-void Topology::connect_switches_and_switches(PointToPointHelper &p2p, Ptr<RateErrorModel> rem, NodeContainer &tors, double failparam){
+void Topology::ConnectSwitchesAndSwitches(PointToPointHelper &p2p, NodeContainer &tors, double fail_param){
     vector<NetDeviceContainer> ss[num_tor];     
-    vector<Ipv4InterfaceContainer> ipSsContainer[num_tor];
+    vector<Ipv4InterfaceContainer> ip_container_ss[num_tor];
     for(int i=0; i<num_tor; i++){
-        ss[i].resize(networkLinks[i].size());
-        ipSsContainer[i].resize(networkLinks[i].size());
+        ss[i].resize(network_links[i].size());
+        ip_container_ss[i].resize(network_links[i].size());
     }
     for (int i=0;i<num_tor;i++){
-        for (int h=0;h<networkLinks[i].size();h++){
-            int nbr = networkLinks[i][h];
+        for (int h=0;h<network_links[i].size();h++){
+            int nbr = network_links[i][h];
             if (nbr < i) continue;
-            double silent_drop_rate1 = GetFailParam(pair<int, int>(i, nbr), failparam);
-            double silent_drop_rate2 = GetFailParam(pair<int, int>(nbr, i), failparam);
+            double silent_drop_rate1 = GetFailParam(pair<int, int>(i, nbr), fail_param);
+            double silent_drop_rate2 = GetFailParam(pair<int, int>(nbr, i), fail_param);
             ss[i][h] = p2p.Install(tors.Get(i), tors.Get(nbr));
             Ptr<NetDevice> device;
-            Ptr<PointToPointNetDevice> p2pDevice;
+            Ptr<PointToPointNetDevice> p2p_device;
             //i --> nbr
             if (silent_drop_rate1 > 0.0) {
                 Ptr<RateErrorModel> rem1 = CreateObjectWithAttributes<RateErrorModel> (
                                     "ErrorRate", DoubleValue (silent_drop_rate1),
                                     "ErrorUnit", EnumValue (RateErrorModel::ERROR_UNIT_PACKET));
                 device =  ss[i][h].Get(1);
-                p2pDevice = device->GetObject<PointToPointNetDevice> ();;
-                p2pDevice->SetAttribute ("ReceiveErrorModel", PointerValue (rem1));
+                p2p_device = device->GetObject<PointToPointNetDevice> ();;
+                p2p_device->SetAttribute ("ReceiveErrorModel", PointerValue (rem1));
             }
             //nbr --> i
             if (silent_drop_rate2 > 0.0) {
@@ -311,47 +314,47 @@ void Topology::connect_switches_and_switches(PointToPointHelper &p2p, Ptr<RateEr
                                     "ErrorRate", DoubleValue (silent_drop_rate2),
                                     "ErrorUnit", EnumValue (RateErrorModel::ERROR_UNIT_PACKET));
                 device =  ss[i][h].Get(0);
-                p2pDevice = device->GetObject<PointToPointNetDevice> ();;
-                p2pDevice->SetAttribute ("ReceiveErrorModel", PointerValue (rem2));
+                p2p_device = device->GetObject<PointToPointNetDevice> ();;
+                p2p_device->SetAttribute ("ReceiveErrorModel", PointerValue (rem2));
             }
 
             //Assign subnet
-            pair<char* , char*> subnet_base = getLinkBaseIpAddress(i, h);
+            pair<char* , char*> subnet_base = GetLinkBaseIpAddress(i, h);
             char *subnet = subnet_base.first;
             char *base =subnet_base.second;
             //cout<<"Network Link; "<<i<<" <--> "<<nbr<< " Nodecontainer.size: "<<ss[i][h].GetN() << endl;
             //cout<<subnet<<" , "<<base<<endl;
             address.SetBase (subnet, "255.255.255.0",base);
-            ipSsContainer[i][h] = address.Assign(ss[i][h]);
+            ip_container_ss[i][h] = address.Assign(ss[i][h]);
         }           
     }
 }
 
-void Topology::connect_switches_and_hosts(PointToPointHelper &p2p, NodeContainer &tors, NodeContainer *rackhosts, double failparam){
+void Topology::ConnectSwitchesAndHosts(PointToPointHelper &p2p, NodeContainer &tors, NodeContainer *rack_hosts, double fail_param){
     vector<NetDeviceContainer> sh[num_tor];     
-    vector<Ipv4InterfaceContainer> ipShContainer[num_tor];
+    vector<Ipv4InterfaceContainer> ip_container_sh[num_tor];
     for(int i=0; i<num_tor; i++){
-        sh[i].resize(getNumHostsInRack(i));
-        ipShContainer[i].resize(getNumHostsInRack(i));
+        sh[i].resize(GetNumHostsInRack(i));
+        ip_container_sh[i].resize(GetNumHostsInRack(i));
     }
     for (int i=0;i<num_tor;i++){
-        for (int h=0; h<getNumHostsInRack(i); h++){         
+        for (int h=0; h<GetNumHostsInRack(i); h++){         
 
             int offset_host = OffsetHost(GetHostNumber(i, h));
-            double silent_drop_rate1 = GetFailParam(pair<int, int>(i, offset_host), failparam);
-            double silent_drop_rate2 = GetFailParam(pair<int, int>(offset_host, i), failparam);
+            double silent_drop_rate1 = GetFailParam(pair<int, int>(i, offset_host), fail_param);
+            double silent_drop_rate2 = GetFailParam(pair<int, int>(offset_host, i), fail_param);
 
             Ptr<NetDevice> device;
-            Ptr<PointToPointNetDevice> p2pDevice;
-            sh[i][h] = p2p.Install(tors.Get(i), rackhosts[i].Get(h));
+            Ptr<PointToPointNetDevice> p2p_device;
+            sh[i][h] = p2p.Install(tors.Get(i), rack_hosts[i].Get(h));
             //i --> host
             if (silent_drop_rate1 > 0.0) {
                 Ptr<RateErrorModel> rem1 = CreateObjectWithAttributes<RateErrorModel> (
                                     "ErrorRate", DoubleValue (silent_drop_rate1),
                                     "ErrorUnit", EnumValue (RateErrorModel::ERROR_UNIT_PACKET));
                 device =  sh[i][h].Get(1);
-                p2pDevice = device->GetObject<PointToPointNetDevice> ();;
-                p2pDevice->SetAttribute ("ReceiveErrorModel", PointerValue (rem1));
+                p2p_device = device->GetObject<PointToPointNetDevice> ();;
+                p2p_device->SetAttribute ("ReceiveErrorModel", PointerValue (rem1));
             }
             //host --> i
             if (silent_drop_rate2 > 0.0) {
@@ -359,31 +362,31 @@ void Topology::connect_switches_and_hosts(PointToPointHelper &p2p, NodeContainer
                                     "ErrorRate", DoubleValue (silent_drop_rate2),
                                     "ErrorUnit", EnumValue (RateErrorModel::ERROR_UNIT_PACKET));
                 device =  sh[i][h].Get(0);
-                p2pDevice = device->GetObject<PointToPointNetDevice> ();;
-                p2pDevice->SetAttribute ("ReceiveErrorModel", PointerValue (rem2));
+                p2p_device = device->GetObject<PointToPointNetDevice> ();;
+                p2p_device->SetAttribute ("ReceiveErrorModel", PointerValue (rem2));
             }
 
             //Assign subnet
-            pair<char* , char*> subnet_base = getHostBaseIpAddress(i, h);
+            pair<char* , char*> subnet_base = GetHostBaseIpAddress(i, h);
             char *subnet = subnet_base.first;
             char *base =subnet_base.second;
-            address.SetBase (subnet, "255.255.255.0",base);
-            ipShContainer[i][h] = address.Assign(sh[i][h]);
+            address.SetBase (subnet, "255.255.255.0", base);
+            ip_container_sh[i][h] = address.Assign(sh[i][h]);
         }
     }
 }
 
-void Topology::compute_all_pair_shortest_pathlens(){
+void Topology::ComputeAllPairShortestPathlens(){
     shortest_pathlens.resize(num_tor);
     for(int i = 0; i < num_tor; i++){
         shortest_pathlens[i] = vector<int>(num_tor, INT_MAX/2);
         shortest_pathlens[i][i] = 0;
-        for (int nbr: networkLinks[i]){
+        for (int nbr: network_links[i]){
             shortest_pathlens[i][nbr] = 1;
         }
     }
 
-    //floyd warshall
+    //Floyd Warshall
     for(int k = 0; k < num_tor; k++){
         for(int i = 0; i < num_tor; i++){
             for(int j = 0; j < num_tor; j++){
@@ -395,8 +398,8 @@ void Topology::compute_all_pair_shortest_pathlens(){
     cout<<"Finished floyd warshall"<<endl;
 }
 
-void Topology::print_flow_path(int srchost, int desthost){
-    vector<vector<int> > paths = getPaths(srchost, desthost);
+void Topology::PrintFlowPath(int src_host, int dest_host){
+    vector<vector<int> > paths = GetPaths(src_host, dest_host);
     for (vector<int>& p: paths){
        cout<<"flowpath ";
        for (int node: p){
@@ -404,7 +407,7 @@ void Topology::print_flow_path(int srchost, int desthost){
        }
        cout<<endl;
     }
-    vector<vector<int> > reverse_paths = getPaths(desthost, srchost);
+    vector<vector<int> > reverse_paths = GetPaths(dest_host, src_host);
     for (vector<int>& p: reverse_paths){
        cout<<"flowpath_reverse ";
        for (int node: p){
@@ -414,27 +417,41 @@ void Topology::print_flow_path(int srchost, int desthost){
     }
 }
 
-void Topology::print_flow_info(int srchost, int desthost, int bytes, ApplicationContainer& flowApp){
-    assert (flowApp.GetN() == 1);
-    Ptr<Application> app = flowApp.Get(0);
-    Ptr<TcpSocketBase> tcp_socket_base = getSocketFromBulkSendApp(app);
-    cout<<"Flowid "<<srchost<<" "<<desthost<<" "<<getHostIpAddress(srchost)
-        <<" "<<getHostIpAddress(desthost)<<" "<<tcp_socket_base->GetLocalPort()
+void Topology::SnapshotFlow(int src_host, int dest_host, int bytes, ApplicationContainer& flow_app, Time start_time, Time snapshot_time){
+    assert (flow_app.GetN() == 1);
+    Ptr<Application> app = flow_app.Get(0);
+    Ptr<TcpSocketBase> tcp_socket_base = GetSocketFromOnOffApp(app);
+    cout<<"Flowid "<<OffsetHost(src_host)<<" "<<OffsetHost(dest_host)<<" "<<GetHostIpAddress(src_host)
+        <<" "<<GetHostIpAddress(dest_host)<<" "<<tcp_socket_base->GetLocalPort()
+        <<" "<<tcp_socket_base->GetPeerPort()<<" "<<bytes<<" "
+        <<start_time<<" "<<snapshot_time
+        <<" "<<tcp_socket_base->GetSentPackets()<<" "
+        <<tcp_socket_base->GetLostPackets()<<" "
+        <<tcp_socket_base->GetRandomlyLostPackets()<<" "
+        <<tcp_socket_base->GetAckedPackets()<<endl;
+}
+
+void Topology::PrintFlowInfo(int src_host, int dest_host, int bytes, ApplicationContainer& flow_app){
+    assert (flow_app.GetN() == 1);
+    Ptr<Application> app = flow_app.Get(0);
+    Ptr<TcpSocketBase> tcp_socket_base = GetSocketFromBulkSendApp(app);
+    cout<<"Flowid "<<OffsetHost(src_host)<<" "<<OffsetHost(dest_host)<<" "<<GetHostIpAddress(src_host)
+        <<" "<<GetHostIpAddress(dest_host)<<" "<<tcp_socket_base->GetLocalPort()
         <<" "<<tcp_socket_base->GetPeerPort()<<" "<<bytes<<" "
         <<app->GetStartTime()<<" "<<tcp_socket_base->GetFinishTime()
         <<" "<<tcp_socket_base->GetSentPackets()<<" "
         <<tcp_socket_base->GetLostPackets()<<" "
         <<tcp_socket_base->GetRandomlyLostPackets()<<" "
-        <<tcp_socket_base->GetAckedPackets()/1444<<endl;
-    print_flow_path(srchost, desthost);
+        <<tcp_socket_base->GetAckedPackets()<<endl;
+    PrintFlowPath(src_host, dest_host);
 }
 
-void Topology::print_ip_addresses(){
+void Topology::PrintIpAddresses(){
     for (int i=0;i<num_tor;i++){
-        for (int h=0;h<networkLinks[i].size();h++){
-            int nbr = networkLinks[i][h];
+        for (int h=0;h<network_links[i].size();h++){
+            int nbr = network_links[i][h];
             if (nbr < i) continue;
-            pair<char* , char*> subnet_base = getLinkBaseIpAddress(i, h);
+            pair<char* , char*> subnet_base = GetLinkBaseIpAddress(i, h);
             char *subnet = subnet_base.first;
             char *base =subnet_base.second;
             address.SetBase (subnet, "255.255.255.0",base);
@@ -443,55 +460,40 @@ void Topology::print_ip_addresses(){
             cout<<"link_ip "<<address1<<" "<<address2<<" "<<i<<" "<<nbr<<endl;
         }       
     }
-    for (map<int, int>::iterator it = hostToTor.begin(); it != hostToTor.end(); it++){
+    for (map<int, int>::iterator it = host_to_tor.begin(); it != host_to_tor.end(); it++){
         int host = it->first;
         int rack = it->second;
-        int h = getHostIndexInRack(host);
-        pair<char* , char*> subnet_base = getHostBaseIpAddress(rack, h);
+        int h = GetHostIndexInRack(host);
+        pair<char* , char*> subnet_base = GetHostBaseIpAddress(rack, h);
         char *subnet = subnet_base.first;
         char *base =subnet_base.second;
         address.SetBase (subnet, "255.255.255.0",base);
         Ipv4Address address1 = address.NewAddress();
         Ipv4Address address2 = address.NewAddress();
-        cout<<"host_ip "<<address1<<" "<<address2<<" "<<host<<" "<<rack<<endl;
-        //char* address = getHostIpAddress(host);
+        cout<<"host_ip "<<address1<<" "<<address2<<" "<<OffsetHost(host)<<" "<<rack<<endl;
+        //char* address = GetHostIpAddress(host);
         //cout<<"host_ip "<<address<<" "<<host<<endl;
     }
 }
 
-Ptr<TcpSocketBase> Topology::getSocketFromBulkSendApp(Ptr<Application> app){
-    Ptr<BulkSendApplication> bulkSendApp = app->GetObject<BulkSendApplication> ();
-    Ptr<Socket> socket = bulkSendApp->GetSocket();
+Ptr<TcpSocketBase> Topology::GetSocketFromBulkSendApp(Ptr<Application> app){
+    Ptr<BulkSendApplication> bulk_send_app = app->GetObject<BulkSendApplication> ();
+    Ptr<Socket> socket = bulk_send_app->GetSocket();
     Ptr<TcpSocketBase> tcp_socket_base = socket->GetObject<TcpSocketBase>();
     return tcp_socket_base;
 }
 
-Ptr<TcpSocketBase> Topology::getSocketFromOnOffApp(Ptr<Application> app){
-    Ptr<OnOffApplication> onOffApp = app->GetObject<OnOffApplication> ();
-    Ptr<Socket> socket = onOffApp->GetSocket();
+Ptr<TcpSocketBase> Topology::GetSocketFromOnOffApp(Ptr<Application> app){
+    Ptr<OnOffApplication> on_off_app = app->GetObject<OnOffApplication> ();
+    Ptr<Socket> socket = on_off_app->GetSocket();
     Ptr<TcpSocketBase> tcp_socket_base = socket->GetObject<TcpSocketBase>();
     return tcp_socket_base;
 }
 
-void Topology::snapshot_flow(int srchost, int desthost, int bytes, ApplicationContainer& flowApp, Time startTime, Time snapshotTime){
-    assert (flowApp.GetN() == 1);
-    Ptr<Application> app = flowApp.Get(0);
-    Ptr<TcpSocketBase> tcp_socket_base = getSocketFromOnOffApp(app);
-    cout<<"Flowid "<<srchost<<" "<<desthost<<" "<<getHostIpAddress(srchost)
-        <<" "<<getHostIpAddress(desthost)<<" "<<tcp_socket_base->GetLocalPort()
-        <<" "<<tcp_socket_base->GetPeerPort()<<" "<<bytes<<" "
-        <<startTime<<" "<<snapshotTime
-        <<" "<<tcp_socket_base->GetSentPackets()<<" "
-        <<tcp_socket_base->GetLostPackets()<<" "
-        <<tcp_socket_base->GetRandomlyLostPackets()<<" "
-        <<tcp_socket_base->GetAckedPackets()<<endl;
+void Topology::AdaptNetwork(){
+    //!TODO
 }
 
-void Topology::adapt_network(){
-
-
-}
-
-void adapt_network(Topology& topology){
-    topology.adapt_network();
+void AdaptNetwork(Topology& topology){
+    topology.AdaptNetwork();
 }

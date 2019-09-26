@@ -23,75 +23,65 @@ using namespace std;
 
 // Function to create address string from numbers
 //
-char * ipOctectsToString(int first, int second, int third, int fourth);
+char * IpOctectsToString(int first, int second, int third, int fourth);
 
 class Topology{
-    vector<vector<int> > networkLinks;
-    vector<vector<int> > hostsInTor;
-    map<int, int> hostToTor;
-    set<pair<int, int> > failedLinks;
-  	Ipv4AddressHelper address;
-    vector<vector<int> > shortest_pathlens;
     //char filename [] = "statistics/File-From-Graph.xml";// filename for Flow Monitor xml output file
     //string topology_filename = "topology/ns3_deg4_sw8_svr8_os1_i1.edgelist";
   public:
     int num_tor = 0; //number of switches in the network
     int total_host = 0;	// number of hosts in the network	
-    vector<vector<double> > serverTM;
+    vector<vector<double> > server_TM;
 
     void Toplogy() {}
+    void ReadServerTmFromFile(string tm_filename);
+    void ReadTopologyFromFile(string topology_filename);
+    void ChooseFailedLinks(int nfails);
 
-    void readServerTmFromFile(string tmfile);
+    char* GetHostIpAddress(int host);
+    int GetHostRack(int host);
+    int GetNumHostsInRack(int rack);
+    int GetHostIndexInRack(int host);
 
-    void readTopologyFromFile(string topofile);
+    void ConnectSwitchesAndSwitches(PointToPointHelper &p2p, NodeContainer &tors, double fail_param);
+    void ConnectSwitchesAndHosts(PointToPointHelper &p2p, NodeContainer &tors,
+                                 NodeContainer *rack_hosts, double fail_param);
 
-    void chooseFailedLinks(int nfails);
+    void PrintFlowPath(int src_host, int dest_host);
+    void PrintFlowInfo(int src_host, int dest_host, int bytes, ApplicationContainer& flow_app);
+    void PrintIpAddresses();
+    void SnapshotFlow(int src_host, int dest_host, int bytes, ApplicationContainer& flow_app,
+                      Time start_time, Time snapshot_time);
 
-    double getFailparam(pair<int, int> link);
-
-    //Only the network links in the path
-    vector<vector<int> > getPaths(int srchost, int desthost);
-
-    pair<char*, char*> getLinkBaseIpAddress(int sw, int h);
-
-    char* getHostIpAddress(int host);
-
-    pair<char*, char*> getHostBaseIpAddress(int sw, int h);
-
-    pair<int, int> getRackHostsLimit(int rack); //rack contains hosts from [l,r) ===> return (l, r)
-
-    int getHostRack(int host);
-    int GetHostNumber(int rack, int ind);
-    int OffsetHost(int host);
-    int getNumHostsInRack(int rack);
-    int getHostIndexInRack(int host);
-    int getFirstOctetOfTor(int tor);
-    int getSecondOctetOfTor(int tor);
-
-    double get_drop_rate_link_uniform(double min_drop_rate, double max_drop_rate);
-    double get_drop_rate_failed_link();
-    double GetFailParam(pair<int, int> link, double failparam);
-    void connect_switches_and_switches(PointToPointHelper &p2p, Ptr<RateErrorModel> rem, NodeContainer &tors, double failparam);
-
-    void connect_switches_and_hosts(PointToPointHelper &p2p, NodeContainer &tors, NodeContainer *rackhosts, double failparam);
-
-    void compute_all_pair_shortest_pathlens();
-
-    void print_flow_path(int srchost, int desthost);
-
-    void print_flow_info(int srchost, int desthost, int bytes, ApplicationContainer& flowApp);
-
-    void print_ip_addresses();
-
-    void snapshot_flow(int srchost, int desthost, int bytes, ApplicationContainer& flowApp, Time startTime, Time snapshotTime);
-
-    void adapt_network();
+    void AdaptNetwork();
 private:
-    Ptr<TcpSocketBase> getSocketFromBulkSendApp(Ptr<Application> app);
-    Ptr<TcpSocketBase> getSocketFromOnOffApp(Ptr<Application> app);
+    //The hosts are offset in the paths
+    vector<vector<int> > GetPaths(int src_host, int dest_host);
+    pair<char*, char*> GetLinkBaseIpAddress(int sw, int h);
+    pair<char*, char*> GetHostBaseIpAddress(int sw, int h);
+    int GetFirstOctetOfTor(int tor);
+    int GetSecondOctetOfTor(int tor);
+    int OffsetHost(int host);
+    int GetHostNumber(int rack, int ind);
+    pair<int, int> GetRackHostsLimit(int rack); //rack contains hosts from [l,r) ===> return (l, r)
+
+    double GetDropRateLinkUniform(double min_drop_rate, double max_drop_rate);
+    double GetDropRateFailedLink();
+    double GetFailParam(pair<int, int> link, double fail_param);
+
+    void ComputeAllPairShortestPathlens();
+    Ptr<TcpSocketBase> GetSocketFromBulkSendApp(Ptr<Application> app);
+    Ptr<TcpSocketBase> GetSocketFromOnOffApp(Ptr<Application> app);
+
+    vector<vector<int> > network_links;
+    vector<vector<int> > hosts_in_tor;
+    map<int, int> host_to_tor;
+    set<pair<int, int> > failed_links;
+  	Ipv4AddressHelper address;
+    vector<vector<int> > shortest_pathlens;
 };
 
 
-void adapt_network(Topology& topology);
+void AdaptNetwork(Topology& topology);
 
 #endif

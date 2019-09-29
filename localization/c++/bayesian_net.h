@@ -14,7 +14,7 @@ class BayesianNet : public Estimator{
     // For printing purposes
     const int N_MAX_K_LIKELIHOODS = 20;
     const bool USE_CONDITIONAL = false;
-    const double PRIOR = -15.0;
+    const double PRIOR = -10.0;
     bool REDUCED_ANALYSIS = false;
     void SetReducedAnalysis(bool val) { REDUCED_ANALYSIS = val; }
     void SetNumReducedLinksMap(unordered_map<int, int>* num_reduced_links_map_) {
@@ -60,6 +60,8 @@ private:
     double ComputeLogLikelihoodConditional(set<Link>* hypothesis,
                     double min_start_time_ms, double max_finish_time_ms);
 
+    inline double GetBnfWeightedUnconditionalIntermediateValue(Flow *flow, double max_finish_time_ms);
+
     inline double BnfWeighted(int naffected, int npaths, int naffected_r,
                     int npaths_r, double weight_good, double weight_bad);
 
@@ -69,11 +71,18 @@ private:
     inline double BnfWeightedUnconditional(int naffected, int npaths, int naffected_r,
                     int npaths_r, double weight_good, double weight_bad);
 
+    inline double BnfWeightedUnconditionalIntermediate(int naffected, int npaths, int naffected_r,
+                    int npaths_r, double weight_good, double weight_bad, double intermediate_val);
+
     void SortCandidatesWrtNumRelevantFlows(vector<int> &candidates);
+    void CleanUpAfterLocalization(unordered_map<Hypothesis*, double> &all_hypothesis);
+    
+    //Cache intermediate results of time consuming arithmetic operations
+    void ComputeAndStoreIntermediateValues(int nopenmp_threads, double max_finish_time_ms);
 
     // Noise parameters
-    //double p1 = 1.0-1.0e-3, p2 = 2.5e-4;
-    double p1 = 1.0 - 2.5e-3, p2 = 5e-4;
+    double p1 = 1.0-1.0e-3, p2 = 2.5e-4;
+    //double p1 = 1.0 - 2.5e-3, p2 = 5e-4;
     LogFileData* data_cache;
     vector<vector<int> >* flows_by_link_id_cache;
     // For reduced analysis

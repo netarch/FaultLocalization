@@ -263,6 +263,14 @@ PII Flow::LabelWeightsFunc(double max_finish_time_ms){
     return PII(gw, bw);
 }
 
+void Flow::SetCachedIntermediateValue(double value){
+    cached_intermediate_value = value;
+}
+
+double Flow::GetCachedIntermediateValue(){
+    return cached_intermediate_value;
+}
+
 bool Flow::DiscardFlow(){
     return false;
     //return (src < 256 && dest <256);

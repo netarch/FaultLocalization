@@ -91,6 +91,12 @@ public:
 
     /* For reduced computations */
     int npaths_unreduced, npaths_reverse_unreduced;
+
+    /* To accelerate bayesian net computations, cache an intermediate value */
+    double cached_intermediate_value;
+    void SetCachedIntermediateValue(double value);
+    double GetCachedIntermediateValue();
+
 private:
     string srcip, destip;
     int srcport, destport;

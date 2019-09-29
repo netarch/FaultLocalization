@@ -286,7 +286,7 @@ int main(int argc, char *argv[]){
     cout << "Finished connecting switches and switches  "<< endl;
 
     // Set functions that need to be periodically invoked in the simulation
-    Simulator::Schedule(Seconds(warmup_time_seconds), &echo_progress, sim_time_seconds/10.0);
+    Simulator::Schedule(Seconds(warmup_time_seconds), &echo_progress, sim_time_seconds/1000.0);
     double snapshot_period_seconds = sim_time_seconds/20.0;
     Simulator::Schedule(Seconds(warmup_time_seconds + snapshot_period_seconds), &snapshot_flows,
                         &topology, flow_app, snapshot_period_seconds);

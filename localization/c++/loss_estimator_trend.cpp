@@ -12,7 +12,7 @@ vector<string> GetFiles(){
     vector<string> files;
     //for(int f=1; f<=8; f++){
     for (int f: vector<int>({1})){ // {1-8}
-        for(int s: vector<int>({1})){ // {3}
+        for(int s: vector<int>({3})){ // {3}
             if(find(ignore_files.begin(), ignore_files.end(),  PII(f, s)) == ignore_files.end()){
                 files.push_back(file_prefix + "_" + to_string(f) + "_0_" + to_string(s)); 
             }
@@ -25,7 +25,7 @@ void GetPrecisionRecallTrendFile(string filename, double min_start_time_ms,
                                 double max_finish_time_ms, double step_ms,
                                 vector<PDD> &result, int nopenmp_threads){
     assert (result.size() == 0);
-    LogFileData* data = new LogFileData();
+    LogData* data = new LogData();
     GetDataFromLogFile(filename, data);
     Hypothesis failed_links_set;
     data->GetFailedLinkIds(failed_links_set);

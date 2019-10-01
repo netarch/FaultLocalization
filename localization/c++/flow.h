@@ -9,7 +9,7 @@
 
 using namespace std;
 
-class LogFileData;
+class LogData;
 
 struct FlowSnapshot{
     double snapshot_time_ms;
@@ -31,8 +31,8 @@ public:
          int nbytes_, double start_time_ms_);
 
     //!TODO
-    Flow(Flow &flow, unordered_map<Link, Link> &reduced_graph_map, LogFileData &data,
-         LogFileData &reduced_data);
+    Flow(Flow &flow, unordered_map<Link, Link> &reduced_graph_map, LogData &data,
+         LogData &reduced_data);
 
     void AddPath(Path *path, bool is_path_taken=false);
     // A reverse path is from the destination to the source

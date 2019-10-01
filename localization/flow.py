@@ -67,26 +67,28 @@ class Flow:
             packets_sent = snapshot[1]
             lost_packets = snapshot[2]
             randomly_lost_packets = snapshot[3]
-            print("Snapshot ", snapshot_time_ms, packets_sent, lost_packets, randomly_lost_packets, file=outfile)
+            print("SS", snapshot_time_ms, packets_sent, lost_packets, randomly_lost_packets, file=outfile)
 
     def print_flow_metrics(self, outfile=sys.stdout):
-        print("Flowid=", self.src, self.dest, self.nbytes, self.start_time_ms, file=outfile)
+        print("FID", self.src, self.dest, self.nbytes, self.start_time_ms, file=outfile)
 
     def printinfo(self, outfile=sys.stdout):
         self.print_flow_metrics(outfile)
         self.print_flow_snapshots(outfile)
         for p in self.paths:
-            s = "flowpath"
+            s = "FP" #"flowpath"
             if p == self.path_taken:
-                s += "_taken"
-            for n in p:
+                s += "T" #"_taken"
+            #!TODO Change after updating fault-localize/topology.cc
+            for n in p[1:-1]:
                 s += " " + str(n)
             print(s, file=outfile)
         for p in self.reverse_paths:
-            s = "flowpath_reverse"
+            s = "FPR" #"flowpath_reverse"
             if p == self.reverse_path_taken:
-                s += "_taken"
-            for n in p:
+                s += "T" #"_taken"
+            #!TODO Change after updating fault-localize/topology.cc
+            for n in p[1:-1]:
                 s += " " + str(n)
             print(s, file=outfile)
             

@@ -37,51 +37,10 @@ struct MemoizedPaths{
     }
 };
 
-struct LogFileData{
-    dense_hash_map<Link, double, hash<Link> > failed_links;
-    vector<Flow*> flows;
-    dense_hash_map<Link, int, hash<Link> > links_to_ids;
-    vector<Link> inverse_links;
-    vector<vector<int> > *forward_flows_by_link_id, *reverse_flows_by_link_id, *flows_by_link_id;
-    dense_hash_map<PII, MemoizedPaths*, hash<PII> > memoized_paths;
-    shared_mutex memoized_paths_lock;
+class LogData;
 
-    LogFileData (): forward_flows_by_link_id(NULL), reverse_flows_by_link_id(NULL), flows_by_link_id(NULL) {
-        failed_links.set_empty_key(Link(-1, -1));
-        links_to_ids.set_empty_key(Link(-1, -1));
-        memoized_paths.set_empty_key(PII(-1, -1));
-        
-    }
-    vector<vector<int> >* GetForwardFlowsByLinkId(double max_finish_time_ms, int nopenmp_threads);
-    void GetSizesForForwardFlowsByLinkId(double max_finish_time_ms, int nopenmp_threads, vector<int>& result);
-    vector<vector<int> >* GetForwardFlowsByLinkId1(double max_finish_time_ms, int nopenmp_threads);
-    vector<vector<int> >* GetForwardFlowsByLinkId2(double max_finish_time_ms, int nopenmp_threads);
-    vector<vector<int> >* GetReverseFlowsByLinkId(double max_finish_time_ms);
-    vector<vector<int> >* GetFlowsByLinkId(double max_finish_time_ms, int nopenmp_threads);
-    void GetFailedLinkIds(Hypothesis &failed_links_set);
-    void FilterFlowsForConditional(double max_finish_time_ms, int nopenmp_threads);
-
-    int GetLinkId(Link link);
-    void AddChunkFlows(vector<Flow*> &chunk_flows);
-    void AddFailedLink(Link link, double failparam);
-
-    set<Link> IdsToLinks(Hypothesis &h);
-
-    void GetReducedData(unordered_map<Link, Link>& reduced_graph_map, LogFileData& reduced_data,
-                        int nopenmp_threads);
-
-};
-
-void GetDataFromLogFile(string filename, LogFileData* result);
-LogFileData* GetDataFromLogFileDistributed(string dirname, int nchunks, int nopenmp_threads);
+void GetDataFromLogFile(string filename, LogData* result);
+void GetDataFromLogFileDistributed(string dirname, int nchunks, LogData* result, int nopenmp_threads);
 PDD GetPrecisionRecall(Hypothesis& failed_links, Hypothesis& predicted_hypothesis);
 
-/* For reduced analysis */
-int GetReducedLinkId(int link_id, unordered_map<Link, Link> &reduced_graph_map,
-                                  LogFileData &data, LogFileData &reduced_data);
-Path* GetReducedPath(Path *path, unordered_map<Link, Link> &reduced_graph_map,
-                                 LogFileData &data, LogFileData &reduced_data);
-void GetNumReducedLinksMap(unordered_map<Link, Link> &reduced_graph_map,
-                                LogFileData &data, LogFileData &reduced_data,
-                                unordered_map<int, int> &result_map);
 #endif

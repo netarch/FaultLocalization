@@ -5,7 +5,7 @@
 class BayesianNet : public Estimator{
  public:
     BayesianNet() : Estimator() {}
-    void LocalizeFailures(LogFileData* data, double min_start_time_ms,
+    void LocalizeFailures(LogData* data, double min_start_time_ms,
                                  double max_finish_time_ms, Hypothesis &localized_links,
                                  int nopenmp_threads);
     const int MAX_FAILS = 10;
@@ -86,9 +86,9 @@ private:
     void ComputeAndStoreIntermediateValues(int nopenmp_threads, double max_finish_time_ms);
 
     // Noise parameters
-    double p1 = 1.0-1.0e-3, p2 = 2.5e-4;
+    double p1 = 1.0-2.5e-3, p2 = 2.5e-4;
     //double p1 = 1.0 - 2.5e-3, p2 = 5e-4;
-    LogFileData* data_cache;
+    LogData* data_cache;
     vector<vector<int> >* flows_by_link_id;
     // For reduced analysis
     unordered_map<int, int>* num_reduced_links_map;

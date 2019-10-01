@@ -3,30 +3,28 @@
 
 
 Path* GetReducedPath(Path *path, unordered_map<Link, Link> &reduced_graph_map,
-                                 LogFileData &data, LogFileData &reduced_data);
+                                 LogData &data, LogData &reduced_data);
 
 int GetReducedLinkId(int link_id, unordered_map<Link, Link> &reduced_graph_map,
-                                 LogFileData &data, LogFileData &reduced_data);
+                                 LogData &data, LogData &reduced_data);
 
 
 Flow::Flow(int src_, string srcip_, int srcport_, int dest_, string destip_, int destport_, int nbytes_, double start_time_ms_):
     src(src_), srcip(srcip_), srcport(srcport_), dest(dest_), destip(destip_), destport(destport_),
     nbytes(nbytes_), start_time_ms(start_time_ms_), curr_snapshot_ptr(-1) {}
 
-Flow::Flow(Flow &flow, unordered_map<Link, Link> &reduced_graph_map, LogFileData &data,
-                                                             LogFileData &reduced_data):
+Flow::Flow(Flow &flow, unordered_map<Link, Link> &reduced_graph_map, LogData &data,
+                                                             LogData &reduced_data):
     src(flow.src), srcip(flow.srcip), srcport(flow.srcport),
     dest(flow.dest), destip(flow.destip), destport(flow.destport),
     nbytes(flow.nbytes), start_time_ms(flow.start_time_ms),
     curr_snapshot_ptr(-1), snapshots(flow.snapshots){
 
-    if constexpr (MEMOIZE_PATHS) { 
-        first_link_id = GetReducedLinkId(flow.first_link_id, reduced_graph_map, data, reduced_data);
-        last_link_id = GetReducedLinkId(flow.last_link_id, reduced_graph_map, data, reduced_data);
-        if constexpr (CONSIDER_REVERSE_PATH) {
-            reverse_first_link_id = GetReducedLinkId(flow.reverse_first_link_id, reduced_graph_map, data, reduced_data);
-            reverse_last_link_id = GetReducedLinkId(flow.reverse_last_link_id, reduced_graph_map, data, reduced_data);
-        }
+    first_link_id = GetReducedLinkId(flow.first_link_id, reduced_graph_map, data, reduced_data);
+    last_link_id = GetReducedLinkId(flow.last_link_id, reduced_graph_map, data, reduced_data);
+    if constexpr (CONSIDER_REVERSE_PATH) {
+        reverse_first_link_id = GetReducedLinkId(flow.reverse_first_link_id, reduced_graph_map, data, reduced_data);
+        reverse_last_link_id = GetReducedLinkId(flow.reverse_last_link_id, reduced_graph_map, data, reduced_data);
     }
 
     // populate forward paths

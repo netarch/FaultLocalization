@@ -179,7 +179,6 @@ ostream& operator<<(ostream& os, const unordered_set<T>& v) {
 const bool PATH_KNOWN=false;
 const bool CONSIDER_REVERSE_PATH=false;
 const bool VERBOSE=true;
-const bool MEMOIZE_PATHS=true;
 
 class SpinLock {
     std::atomic_flag locked = ATOMIC_FLAG_INIT ;

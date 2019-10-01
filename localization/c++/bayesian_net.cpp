@@ -40,7 +40,7 @@ void BayesianNet::ComputeAndStoreIntermediateValues(int nopenmp_threads, double 
     }
 }
 
-void BayesianNet::LocalizeFailures(LogFileData* data, double min_start_time_ms,
+void BayesianNet::LocalizeFailures(LogData* data, double min_start_time_ms,
                                 double max_finish_time_ms, Hypothesis& localized_links,
                                 int nopenmp_threads){
     data_cache = data;
@@ -204,15 +204,14 @@ void BayesianNet::ComputeSingleLinkLogLikelihood(vector<pair<double, Hypothesis*
                 link_ctrs_threads[thread_num][link_id] = 0;
             }
         }
-        if constexpr (MEMOIZE_PATHS){
-            // For the first and last links that are common to all paths
-            int naffected = npaths;
-            //if (REDUCED_ANALYSIS) naffected = 1;
-            double log_likelihood = BnfWeighted(naffected, npaths, naffected_r, npaths_r,
-                                         weight.first, weight.second);
-            likelihoods[thread_num][flow->first_link_id] += log_likelihood;
-            likelihoods[thread_num][flow->last_link_id] += log_likelihood;
-        }
+
+        // For the first and last links that are common to all paths
+        int naffected = npaths;
+        //if (REDUCED_ANALYSIS) naffected = 1;
+        double log_likelihood = BnfWeighted(naffected, npaths, naffected_r, npaths_r,
+                weight.first, weight.second);
+        likelihoods[thread_num][flow->first_link_id] += log_likelihood;
+        likelihoods[thread_num][flow->last_link_id] += log_likelihood;
     }
     vector<double> final_likelihoods(nlinks, 0.0);
     #pragma omp parallel for num_threads(nopenmp_threads)
@@ -248,6 +247,7 @@ void BayesianNet::ComputeLogLikelihood(vector<Hypothesis*> &hypothesis_space,
         auto& base = base_hypothesis_likelihood[i];
         GetRelevantFlows(h, base.first, min_start_time_ms, max_finish_time_ms, relevant_flows[i]);
     }
+    int total_flows_analyzed = 0;
     for(int i=0; i<hypothesis_space.size(); i++){
         Hypothesis* h = hypothesis_space[i];
         auto& base = base_hypothesis_likelihood[i];
@@ -259,7 +259,9 @@ void BayesianNet::ComputeLogLikelihood(vector<Hypothesis*> &hypothesis_space,
             result[i] = pair<double, Hypothesis*>(ComputeLogLikelihoodUnreduced(h, base.first, base.second,
                     min_start_time_ms, max_finish_time_ms, relevant_flows[i], nopenmp_threads), h);
         }
+        total_flows_analyzed += relevant_flows[i].size();
     }
+    cout << "Total flows analyzed "<< total_flows_analyzed << " ";
 }
 
 inline double BayesianNet::BnfWeighted(int naffected, int npaths, int naffected_r, int npaths_r,
@@ -362,13 +364,12 @@ bool BayesianNet::HypothesisIntersectsPath(Hypothesis *hypothesis, Path *path){
 }
 
 array<int, 6> BayesianNet::ComputeFlowPathCountersReduced(Flow *flow, Hypothesis *hypothesis,
-                                                     Hypothesis *base_hypothesis, double max_finish_time_ms){
+                                           Hypothesis *base_hypothesis, double max_finish_time_ms){
     vector<Path*>* flow_paths = flow->GetPaths(max_finish_time_ms);
     assert (flow_paths != NULL and flow_paths->size() == 1);
     int npaths = flow->npaths_unreduced, naffected=0, naffected_base=0;
     // If common links of all paths are in hypothesis, then all paths are affected
-    if (MEMOIZE_PATHS and (hypothesis->count(flow->first_link_id) > 0 or
-                           hypothesis->count(flow->last_link_id) > 0)){
+    if (hypothesis->count(flow->first_link_id) > 0 or hypothesis->count(flow->last_link_id) > 0){
         naffected = npaths;
     }
     else{
@@ -376,8 +377,8 @@ array<int, 6> BayesianNet::ComputeFlowPathCountersReduced(Flow *flow, Hypothesis
             naffected += HypothesisIntersectsPath(hypothesis, path);
         }
     }
-    if (MEMOIZE_PATHS and (base_hypothesis->count(flow->first_link_id) > 0 or
-                           base_hypothesis->count(flow->last_link_id) > 0)){
+    if (base_hypothesis->count(flow->first_link_id) > 0 or
+        base_hypothesis->count(flow->last_link_id) > 0){
         naffected_base = npaths;
     }
     else{
@@ -423,13 +424,12 @@ double BayesianNet::ComputeLogLikelihoodReduced(Hypothesis* hypothesis, Hypothes
 }
 
 array<int, 6> BayesianNet::ComputeFlowPathCountersUnreduced(Flow *flow, Hypothesis *hypothesis,
-                                                     Hypothesis *base_hypothesis, double max_finish_time_ms){
+                                        Hypothesis *base_hypothesis, double max_finish_time_ms){
     vector<Path*>* flow_paths = flow->GetPaths(max_finish_time_ms);
     assert (flow_paths != NULL);
     int npaths = flow_paths->size(), naffected=0, naffected_base=0;
-    // If common links of all paths are in hypothesis, then all paths are affected
-    if (MEMOIZE_PATHS and (hypothesis->count(flow->first_link_id) > 0 or
-                           hypothesis->count(flow->last_link_id) > 0)){
+    // If common end links are in hypothesis, then all paths are affected
+    if (hypothesis->count(flow->first_link_id) > 0 or hypothesis->count(flow->last_link_id) > 0){
         naffected = npaths;
     }
     else{
@@ -437,8 +437,8 @@ array<int, 6> BayesianNet::ComputeFlowPathCountersUnreduced(Flow *flow, Hypothes
             naffected += (int) HypothesisIntersectsPath(hypothesis, path);
         }
     }
-    if (MEMOIZE_PATHS and (base_hypothesis->count(flow->first_link_id) > 0 or 
-                           base_hypothesis->count(flow->last_link_id) > 0)){
+    if (base_hypothesis->count(flow->first_link_id) > 0 or
+        base_hypothesis->count(flow->last_link_id) > 0){
         naffected_base = npaths;
     }
     else{
@@ -456,6 +456,7 @@ double BayesianNet::ComputeLogLikelihoodUnreduced(Hypothesis* hypothesis, Hypoth
                     double base_likelihood, double min_start_time_ms, double max_finish_time_ms,
                     vector<int> &relevant_flows, int nopenmp_threads){
     vector<double> log_likelihoods_threads(nopenmp_threads, 0.0);
+    vector<int> one_path_affected_flows(nopenmp_threads, 0);
     #pragma omp parallel for num_threads(nopenmp_threads) if(nopenmp_threads > 1)
     for (int ii=0; ii<relevant_flows.size(); ii++){
         Flow *flow = data_cache->flows[relevant_flows[ii]];
@@ -464,6 +465,7 @@ double BayesianNet::ComputeLogLikelihoodUnreduced(Hypothesis* hypothesis, Hypoth
         auto [npaths, naffected, naffected_base, npaths_r, naffected_r, naffected_base_r]
               = ComputeFlowPathCountersUnreduced(flow, hypothesis, base_hypothesis, max_finish_time_ms);   
         int thread_num = omp_get_thread_num();
+        one_path_affected_flows[thread_num] += (int) (naffected == 1);
         log_likelihoods_threads[thread_num] += BnfWeighted(naffected, npaths, naffected_r, npaths_r,
                                                            weight.first, weight.second);
         if (naffected_base > 0 or naffected_base_r > 0){
@@ -471,6 +473,9 @@ double BayesianNet::ComputeLogLikelihoodUnreduced(Hypothesis* hypothesis, Hypoth
                                                                npaths_r, weight.first, weight.second);
         }
     }
+    int aa = accumulate(one_path_affected_flows.begin(), one_path_affected_flows.end(), 0., plus<int>());
+    cout << "One path affected " << aa << " Total flows " << relevant_flows.size() << endl;
+
     double log_likelihood = max(-1.0e9, accumulate(log_likelihoods_threads.begin(),
                                                    log_likelihoods_threads.end(), 0.0, plus<double>()));
     //cout << *hypothesis << " " << log_likelihood + hypothesis->size() * PRIOR << endl;

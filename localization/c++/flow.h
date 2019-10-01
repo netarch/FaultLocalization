@@ -32,7 +32,7 @@ public:
 
     //!TODO
     Flow(Flow &flow, unordered_map<Link, Link> &reduced_graph_map, LogFileData &data,
-                                                          LogFileData &reduced_data);
+         LogFileData &reduced_data);
 
     void AddPath(Path *path, bool is_path_taken=false);
     // A reverse path is from the destination to the source
@@ -53,6 +53,9 @@ public:
     void PrintFlowSnapshots(ostream& out=std::cout);
     void PrintFlowMetrics(ostream& out=std::cout);
     void PrintInfo(ostream& out=std::cout);
+
+    // !Note: Any function which can move across snapshots is not thread-safe.
+    //        That includes all functions which take max_finish_time_ms as input
 
     // !TODO: convert to vector<Path> for better cache performance
     vector<Path*>* GetPaths(double max_finish_time_ms);

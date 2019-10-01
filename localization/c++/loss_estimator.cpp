@@ -24,6 +24,12 @@ int main(int argc, char *argv[]){
     if (estimator.USE_CONDITIONAL){
         data->FilterFlowsForConditional(max_finish_time_ms, nopenmp_threads);
     }
+    auto start_bin_time = chrono::high_resolution_clock::now();
+    estimator.SetFlowsByLinkId(data->GetFlowsByLinkId(max_finish_time_ms, nopenmp_threads));
+    if constexpr (VERBOSE){
+        cout << "Finished binning " << data->flows.size() << " flows by links in "
+             << GetTimeSinceMilliSeconds(start_bin_time) << " seconds" << endl;
+    }
     Hypothesis estimator_hypothesis;
     estimator.LocalizeFailures(data, min_start_time_ms, max_finish_time_ms,
                                         estimator_hypothesis, nopenmp_threads);

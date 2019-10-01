@@ -24,8 +24,7 @@ LogFileData* GetDataFromLogFileDistributed(string dirname, int nchunks, int nope
         GetDataFromLogFile(dirname + "/" + to_string(i), all_data);
     }
     if constexpr (VERBOSE){
-        cout<<"Read log file chunks in "<<chrono::duration_cast<chrono::seconds>(
-            chrono::high_resolution_clock::now() - start_time).count() << " seconds "<< endl;
+        cout<<"Read log file chunks in "<<GetTimeSinceMilliSeconds(start_time) << " seconds"<<endl;
     }
     return all_data;
 }
@@ -236,8 +235,8 @@ void GetDataFromLogFile(string filename, LogFileData *result){
     //cout << "Total space taken by forward paths " << mem_taken/1024 << endl;
     result->AddChunkFlows(chunk_flows);
     if constexpr (VERBOSE){
-        cout<<"Read log file in "<<chrono::duration_cast<chrono::milliseconds>(
-            chrono::high_resolution_clock::now() - start_time).count()/1000.0 << " seconds, numlines " << nlines << endl;
+        cout<< "Read log file in "<<GetTimeSinceMilliSeconds(start_time)
+            << " seconds, numlines " << nlines << endl;
     }
 }
 
@@ -290,13 +289,10 @@ void LogFileData::FilterFlowsForConditional(double max_finish_time_ms, int nopen
     }
     flows.clear();
     for (int t=0; t<nopenmp_threads; t++){
-        for (Flow* f: filtered_flows[t]){
-            flows.push_back(f);
-        }
+        flows.insert(flows.end(), filtered_flows[t].begin(), filtered_flows[t].end());
     }
 }
 
-//!TODO: Make this function like ComputeSingleLinkLikelihoods (without locks i.e.)
 vector<vector<int> >* LogFileData::GetForwardFlowsByLinkId1(double max_finish_time_ms, int nopenmp_threads){
     if (forward_flows_by_link_id != NULL) delete(forward_flows_by_link_id);
     int nlinks = inverse_links.size();
@@ -397,17 +393,15 @@ void LogFileData::GetSizesForForwardFlowsByLinkId(double max_finish_time_ms, int
     }
 }
 
-//Lockless version
+// Lockless version
 vector<vector<int> >* LogFileData::GetForwardFlowsByLinkId(double max_finish_time_ms, int nopenmp_threads){
-    if (forward_flows_by_link_id != NULL) delete(forward_flows_by_link_id);
     int nlinks = inverse_links.size();
     forward_flows_by_link_id = new vector<vector<int> >(nlinks);
     auto start_time = chrono::high_resolution_clock::now();
     vector<int> sizes;
     GetSizesForForwardFlowsByLinkId(max_finish_time_ms, nopenmp_threads, sizes);
     if constexpr (VERBOSE){
-        cout<<"Binning flows part 1 done in "<<chrono::duration_cast<chrono::milliseconds>(
-            chrono::high_resolution_clock::now() - start_time).count()*1.0e-3 << " seconds "<< endl;
+        cout<<"Binning flows part 1 done in "<<GetTimeSinceMilliSeconds(start_time)<< " seconds"<<endl;
     }
     start_time = chrono::high_resolution_clock::now();
     int nthreads = min(3, nopenmp_threads);
@@ -416,8 +410,7 @@ vector<vector<int> >* LogFileData::GetForwardFlowsByLinkId(double max_finish_tim
         (*forward_flows_by_link_id)[link_id].reserve(sizes[link_id]);
     }
     if constexpr (VERBOSE){
-        cout<<"Binning flows part 2 done in "<<chrono::duration_cast<chrono::milliseconds>(
-            chrono::high_resolution_clock::now() - start_time).count()*1.0e-3 << " seconds "<< endl;
+        cout<<"Binning flows part 2 done in "<<GetTimeSinceMilliSeconds(start_time)<< " seconds"<<endl;
     }
     start_time = chrono::high_resolution_clock::now();
     //mutex link_locks[nlinks];
@@ -450,8 +443,7 @@ vector<vector<int> >* LogFileData::GetForwardFlowsByLinkId(double max_finish_tim
         }
     }
     if constexpr (VERBOSE){
-        cout<<"Binning flows part 3 done in "<<chrono::duration_cast<chrono::milliseconds>(
-            chrono::high_resolution_clock::now() - start_time).count()*1.0e-3 << " seconds "<< endl;
+        cout<<"Binning flows part 3 done in "<<GetTimeSinceMilliSeconds(start_time)<< " seconds"<<endl;
     }
     start_time = chrono::high_resolution_clock::now();
     return forward_flows_by_link_id;
@@ -477,7 +469,6 @@ vector<vector<int> >* LogFileData::GetReverseFlowsByLinkId(double max_finish_tim
 }
 
 vector<vector<int> >* LogFileData::GetFlowsByLinkId(double max_finish_time_ms, int nopenmp_threads){
-    if (flows_by_link_id != NULL) delete(flows_by_link_id);
     GetForwardFlowsByLinkId(max_finish_time_ms, nopenmp_threads);
     if constexpr (!CONSIDER_REVERSE_PATH) flows_by_link_id = forward_flows_by_link_id;
     else{
@@ -491,6 +482,8 @@ vector<vector<int> >* LogFileData::GetFlowsByLinkId(double max_finish_time_ms, i
                       back_inserter(flows_by_link_id->at(link_id)));
             //!TODO: Check if flows_by_link actually gets populated
         }
+        delete(forward_flows_by_link_id);
+        delete(reverse_flows_by_link_id);
     }
     return flows_by_link_id;
 }

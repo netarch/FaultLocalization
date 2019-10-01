@@ -20,6 +20,11 @@ class BayesianNet : public Estimator{
     void SetNumReducedLinksMap(unordered_map<int, int>* num_reduced_links_map_) {
         num_reduced_links_map = num_reduced_links_map_;
     }
+    void SetFlowsByLinkId(vector<vector<int> >* flows_by_link_id_){
+        assert (flows_by_link_id_ != NULL);
+        flows_by_link_id = flows_by_link_id_;
+    }
+    
 
 private:
     void ComputeSingleLinkLogLikelihood(vector<pair<double, Hypothesis*> > &result,
@@ -27,10 +32,10 @@ private:
                     int nopenmp_threads);
 
     void GetRelevantFlows(Hypothesis* hypothesis, Hypothesis* base_hypothesis,
-                                   double min_start_time_ms, double max_finish_time_ms,
-                                   vector<int>& relevant_flows);
+                          double min_start_time_ms, double max_finish_time_ms,
+                          vector<int>& relevant_flows);
 
-    inline bool HypothesisLinkInPath(Path *path, Hypothesis *hypothesis);
+    inline bool HypothesisIntersectsPath(Hypothesis *hypothesis, Path *path);
 
     array<int, 6> ComputeFlowPathCountersUnreduced(Flow *flow, Hypothesis *hypothesis,
                                            Hypothesis *base_hypothesis, double max_finish_time_ms);
@@ -77,14 +82,14 @@ private:
     void SortCandidatesWrtNumRelevantFlows(vector<int> &candidates);
     void CleanUpAfterLocalization(unordered_map<Hypothesis*, double> &all_hypothesis);
     
-    //Cache intermediate results of time consuming arithmetic operations
+    // Cache intermediate results of time consuming arithmetic operations
     void ComputeAndStoreIntermediateValues(int nopenmp_threads, double max_finish_time_ms);
 
     // Noise parameters
     double p1 = 1.0-1.0e-3, p2 = 2.5e-4;
     //double p1 = 1.0 - 2.5e-3, p2 = 5e-4;
     LogFileData* data_cache;
-    vector<vector<int> >* flows_by_link_id_cache;
+    vector<vector<int> >* flows_by_link_id;
     // For reduced analysis
     unordered_map<int, int>* num_reduced_links_map;
 };

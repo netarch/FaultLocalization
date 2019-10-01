@@ -188,18 +188,6 @@ Path* Flow::GetReversePathTaken(){
 
 void Flow::UpdateSnapshotPtr(double max_finish_time_ms){
     //cout<<"UpdateSnapshotPtr "<<curr_snapshot_ptr<<" "<<max_finish_time_ms<<endl;
-    /*
-    if (curr_snapshot_ptr != -1){
-        if (curr_snapshot_ptr >= snapshots.size()){
-            cout << "num snapshots " << snapshots.size() << " curr_snapshot_ptr "<< curr_snapshot_ptr<<endl;
-        }
-        assert (curr_snapshot_ptr < snapshots.size());
-        if (snapshots[curr_snapshot_ptr]->snapshot_time_ms >= max_finish_time_ms){
-            cout << "current_snapshot_ptr "<< curr_snapshot_ptr << " max_finish_time_ms "<<max_finish_time_ms<<endl;
-            cout << " snapshot_time_ms "<<snapshots[curr_snapshot_ptr]->snapshot_time_ms <<endl;
-        }
-    }
-    */
     //!TODO(Bug): There is a race condition here!
     assert (curr_snapshot_ptr == -1 ||
             snapshots[curr_snapshot_ptr]->snapshot_time_ms < max_finish_time_ms);

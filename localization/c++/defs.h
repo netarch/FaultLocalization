@@ -5,6 +5,7 @@
 #include <set>
 #include <unordered_set>
 #include <atomic>
+#include <chrono>
 
 using namespace std;
 
@@ -115,6 +116,9 @@ private:
 };
 
 
+template< class T1, class T2 >
+constexpr bool operator==( const pair<T1,T2>& lhs, const pair<T1,T2>& rhs );
+
 // C++ template to print pair<> 
 // class by using template 
 template <typename T, typename S> 
@@ -123,6 +127,13 @@ ostream& operator<<(ostream& os, const pair<T, S>& v) {
     os << v.first << ", " 
         << v.second << ")"; 
     return os; 
+}
+
+// C++ template to print pair<> 
+// class by using template 
+template <typename T, typename S> 
+constexpr pair<T, S> operator+(const pair<T, S>& v1, const pair<T, S>& v2) { 
+    return pair<T, S>(v1.first + v2.first, v1.second + v2.second);
 }
 
 // C++ template to print vector container elements 
@@ -180,5 +191,10 @@ class SpinLock {
         locked.clear(std::memory_order_release);
     }
 };
+
+static inline double GetTimeSinceMilliSeconds(chrono::time_point<chrono::system_clock> start_time){
+    return chrono::duration_cast<chrono::milliseconds>(
+           chrono::high_resolution_clock::now() - start_time).count()*1.0e-3;
+}
 
 #endif

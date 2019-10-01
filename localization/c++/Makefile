@@ -4,13 +4,16 @@ CFLAGS = -std=c++17 -O3 -fopenmp -ffast-math -w -Wall -Wno-deprecated -Wno-unuse
 LIBS = -L/home/vharsh2/ns-allinone-3.24.1/ns-3.24.1/localization/c++/sparsehash/libs
 INCLUDE = -I/home/vharsh2/ns-allinone-3.24.1/ns-3.24.1/localization/c++/sparsehash/include
 
-all: loss_estimator reduced_estimator
+all: loss_estimator loss_estimator_trend reduced_estimator
 
 reduced_estimator: flow.o utils.o bayesian_net.o reduced_estimator.cpp
 	$(CC) $(INCLUDE) $(CFLAGS) flow.o utils.o bayesian_net.o  -o reduced_estimator reduced_estimator.cpp
 
 loss_estimator: flow.o utils.o bayesian_net.o loss_estimator.cpp
 	$(CC) $(INCLUDE) $(CFLAGS) flow.o utils.o bayesian_net.o  -o loss_estimator loss_estimator.cpp
+
+loss_estimator_trend: flow.o utils.o bayesian_net.o loss_estimator_trend.cpp
+	$(CC) $(INCLUDE) $(CFLAGS) flow.o utils.o bayesian_net.o  -o loss_estimator_trend loss_estimator_trend.cpp
 
 flow.o: flow.cpp flow.h defs.h
 	$(CC) $(CFLAGS) -c flow.cpp

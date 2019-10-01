@@ -75,9 +75,14 @@ int main(int argc, char *argv[]){
     data->GetReducedData(to_reduced_graph, *reduced_data, nopenmp_threads);
     GetNumReducedLinksMap(to_reduced_graph, *data, *reduced_data, num_reduced_links_map);
     estimator.SetNumReducedLinksMap(&num_reduced_links_map);
-    cout << "Obtained reduced data for running analysis in " << chrono::duration_cast<chrono::milliseconds>(
-            chrono::high_resolution_clock::now() - start_time).count()*1.0e-3 << " seconds" << endl;
-
+    cout << "Obtained reduced data for running analysis in "
+         << GetTimeSinceMilliSeconds(start_time) << " seconds" << endl;
+    auto start_bin_time = chrono::high_resolution_clock::now();
+    estimator.SetFlowsByLinkId(reduced_data->GetFlowsByLinkId(max_finish_time_ms, nopenmp_threads));
+    if constexpr (VERBOSE){
+        cout << "Finished binning " << data->flows.size() << " flows by links in "
+             << GetTimeSinceMilliSeconds(start_bin_time) << " seconds" << endl;
+    }
     Hypothesis estimator_hypothesis;
     estimator.LocalizeFailures(reduced_data, min_start_time_ms, max_finish_time_ms,
                                         estimator_hypothesis, nopenmp_threads);

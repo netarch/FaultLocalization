@@ -84,5 +84,4 @@ Path* GetReducedPath(Path *path, unordered_map<Link, Link> &reduced_graph_map,
 void GetNumReducedLinksMap(unordered_map<Link, Link> &reduced_graph_map,
                                 LogFileData &data, LogFileData &reduced_data,
                                 unordered_map<int, int> &result_map);
-
 #endif

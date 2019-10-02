@@ -9,6 +9,10 @@
 
 using namespace std;
 
+const bool PATH_KNOWN=false;
+const bool CONSIDER_REVERSE_PATH=false;
+const bool VERBOSE=false;
+
 #define MAX_PATH_LENGTH 4
 
 template <typename T>
@@ -175,10 +179,6 @@ ostream& operator<<(ostream& os, const unordered_set<T>& v) {
     os << "]"; 
     return os; 
 } 
-
-const bool PATH_KNOWN=false;
-const bool CONSIDER_REVERSE_PATH=false;
-const bool VERBOSE=true;
 
 class SpinLock {
     std::atomic_flag locked = ATOMIC_FLAG_INIT ;

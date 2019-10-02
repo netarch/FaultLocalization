@@ -54,6 +54,7 @@ int main(int argc, char *argv[]){
     cout << "Using topology file "<< topology_file <<endl;
     cout << "Using " << nopenmp_threads << " openmp threads"<<endl;
     int nchunks = 40;
+
     LogData data;
     GetDataFromLogFileDistributed(flow_file, nchunks, &data, nchunks);
     BayesianNet estimator;
@@ -61,29 +62,28 @@ int main(int argc, char *argv[]){
     if (estimator.USE_CONDITIONAL){
         data.FilterFlowsForConditional(max_finish_time_ms, nopenmp_threads);
     }
-    // preprocessing for analysis on reduced graph
+
+    // Preprocess to obtain reduced graph
     unordered_map<Link, Link> to_reduced_graph;
     unordered_map<Link, vector<Link> > from_reduced_graph;
     ReducedGraphMappingLeafSpine(topology_file, to_reduced_graph, from_reduced_graph);
     unordered_map<int, int> num_reduced_links_map;
     cout << "Obtained reduced graph mappings" <<endl;
     cout << "Number of reduced nodes " << from_reduced_graph.size() << endl;
+
+    // Create copy of data for reduced graph
     LogData reduced_data;;
+    estimator.SetLogData(&reduced_data, max_finish_time_ms, nopenmp_threads);
     auto start_time = chrono::high_resolution_clock::now();
     data.GetReducedData(to_reduced_graph, reduced_data, nopenmp_threads);
     GetNumReducedLinksMap(to_reduced_graph, data, reduced_data, num_reduced_links_map);
     estimator.SetNumReducedLinksMap(&num_reduced_links_map);
     cout << "Obtained reduced data for running analysis in "
          << GetTimeSinceMilliSeconds(start_time) << " seconds" << endl;
-    auto start_bin_time = chrono::high_resolution_clock::now();
-    estimator.SetFlowsByLinkId(reduced_data.GetFlowsByLinkId(max_finish_time_ms, nopenmp_threads));
-    if constexpr (VERBOSE){
-        cout << "Finished binning " << data.flows.size() << " flows by links in "
-             << GetTimeSinceMilliSeconds(start_bin_time) << " seconds" << endl;
-    }
+
     Hypothesis estimator_hypothesis;
-    estimator.LocalizeFailures(&reduced_data, min_start_time_ms, max_finish_time_ms,
-                                        estimator_hypothesis, nopenmp_threads);
+    estimator.LocalizeFailures(min_start_time_ms, max_finish_time_ms,
+                               estimator_hypothesis, nopenmp_threads);
     Hypothesis failed_links_set;
     reduced_data.GetFailedLinkIds(failed_links_set);
     PDD precision_recall = GetPrecisionRecall(failed_links_set, estimator_hypothesis);

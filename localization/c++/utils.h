@@ -38,9 +38,18 @@ struct MemoizedPaths{
 };
 
 class LogData;
-
 void GetDataFromLogFile(string filename, LogData* result);
 void GetDataFromLogFileDistributed(string dirname, int nchunks, LogData* result, int nopenmp_threads);
+
+inline bool HypothesisIntersectsPath(Hypothesis *hypothesis, Path *path){
+    bool link_in_path = false;
+    for (int link_id: *path){
+        link_in_path = (link_in_path or (hypothesis->count(link_id) > 0));
+    }
+    return link_in_path;
+}
+
+
 PDD GetPrecisionRecall(Hypothesis& failed_links, Hypothesis& predicted_hypothesis);
 
 #endif

@@ -1,4 +1,5 @@
 #include "bayesian_net.h"
+#include "utils.h"
 #include <assert.h>
 #include <numeric>
 #include <algorithm>
@@ -33,17 +34,24 @@ void BayesianNet::CleanUpAfterLocalization(unordered_map<Hypothesis*, double> &a
 // Optimization legitimate only if USE_CONDITIONAL = false
 void BayesianNet::ComputeAndStoreIntermediateValues(int nopenmp_threads, double max_finish_time_ms){
     #pragma omp parallel for num_threads(nopenmp_threads)
-    for (int ii=0; ii<data_cache->flows.size(); ii++){
-        Flow* flow = data_cache->flows[ii];
+    for (int ii=0; ii<data->flows.size(); ii++){
+        Flow* flow = data->flows[ii];
         flow->SetCachedIntermediateValue(GetBnfWeightedUnconditionalIntermediateValue(
                                          flow, max_finish_time_ms));
     }
 }
 
-void BayesianNet::LocalizeFailures(LogData* data, double min_start_time_ms,
-                                double max_finish_time_ms, Hypothesis& localized_links,
-                                int nopenmp_threads){
-    data_cache = data;
+void BayesianNet::SetLogData(LogData* data_, double max_finish_time_ms, int nopenmp_threads){
+    Estimator::SetLogData(data_, max_finish_time_ms, nopenmp_threads);
+    if(USE_CONDITIONAL){
+        data->FilterFlowsForConditional(max_finish_time_ms, nopenmp_threads);
+    }
+}
+
+void BayesianNet::LocalizeFailures(double min_start_time_ms, double max_finish_time_ms,
+                                   Hypothesis& localized_links, int nopenmp_threads){
+    assert(data != NULL);
+    BinFlowsByLinkId(max_finish_time_ms, nopenmp_threads);
     if (not USE_CONDITIONAL){
         auto start_time = chrono::high_resolution_clock::now();
         ComputeAndStoreIntermediateValues(nopenmp_threads, max_finish_time_ms);
@@ -58,7 +66,7 @@ void BayesianNet::LocalizeFailures(LogData* data, double min_start_time_ms,
     vector<Hypothesis*> prev_hypothesis_space; 
     //Initial list of candidates is all links
     vector<int> candidates;
-    for (int link_id=0; link_id<data_cache->inverse_links.size(); link_id++){
+    for (int link_id=0; link_id<data->inverse_links.size(); link_id++){
         candidates.push_back(link_id);
     }
     prev_hypothesis_space.push_back(no_failure_hypothesis);
@@ -105,7 +113,7 @@ void BayesianNet::LocalizeFailures(LogData* data, double min_start_time_ms,
                 int link_id = *(h->begin());
                 candidates.push_back(link_id);
                 if constexpr (VERBOSE){
-                    cout << "Candidate " << data_cache->IdsToLinks(*h) << " " << result[i].first << endl;
+                    cout << "Candidate " << data->IdsToLinks(*h) << " " << result[i].first << endl;
                 }
             }
             //SortCandidatesWrtNumRelevantFlows(candidates);
@@ -125,10 +133,10 @@ void BayesianNet::LocalizeFailures(LogData* data, double min_start_time_ms,
     }
     if constexpr (VERBOSE) {
         Hypothesis correct_hypothesis;
-        data_cache->GetFailedLinkIds(correct_hypothesis);
+        data->GetFailedLinkIds(correct_hypothesis);
         double likelihood_correct_hypothesis = ComputeLogLikelihood(&correct_hypothesis,
                                 no_failure_hypothesis, 0.0, min_start_time_ms, max_finish_time_ms);
-        cout << "Correct Hypothesis " << data_cache->IdsToLinks(correct_hypothesis) << " likelihood " << likelihood_correct_hypothesis << endl;
+        cout << "Correct Hypothesis " << data->IdsToLinks(correct_hypothesis) << " likelihood " << likelihood_correct_hypothesis << endl;
 
     }
 
@@ -147,7 +155,7 @@ void BayesianNet::LocalizeFailures(LogData* data, double min_start_time_ms,
             localized_links.insert(hypothesis->begin(), hypothesis->end());
         }
         if constexpr (VERBOSE){
-            cout << "Likely candidate "<<data_cache->IdsToLinks(*hypothesis)<<" "<<likelihood << endl;
+            cout << "Likely candidate "<<data->IdsToLinks(*hypothesis)<<" "<<likelihood << endl;
         }
     }
     if constexpr (VERBOSE){
@@ -159,7 +167,7 @@ void BayesianNet::LocalizeFailures(LogData* data, double min_start_time_ms,
 void BayesianNet::ComputeSingleLinkLogLikelihood(vector<pair<double, Hypothesis*> > &result,
                                         double min_start_time_ms, double max_finish_time_ms,
                                         int nopenmp_threads){
-    int nlinks = data_cache->inverse_links.size();
+    int nlinks = data->inverse_links.size();
     vector<double> likelihoods[nopenmp_threads];
     vector<short int> link_ctrs_threads[nopenmp_threads];
     #pragma omp parallel for num_threads(nopenmp_threads)
@@ -168,8 +176,8 @@ void BayesianNet::ComputeSingleLinkLogLikelihood(vector<pair<double, Hypothesis*
         link_ctrs_threads[t].resize(nlinks, 0);
     }
     #pragma omp parallel for num_threads(nopenmp_threads)
-    for (int ii=0; ii<data_cache->flows.size(); ii++){
-        Flow* flow = data_cache->flows[ii];
+    for (int ii=0; ii<data->flows.size(); ii++){
+        Flow* flow = data->flows[ii];
         if (USE_CONDITIONAL and !flow->TracerouteFlow(max_finish_time_ms)) continue;
         int thread_num = omp_get_thread_num();
         vector<Path*>* flow_paths = flow->GetPaths(max_finish_time_ms);
@@ -261,7 +269,9 @@ void BayesianNet::ComputeLogLikelihood(vector<Hypothesis*> &hypothesis_space,
         }
         total_flows_analyzed += relevant_flows[i].size();
     }
-    cout << "Total flows analyzed "<< total_flows_analyzed << " ";
+    if constexpr (VERBOSE) {
+        cout << "Total flows analyzed "<< total_flows_analyzed << " ";
+    }
 }
 
 inline double BayesianNet::BnfWeighted(int naffected, int npaths, int naffected_r, int npaths_r,
@@ -330,7 +340,7 @@ void BayesianNet::GetRelevantFlows(Hypothesis* hypothesis, Hypothesis* base_hypo
         if (base_hypothesis->count(link_id) == 0){
             vector<int> &link_id_flows = (*flows_by_link_id)[link_id];
             for(int f: link_id_flows){
-                Flow* flow = data_cache->flows[f];
+                Flow* flow = data->flows[f];
                 //!TODO: Add option for active_flows_only
                 if (flow->start_time_ms >= min_start_time_ms and
                     (!USE_CONDITIONAL or flow->TracerouteFlow(max_finish_time_ms))){
@@ -353,14 +363,6 @@ double BayesianNet::ComputeLogLikelihood(Hypothesis* hypothesis, Hypothesis* bas
     else
         return ComputeLogLikelihoodUnreduced(hypothesis, base_hypothesis, base_likelihood, min_start_time_ms,
                                     max_finish_time_ms, relevant_flows);
-}
-
-bool BayesianNet::HypothesisIntersectsPath(Hypothesis *hypothesis, Path *path){
-    bool link_in_path = false;
-    for (int link_id: *path){
-        link_in_path = (link_in_path or (hypothesis->count(link_id) > 0));
-    }
-    return link_in_path;
 }
 
 array<int, 6> BayesianNet::ComputeFlowPathCountersReduced(Flow *flow, Hypothesis *hypothesis,
@@ -398,7 +400,7 @@ double BayesianNet::ComputeLogLikelihoodReduced(Hypothesis* hypothesis, Hypothes
     vector<double> log_likelihoods_threads(nopenmp_threads, 0.0);
     #pragma omp parallel for num_threads(nopenmp_threads) if(nopenmp_threads > 1)
     for (int ii=0; ii<relevant_flows.size(); ii++){
-        Flow *flow = data_cache->flows[relevant_flows[ii]];
+        Flow *flow = data->flows[relevant_flows[ii]];
         double log_likelihood = 0.0;
         auto [npaths, naffected, naffected_base, npaths_r, naffected_r, naffected_base_r]
               = ComputeFlowPathCountersReduced(flow, hypothesis, base_hypothesis, max_finish_time_ms);   
@@ -456,16 +458,14 @@ double BayesianNet::ComputeLogLikelihoodUnreduced(Hypothesis* hypothesis, Hypoth
                     double base_likelihood, double min_start_time_ms, double max_finish_time_ms,
                     vector<int> &relevant_flows, int nopenmp_threads){
     vector<double> log_likelihoods_threads(nopenmp_threads, 0.0);
-    vector<int> one_path_affected_flows(nopenmp_threads, 0);
     #pragma omp parallel for num_threads(nopenmp_threads) if(nopenmp_threads > 1)
     for (int ii=0; ii<relevant_flows.size(); ii++){
-        Flow *flow = data_cache->flows[relevant_flows[ii]];
+        Flow *flow = data->flows[relevant_flows[ii]];
         PII weight = flow->LabelWeightsFunc(max_finish_time_ms);
         if (weight.first == 0 and weight.second == 0) continue;
         auto [npaths, naffected, naffected_base, npaths_r, naffected_r, naffected_base_r]
               = ComputeFlowPathCountersUnreduced(flow, hypothesis, base_hypothesis, max_finish_time_ms);   
         int thread_num = omp_get_thread_num();
-        one_path_affected_flows[thread_num] += (int) (naffected == 1);
         log_likelihoods_threads[thread_num] += BnfWeighted(naffected, npaths, naffected_r, npaths_r,
                                                            weight.first, weight.second);
         if (naffected_base > 0 or naffected_base_r > 0){
@@ -473,9 +473,6 @@ double BayesianNet::ComputeLogLikelihoodUnreduced(Hypothesis* hypothesis, Hypoth
                                                                npaths_r, weight.first, weight.second);
         }
     }
-    int aa = accumulate(one_path_affected_flows.begin(), one_path_affected_flows.end(), 0., plus<int>());
-    cout << "One path affected " << aa << " Total flows " << relevant_flows.size() << endl;
-
     double log_likelihood = max(-1.0e9, accumulate(log_likelihoods_threads.begin(),
                                                    log_likelihoods_threads.end(), 0.0, plus<double>()));
     //cout << *hypothesis << " " << log_likelihood + hypothesis->size() * PRIOR << endl;

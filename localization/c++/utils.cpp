@@ -62,17 +62,53 @@ void GetDataFromLogFile(string filename, LogData *result){
         //cout << "op" << op << endl;
         line_stream >> op;
         nlines += 1;
-        if (op == "Failing_link"){
-            int src, dest;
-            float failparam;
-            line_stream >> src >> dest >> failparam;
-            //sscanf (linum + op.size(),"%d %*d %f", &src, &dest, &failparam);
-            result->AddFailedLink(Link(src, dest), failparam);
-            if constexpr (VERBOSE){
-                cout<< "Failed link "<<src<<" "<<dest<<" "<<failparam<<endl; 
+        if (StringStartsWith(op, "FPR")){
+            assert (flow != NULL);
+            temp_path.clear();
+            path_nodes.clear();
+            int node;
+            // This is only the portion from dest_rack to src_rack
+            while (line_stream >> node){
+                if (path_nodes.size() > 0){
+                    temp_path.push_back(GetLinkId(Link(path_nodes.back(), node)));
+                }
+                path_nodes.push_back(node);
             }
+            assert(path_nodes.size()>0); // No direct link for src_host to dest_host or vice_versa
+            flow->SetReverseFirstLinkId(GetLinkId(Link(flow->dest, *path_nodes.begin())));
+            flow->SetReverseLastLinkId(GetLinkId(Link(*path_nodes.rbegin(), flow->src)));
+            MemoizedPaths *memoized_paths = result->GetMemoizedPaths(path_nodes[0], *path_nodes.rbegin());;
+            Path* path = memoized_paths->GetPath(temp_path);
+            flow->AddReversePath(path, (op.find("taken")!=string::npos or op.find("T")!=string::npos));
         }
-        else if (op == "FID" or op == "Flowid="){
+        else if (StringStartsWith(op, "FP")){
+            assert (flow != NULL);
+            temp_path.clear();
+            path_nodes.clear();
+            int node;
+            // This is only the portion from src_rack to dest_rack
+            while (line_stream >> node){
+                if (path_nodes.size() > 0){
+                    temp_path.push_back(GetLinkId(Link(path_nodes.back(), node)));
+                }
+                path_nodes.push_back(node);
+            }
+            assert(path_nodes.size()>0); // No direct link for src_host to dest_host or vice_versa
+            flow->SetFirstLinkId(GetLinkId(Link(flow->src, *path_nodes.begin())));
+            flow->SetLastLinkId(GetLinkId(Link(*path_nodes.rbegin(), flow->dest)));
+            MemoizedPaths *memoized_paths = result->GetMemoizedPaths(path_nodes[0], *path_nodes.rbegin());
+            Path *path = memoized_paths->GetPath(temp_path);
+            flow->AddPath(path, (op.find("taken")!=string::npos or op.find("T")!=string::npos));
+        }
+        else if (op == "SS"){
+            double snapshot_time_ms;
+            int packets_sent, packets_lost, packets_randomly_lost;
+            line_stream >> snapshot_time_ms >> packets_sent >> packets_lost >> packets_randomly_lost;
+            assert (flow != NULL);
+            flow->AddSnapshot(snapshot_time_ms, packets_sent, packets_lost, packets_randomly_lost);
+            //mem_taken += sizeof(FlowSnapshot);
+        }
+        else if (op == "FID"){
             // Log the previous flow
             if (flow != NULL) flow->DoneAddingPaths();
             if (flow != NULL and flow->paths.size() > 0 and flow->path_taken_vector.size() == 1){
@@ -94,51 +130,15 @@ void GetDataFromLogFile(string filename, LogData *result){
             flow = new Flow(src, "", 0, dest, "", 0, nbytes, start_time_ms);
             //mem_taken += sizeof(Flow);
         }
-        else if (op == "SS" or op == "Snapshot"){
-            double snapshot_time_ms;
-            int packets_sent, packets_lost, packets_randomly_lost;
-            line_stream >> snapshot_time_ms >> packets_sent >> packets_lost >> packets_randomly_lost;
-            assert (flow != NULL);
-            flow->AddSnapshot(snapshot_time_ms, packets_sent, packets_lost, packets_randomly_lost);
-            //mem_taken += sizeof(FlowSnapshot);
-        }
-        else if (StringStartsWith(op, "FPR") or StringStartsWith(op, "flowpath_reverse")){
-            assert (flow != NULL);
-            temp_path.clear();
-            path_nodes.clear();
-            int node;
-            // This is only the portion from dest_rack to src_rack
-            while (line_stream >> node){
-                if (path_nodes.size() > 0){
-                    temp_path.push_back(GetLinkId(Link(path_nodes.back(), node)));
-                }
-                path_nodes.push_back(node);
+        else if (op == "Failing_link"){
+            int src, dest;
+            float failparam;
+            line_stream >> src >> dest >> failparam;
+            //sscanf (linum + op.size(),"%d %*d %f", &src, &dest, &failparam);
+            result->AddFailedLink(Link(src, dest), failparam);
+            if constexpr (VERBOSE){
+                cout<< "Failed link "<<src<<" "<<dest<<" "<<failparam<<endl; 
             }
-            assert(path_nodes.size()>0); // No direct link for src_host to dest_host or vice_versa
-            flow->SetReverseFirstLinkId(GetLinkId(Link(flow->dest, *path_nodes.begin())));
-            flow->SetReverseLastLinkId(GetLinkId(Link(*path_nodes.rbegin(), flow->src)));
-            MemoizedPaths *memoized_paths = result->GetMemoizedPaths(path_nodes[0], *path_nodes.rbegin());;
-            Path* path = memoized_paths->GetPath(temp_path);
-            flow->AddReversePath(path, (op.find("taken")!=string::npos or op.find("T")!=string::npos));
-        }
-        else if (StringStartsWith(op, "FP") or StringStartsWith(op, "flowpath")){
-            assert (flow != NULL);
-            temp_path.clear();
-            path_nodes.clear();
-            int node;
-            // This is only the portion from src_rack to dest_rack
-            while (line_stream >> node){
-                if (path_nodes.size() > 0){
-                    temp_path.push_back(GetLinkId(Link(path_nodes.back(), node)));
-                }
-                path_nodes.push_back(node);
-            }
-            assert(path_nodes.size()>0); // No direct link for src_host to dest_host or vice_versa
-            flow->SetFirstLinkId(GetLinkId(Link(flow->src, *path_nodes.begin())));
-            flow->SetLastLinkId(GetLinkId(Link(*path_nodes.rbegin(), flow->dest)));
-            MemoizedPaths *memoized_paths = result->GetMemoizedPaths(path_nodes[0], *path_nodes.rbegin());
-            Path *path = memoized_paths->GetPath(temp_path);
-            flow->AddPath(path, (op.find("taken")!=string::npos or op.find("T")!=string::npos));
         }
         else if (op == "link_statistics"){
             assert (false);

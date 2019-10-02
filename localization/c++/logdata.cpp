@@ -79,6 +79,7 @@ void LogData::FilterFlowsForConditional(double max_finish_time_ms, int nopenmp_t
         Flow* f = flows[ff];
         if (f->TracerouteFlow(max_finish_time_ms)){
             filtered_flows[thread_num].push_back(f);
+            f->ResetSnapshotCounter();
         }
         else{
             delete(f);

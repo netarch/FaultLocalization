@@ -5,9 +5,8 @@
 class BayesianNet : public Estimator{
  public:
     BayesianNet() : Estimator() {}
-    void LocalizeFailures(LogData* data, double min_start_time_ms,
-                                 double max_finish_time_ms, Hypothesis &localized_links,
-                                 int nopenmp_threads);
+    void LocalizeFailures(double min_start_time_ms, double max_finish_time_ms,
+                          Hypothesis &localized_links, int nopenmp_threads);
     const int MAX_FAILS = 10;
     const int NUM_CANDIDATES = max(15, 5 * MAX_FAILS);
     const int NUM_TOP_HYPOTHESIS_AT_EACH_STAGE = 5;
@@ -24,6 +23,10 @@ class BayesianNet : public Estimator{
         assert (flows_by_link_id_ != NULL);
         flows_by_link_id = flows_by_link_id_;
     }
+
+    BayesianNet* CreateObject(){ return new BayesianNet(); }
+
+    void SetLogData(LogData *data, double max_finish_time_ms, int nopenmp_threads);
     
 
 private:
@@ -34,8 +37,6 @@ private:
     void GetRelevantFlows(Hypothesis* hypothesis, Hypothesis* base_hypothesis,
                           double min_start_time_ms, double max_finish_time_ms,
                           vector<int>& relevant_flows);
-
-    inline bool HypothesisIntersectsPath(Hypothesis *hypothesis, Path *path);
 
     array<int, 6> ComputeFlowPathCountersUnreduced(Flow *flow, Hypothesis *hypothesis,
                                            Hypothesis *base_hypothesis, double max_finish_time_ms);
@@ -88,8 +89,6 @@ private:
     // Noise parameters
     double p1 = 1.0-2.5e-3, p2 = 2.5e-4;
     //double p1 = 1.0 - 2.5e-3, p2 = 5e-4;
-    LogData* data_cache;
-    vector<vector<int> >* flows_by_link_id;
     // For reduced analysis
     unordered_map<int, int>* num_reduced_links_map;
 };

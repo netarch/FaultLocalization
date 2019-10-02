@@ -228,7 +228,8 @@ void Flow::SetReverseLastLinkId(int link_id){
 }
 
 bool Flow::IsFlowActive(){
-    return (paths.size() == 1);
+    return false;
+    //return (paths.size() == 1);
 }
 
 bool Flow::TracerouteFlow(double max_finish_time_ms){
@@ -247,6 +248,10 @@ PII Flow::LabelWeightsFunc(double max_finish_time_ms){
         bw = snapshots[curr_snapshot_ptr]->packets_lost;
     }
     return PII(gw, bw);
+}
+
+void Flow::ResetSnapshotCounter(){
+    curr_snapshot_ptr = -1;
 }
 
 void Flow::SetCachedIntermediateValue(double value){

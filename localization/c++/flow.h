@@ -95,6 +95,8 @@ public:
     /* For reduced computations */
     int npaths_unreduced, npaths_reverse_unreduced;
 
+    void ResetSnapshotCounter();
+
     /* To accelerate bayesian net computations, cache an intermediate value */
     double cached_intermediate_value;
     void SetCachedIntermediateValue(double value);

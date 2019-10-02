@@ -24,10 +24,11 @@ class BayesianNet : public Estimator{
         flows_by_link_id = flows_by_link_id_;
     }
 
-    BayesianNet* CreateObject(){ return new BayesianNet(); }
+    BayesianNet* CreateObject();
 
     void SetLogData(LogData *data, double max_finish_time_ms, int nopenmp_threads);
-    
+
+    void SetParams(vector<double>& param);
 
 private:
     void ComputeSingleLinkLogLikelihood(vector<pair<double, Hypothesis*> > &result,

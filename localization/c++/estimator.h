@@ -19,6 +19,8 @@ class Estimator{
         data = data_;
     }
 
+    virtual void SetParams(vector<double>& param) { assert(false); }
+
     void BinFlowsByLinkId(double max_finish_time_ms, int nopenmp_threads){
         auto start_bin_time = chrono::high_resolution_clock::now();
         if (flows_by_link_id != NULL) delete(flows_by_link_id);

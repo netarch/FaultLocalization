@@ -124,7 +124,6 @@ template< class T1, class T2 >
 constexpr bool operator==( const pair<T1,T2>& lhs, const pair<T1,T2>& rhs );
 
 // C++ template to print pair<> 
-// class by using template 
 template <typename T, typename S> 
 ostream& operator<<(ostream& os, const pair<T, S>& v) { 
     os << "("; 

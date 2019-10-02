@@ -1,5 +1,5 @@
-#ifndef __FAULT_LOCALIZE_BAYESIAN_NET__
-#define __FAULT_LOCALIZE_BAYESIAN_NET__
+#ifndef __FAULT_LOCALIZE_007__
+#define __FAULT_LOCALIZE_007__
 #include "estimator.h"
 
 class DoubleO7 : public Estimator{
@@ -9,8 +9,8 @@ class DoubleO7 : public Estimator{
                           Hypothesis &localized_links, int nopenmp_threads);
 
     void SetLogData(LogData* data_, double max_finish_time_ms, int nopenmp_threads);
-
-    DoubleO7* CreateObject() { return new DoubleO7(); }
+    DoubleO7* CreateObject();
+    void SetParams(vector<double>& params);
 
 private:
 

@@ -41,6 +41,18 @@ void BayesianNet::ComputeAndStoreIntermediateValues(int nopenmp_threads, double 
     }
 }
 
+BayesianNet* BayesianNet::CreateObject(){
+    BayesianNet* ret = new BayesianNet();
+    vector<double> param {p1, p2};
+    ret->SetParams(param);
+    return ret;
+}
+
+void BayesianNet::SetParams(vector<double>& param) {
+    assert(param.size() == 2);
+    tie(p1, p2) = {param[0], param[1]};
+}
+    
 void BayesianNet::SetLogData(LogData* data_, double max_finish_time_ms, int nopenmp_threads){
     Estimator::SetLogData(data_, max_finish_time_ms, nopenmp_threads);
     if(USE_CONDITIONAL){

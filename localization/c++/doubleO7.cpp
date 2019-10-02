@@ -14,6 +14,18 @@ void DoubleO7::SetLogData(LogData* data_, double max_finish_time_ms, int nopenmp
     data->FilterFlowsForConditional(max_finish_time_ms, nopenmp_threads);
 }
 
+DoubleO7* DoubleO7::CreateObject() {
+    DoubleO7* ret = new DoubleO7();
+    vector<double> param {fail_percentile};
+    ret->SetParams(param);
+    return ret;
+}
+    
+void DoubleO7::SetParams(vector<double>& params){
+    assert(params.size() == 1);
+    fail_percentile = params[0];
+}
+
 PDD DoubleO7::ComputeVotes(vector<Flow*>& bad_flows, vector<double>& votes,
                            Hypothesis &problematic_link_ids, double min_start_time_ms,
                            double max_finish_time_ms){

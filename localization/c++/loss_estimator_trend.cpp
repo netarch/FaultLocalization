@@ -13,8 +13,8 @@ vector<string> GetFiles(){
     vector<PII> ignore_files = {{4,3}};
     vector<string> files;
     for(int f=1; f<=8; f++){
-    //for (int f: vector<int>({1})){ // {1-8}
-        for(int s: vector<int>({3,4})){ // {3}
+    //for (int f: vector<int>({8})){ // {1-8}
+        for(int s: vector<int>({3,4})){ // {1-4}
             if(find(ignore_files.begin(), ignore_files.end(),  PII(f, s)) == ignore_files.end()){
                 files.push_back(file_prefix + "_" + to_string(f) + "_0_" + to_string(s)); 
             }
@@ -53,13 +53,30 @@ void GetPrecisionRecallTrendBayesianNet(double min_start_time_ms, double max_fin
     }
 }
 
+void SweepParamsBayesianNet(double min_start_time_ms, double max_finish_time_ms, int nopenmp_threads){
+    vector<vector<double> > params;
+    for (double p1c = 0.5e-3; p1c <= 5e-3; p1c += 0.5e-3){
+        for (double p2 = 0.5e-4; p2 <= 5e-4; p2 += 0.5e-4){
+            params.push_back(vector<double> {1.0 - p1c, p2});
+        }
+    }
+    vector<PDD> result;
+    BayesianNet estimator;
+    GetPrecisionRecallParamsFiles(min_start_time_ms, max_finish_time_ms, params,
+                                  result, &estimator, nopenmp_threads);
+    int ctr = 0;
+    for (auto &param: params){
+        cout << param << " " << result[ctr++] << endl;
+    }
+}
+
 void SweepParams007(double min_start_time_ms, double max_finish_time_ms, int nopenmp_threads){
-    double min_fail_percentile = 0.0001;
-    double max_fail_percentile = 0.002;
-    double step = 0.00005;
+    double min_fail_percentile = 0.0025; //1; //0.001;
+    double max_fail_percentile = 0.0075; //16; //0.0025;
+    double step = 0.00005; //0.1; //0.00005;
     vector<vector<double> > params;
     for (double fail_percentile=min_fail_percentile;
-         fail_percentile < max_fail_percentile; fail_percentile += step){
+                fail_percentile < max_fail_percentile; fail_percentile += step){
         params.push_back(vector<double> {fail_percentile});
     }
     vector<PDD> result;
@@ -78,8 +95,8 @@ int main(int argc, char *argv[]){
     double step_ms = atof(argv[3]) * 1000.0;
     int nopenmp_threads = atoi(argv[4]);
     cout << "Using " << nopenmp_threads << " openmp threads"<<endl;
-    //GetPrecisionRecallTrendBayesianNet(min_start_time_ms, max_finish_time_ms, step_ms,
-    //                                   result, nopenmp_threads);
+    //GetPrecisionRecallTrendBayesianNet(min_start_time_ms, max_finish_time_ms,
+    //                                   step_ms, nopenmp_threads);
     SweepParams007(min_start_time_ms, max_finish_time_ms, nopenmp_threads);
     return 0;
 }

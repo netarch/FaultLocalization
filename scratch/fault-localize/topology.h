@@ -49,6 +49,7 @@ class Topology{
 
     void PrintFlowPath(int src_host, int dest_host);
     void PrintFlowInfo(int src_host, int dest_host, int bytes, ApplicationContainer& flow_app);
+    void PrintAllPairShortestPaths();
     void PrintIpAddresses();
     void SnapshotFlow(int src_host, int dest_host, int bytes, ApplicationContainer& flow_app,
                       Time start_time, Time snapshot_time);
@@ -56,7 +57,8 @@ class Topology{
     void AdaptNetwork();
 private:
     //The hosts are offset in the paths
-    vector<vector<int> > GetPaths(int src_host, int dest_host);
+    void GetPathsHost(int src_host, int dest_host, vector<vector<int> >& result);
+    void GetPathsRack(int src_host, int dest_host, vector<vector<int> >& result);
     pair<char*, char*> GetLinkBaseIpAddress(int sw, int h);
     pair<char*, char*> GetHostBaseIpAddress(int sw, int h);
     int GetFirstOctetOfTor(int tor);

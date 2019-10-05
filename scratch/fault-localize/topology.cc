@@ -155,16 +155,15 @@ void Topology::ChooseFailedLinks(int nfails){
     }
 }
 
-vector<vector<int> > Topology::GetPaths(int src_host, int dest_host){
-    char* src_host_ip = GetHostIpAddress(src_host);
-    char* dest_host_ip = GetHostIpAddress(dest_host);
+void Topology::GetPathsHost(int src_host, int dest_host, vector<vector<int> >&result){
     int src_rack = GetHostRack(src_host);
     int dest_rack = GetHostRack(dest_host);
+    GetPathsRack(src_rack, dest_rack, result);
+}
 
-    vector<vector<int> > shortest_paths;
+void Topology::GetPathsRack(int src_rack, int dest_rack, vector<vector<int> > &result){
     queue<vector<int> > shortest_paths_till_now;
     vector<int> path_till_now;
-    path_till_now.push_back(OffsetHost(src_host));
     path_till_now.push_back(src_rack);
     shortest_paths_till_now.push(path_till_now);
     while(!shortest_paths_till_now.empty()){
@@ -173,8 +172,7 @@ vector<vector<int> > Topology::GetPaths(int src_host, int dest_host){
         int last_vertex = path_till_now.back();
         if (last_vertex == dest_rack){
             //found a shortest path
-            path_till_now.push_back(OffsetHost(dest_host));
-            shortest_paths.push_back(path_till_now);
+            result.push_back(path_till_now);
         }
         else{
             //extend path along neighbours which are on shortest paths
@@ -188,7 +186,6 @@ vector<vector<int> > Topology::GetPaths(int src_host, int dest_host){
             }
         }
     }
-    return shortest_paths;
 }
 
 pair<char*, char*> Topology::GetLinkBaseIpAddress(int sw, int h){
@@ -398,8 +395,28 @@ void Topology::ComputeAllPairShortestPathlens(){
     cout<<"Finished floyd warshall"<<endl;
 }
 
+void Topology::PrintAllPairShortestPaths(){
+    shortest_pathlens.resize(num_tor);
+    for(int i = 0; i<num_tor; i++){
+        for (int j=0; j<num_tor; j++){
+            if (hosts_in_tor[i].size() > 0 and hosts_in_tor[j].size() > 0 and i!=j){
+                vector<vector<int> > paths;
+                GetPathsRack(i, j, paths);
+                for (vector<int>& p: paths){
+                   cout<<"flowpath ";
+                   for (int node: p){
+                      cout<<node<<" ";
+                   }
+                   cout<<endl;
+                }
+            }
+        }
+    }
+}
+
 void Topology::PrintFlowPath(int src_host, int dest_host){
-    vector<vector<int> > paths = GetPaths(src_host, dest_host);
+    vector<vector<int> > paths;
+    GetPathsHost(src_host, dest_host, paths);
     for (vector<int>& p: paths){
        cout<<"flowpath ";
        for (int node: p){
@@ -407,7 +424,8 @@ void Topology::PrintFlowPath(int src_host, int dest_host){
        }
        cout<<endl;
     }
-    vector<vector<int> > reverse_paths = GetPaths(dest_host, src_host);
+    vector<vector<int> > reverse_paths;
+    GetPathsHost(dest_host, src_host, reverse_paths);
     for (vector<int>& p: reverse_paths){
        cout<<"flowpath_reverse ";
        for (int node: p){
@@ -422,7 +440,8 @@ void Topology::SnapshotFlow(int src_host, int dest_host, int bytes, ApplicationC
     Ptr<Application> app = flow_app.Get(0);
     Ptr<TcpSocketBase> tcp_socket_base = GetSocketFromOnOffApp(app);
     cout<<"Flowid "<<OffsetHost(src_host)<<" "<<OffsetHost(dest_host)<<" "<<GetHostIpAddress(src_host)
-        <<" "<<GetHostIpAddress(dest_host)<<" "<<tcp_socket_base->GetLocalPort()
+        <<" "<<GetHostIpAddress(dest_host)<<" " <<host_to_tor[src_host]
+        << " " << host_to_tor[dest_host] <<" "<<tcp_socket_base->GetLocalPort()
         <<" "<<tcp_socket_base->GetPeerPort()<<" "<<bytes<<" "
         <<start_time<<" "<<snapshot_time
         <<" "<<tcp_socket_base->GetSentPackets()<<" "
@@ -435,10 +454,11 @@ void Topology::PrintFlowInfo(int src_host, int dest_host, int bytes, Application
     assert (flow_app.GetN() == 1);
     Ptr<Application> app = flow_app.Get(0);
     Ptr<TcpSocketBase> tcp_socket_base = GetSocketFromBulkSendApp(app);
-    cout<<"Flowid "<<OffsetHost(src_host)<<" "<<OffsetHost(dest_host)<<" "<<GetHostIpAddress(src_host)
-        <<" "<<GetHostIpAddress(dest_host)<<" "<<tcp_socket_base->GetLocalPort()
-        <<" "<<tcp_socket_base->GetPeerPort()<<" "<<bytes<<" "
-        <<app->GetStartTime()<<" "<<tcp_socket_base->GetFinishTime()
+    cout<<"Flowid "<<OffsetHost(src_host)<<" "<<OffsetHost(dest_host)<<" "
+        <<GetHostIpAddress(src_host)<<" "<<GetHostIpAddress(dest_host)<<" "
+        <<host_to_tor[src_host] << " " << host_to_tor[dest_host] <<" "
+        <<tcp_socket_base->GetLocalPort()<<" "<<tcp_socket_base->GetPeerPort()<<" "
+        <<bytes<<" "<<app->GetStartTime()<<" "<<tcp_socket_base->GetFinishTime()
         <<" "<<tcp_socket_base->GetSentPackets()<<" "
         <<tcp_socket_base->GetLostPackets()<<" "
         <<tcp_socket_base->GetRandomlyLostPackets()<<" "

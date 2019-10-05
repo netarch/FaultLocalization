@@ -99,11 +99,13 @@ void snapshot_flows(Topology* topology, ApplicationContainer** flow_app, double 
                 cout<<"Recording snapshot "<<" "<<flow_app[i][j].GetStartTime().GetSeconds()
                       <<" "<<curr_time_seconds<<" "<<snapshot_period_seconds<<endl;
                 */
-                // Print path information for the first time
                 topology->SnapshotFlow(i, j, bytes, flow_app[i][j], flow_app[i][j].GetStartTime(), Simulator::Now());
+                /*
+                // Print path information for the first time
                 if(flow_app[i][j].GetStartTime().GetSeconds() + snapshot_period_seconds >= curr_time_seconds){
                     topology->PrintFlowPath(i, j);
                 }
+                */
             }
         }
     }
@@ -298,6 +300,7 @@ int main(int argc, char *argv[]){
     //Ptr<OutputStreamWrapper> routing_stream = Create<OutputStreamWrapper> (&cout);
     //for(int i=0; i<num_tor; i++)
     //   global_routing_helper.PrintRoutingTableAt(Seconds(5.0), tors.Get(i), routing_stream);
+    topology.PrintAllPairShortestPaths();
 
     cout << "Starting simulation.. "<<"\n";
     nactive_flows = 0;

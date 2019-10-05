@@ -55,8 +55,8 @@ void GetPrecisionRecallTrendBayesianNet(double min_start_time_ms, double max_fin
 
 void SweepParamsBayesianNet(double min_start_time_ms, double max_finish_time_ms, int nopenmp_threads){
     vector<vector<double> > params;
-    for (double p1c = 0.5e-3; p1c <= 5e-3; p1c += 0.5e-3){
-        for (double p2 = 0.5e-4; p2 <= 5e-4; p2 += 0.5e-4){
+    for (double p1c = 0.5e-3; p1c <= 5e-3; p1c += 0.25e-3){
+        for (double p2 = 0.5e-4; p2 <= 5e-4; p2 += 0.25e-4){
             params.push_back(vector<double> {1.0 - p1c, p2});
         }
     }
@@ -71,8 +71,8 @@ void SweepParamsBayesianNet(double min_start_time_ms, double max_finish_time_ms,
 }
 
 void SweepParams007(double min_start_time_ms, double max_finish_time_ms, int nopenmp_threads){
-    double min_fail_percentile = 0.0025; //1; //0.001;
-    double max_fail_percentile = 0.0075; //16; //0.0025;
+    double min_fail_percentile = 0.00125; //1; //0.001;
+    double max_fail_percentile = 0.00300; //16; //0.0025;
     double step = 0.00005; //0.1; //0.00005;
     vector<vector<double> > params;
     for (double fail_percentile=min_fail_percentile;
@@ -97,6 +97,6 @@ int main(int argc, char *argv[]){
     cout << "Using " << nopenmp_threads << " openmp threads"<<endl;
     //GetPrecisionRecallTrendBayesianNet(min_start_time_ms, max_finish_time_ms,
     //                                   step_ms, nopenmp_threads);
-    SweepParams007(min_start_time_ms, max_finish_time_ms, nopenmp_threads);
+    SweepParamsBayesianNet(min_start_time_ms, max_finish_time_ms, nopenmp_threads);
     return 0;
 }

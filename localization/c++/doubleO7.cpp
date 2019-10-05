@@ -58,8 +58,14 @@ PDD DoubleO7::ComputeVotesPassive(vector<double>& votes, Hypothesis &problematic
             vector<Path*>* flow_paths = flow->GetPaths(max_finish_time_ms);
             vote2 /= flow_paths->size();
             for (Path* path: *flow_paths){
-                for (int link_id: *path){
-                    votes2[link_id] += vote2;
+                if (!HypothesisIntersectsPath(&problematic_link_ids, path) and
+                    (problematic_link_ids.count(flow->first_link_id) == 0) and
+                    (problematic_link_ids.count(flow->last_link_id) == 0)){
+                    votes2[flow->first_link_id] += vote2;
+                    votes2[flow->last_link_id] += vote2;
+                    for (int link_id: *path){
+                        votes2[link_id] += vote2;
+                    }
                 }
             }
         }
@@ -182,8 +188,10 @@ void DoubleO7::LocalizeFailures(double min_start_time_ms, double max_finish_time
         int faulty_link_id = distance(votes.begin(), max_element(votes.begin(), votes.end()));
         localized_links.insert(faulty_link_id);
         votes[faulty_link_id] = -1; // Ensure it doesn't show up again
-        sum_votes = accumulate(votes.begin(), votes.end(), 0.0, plus<double>());
-        max_votes = *max_element(votes.begin(), votes.end());
+        tie(sum_votes, max_votes) = ComputeVotesPassive(votes, localized_links,
+                                              min_start_time_ms, max_finish_time_ms);
+        //sum_votes = accumulate(votes.begin(), votes.end(), 0.0, plus<double>());
+        //max_votes = *max_element(votes.begin(), votes.end());
         if constexpr (VERBOSE){ 
             cout << " sumvote " << sum_votes << " maxvote " << max_votes << endl;
         }

@@ -12,8 +12,8 @@ class BayesianNet : public Estimator{
     const int NUM_TOP_HYPOTHESIS_AT_EACH_STAGE = 5;
     // For printing purposes
     const int N_MAX_K_LIKELIHOODS = 20;
-    const bool USE_CONDITIONAL = true;
-    const double PRIOR = 0.0;
+    const bool USE_CONDITIONAL = false;
+    const double PRIOR = -5.0;
     bool REDUCED_ANALYSIS = false;
     void SetReducedAnalysis(bool val) { REDUCED_ANALYSIS = val; }
     void SetNumReducedLinksMap(unordered_map<int, int>* num_reduced_links_map_) {
@@ -23,7 +23,6 @@ class BayesianNet : public Estimator{
         assert (flows_by_link_id_ != NULL);
         flows_by_link_id = flows_by_link_id_;
     }
-
     BayesianNet* CreateObject();
 
     void SetLogData(LogData *data, double max_finish_time_ms, int nopenmp_threads);
@@ -88,7 +87,8 @@ private:
     void ComputeAndStoreIntermediateValues(int nopenmp_threads, double max_finish_time_ms);
 
     // Noise parameters
-    double p1 = 1.0-2.5e-3, p2 = 2.5e-4;
+    //double p1 = 1.0-2.5e-3, p2 = 2.5e-4;
+    double p1 = 1.0-1.0e-4, p2 = 1.0e-5;
     //double p1 = 1.0 - 2.5e-3, p2 = 5e-4;
     // For reduced analysis
     unordered_map<int, int>* num_reduced_links_map;

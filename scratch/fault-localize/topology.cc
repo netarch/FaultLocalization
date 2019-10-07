@@ -252,7 +252,7 @@ double Topology::GetDropRateLinkUniform(double min_drop_rate, double max_drop_ra
 double Topology::GetDropRateFailedLink(){
     //if (drand48() <= 0.5){
         double min_drop_rate_failed_link = 0.001;
-        double max_drop_rate_failed_link = 0.005;
+        double max_drop_rate_failed_link = 0.010;
         return GetDropRateLinkUniform(min_drop_rate_failed_link, max_drop_rate_failed_link);
     //}
     //else{
@@ -265,7 +265,7 @@ double Topology::GetDropRateFailedLink(){
 
 double Topology::GetFailParam(pair<int, int> link, double fail_param){
     //random drop rate b/w 5*10^-5 and 10^-4
-    double min_drop_rate_correct_link = 0.00005;
+    double min_drop_rate_correct_link = 0.0000;
     double max_drop_rate_correct_link = 0.0001;
     double silent_drop_rate;
     if(failed_links.find(link) != failed_links.end()){

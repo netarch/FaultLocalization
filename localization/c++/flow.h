@@ -68,6 +68,7 @@ public:
     // According to the latest snapshot before max_finish_time_ms
     double GetDropRate(double max_finish_time_ms);
     int GetPacketsLost(double max_finish_time_ms);
+    int GetPacketsSent(double max_finish_time_ms);
 
     bool IsFlowActive();
     bool TracerouteFlow(double max_finish_time_ms);
@@ -102,10 +103,10 @@ public:
     void SetCachedIntermediateValue(double value);
     double GetCachedIntermediateValue();
 
+    int nbytes;
 private:
     string srcip, destip;
     int srcport, destport;
-    int nbytes;
     vector<FlowSnapshot*> snapshots;
     int curr_snapshot_ptr;
 };

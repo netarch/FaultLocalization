@@ -53,16 +53,15 @@ void GetDataFromLogFile(string filename, LogData *result){
     Flow *flow = NULL;
     int curr_link_index = 0;
     int nlines = 0;
-    //long long mem_taken = 0;
     while (getline(infile, line)){
         //const char *linum = line.c_str();
         istringstream line_stream (line);
         //cout << linum <<endl;
         //sscanf(linum, "%s *", op);
-        //cout << "op" << op << endl;
         line_stream >> op;
+        //cout << "op " << op << " : " << line << endl;
         nlines += 1;
-        if (StringStartsWith(op, "FPR")){
+        if (StringStartsWith(op, "FPRT")){
             assert (flow != NULL);
             temp_path.clear();
             path_nodes.clear();
@@ -75,13 +74,11 @@ void GetDataFromLogFile(string filename, LogData *result){
                 path_nodes.push_back(node);
             }
             assert(path_nodes.size()>0); // No direct link for src_host to dest_host or vice_versa
-            flow->SetReverseFirstLinkId(GetLinkId(Link(flow->dest, *path_nodes.begin())));
-            flow->SetReverseLastLinkId(GetLinkId(Link(*path_nodes.rbegin(), flow->src)));
             MemoizedPaths *memoized_paths = result->GetMemoizedPaths(path_nodes[0], *path_nodes.rbegin());;
             Path* path = memoized_paths->GetPath(temp_path);
-            flow->AddReversePath(path, (op.find("taken")!=string::npos or op.find("T")!=string::npos));
+            flow->SetReversePathTaken(path);
         }
-        else if (StringStartsWith(op, "FP")){
+        else if (StringStartsWith(op, "FPT")){
             assert (flow != NULL);
             temp_path.clear();
             path_nodes.clear();
@@ -94,11 +91,25 @@ void GetDataFromLogFile(string filename, LogData *result){
                 path_nodes.push_back(node);
             }
             assert(path_nodes.size()>0); // No direct link for src_host to dest_host or vice_versa
-            flow->SetFirstLinkId(GetLinkId(Link(flow->src, *path_nodes.begin())));
-            flow->SetLastLinkId(GetLinkId(Link(*path_nodes.rbegin(), flow->dest)));
             MemoizedPaths *memoized_paths = result->GetMemoizedPaths(path_nodes[0], *path_nodes.rbegin());
             Path *path = memoized_paths->GetPath(temp_path);
-            flow->AddPath(path, (op.find("taken")!=string::npos or op.find("T")!=string::npos));
+            flow->SetPathTaken(path);
+        }
+        else if (StringStartsWith(op, "FP")){
+            assert (flow == NULL);
+            temp_path.clear();
+            path_nodes.clear();
+            int node;
+            // This is only the portion from src_rack to dest_rack
+            while (line_stream >> node){
+                if (path_nodes.size() > 0){
+                    temp_path.push_back(GetLinkId(Link(path_nodes.back(), node)));
+                }
+                path_nodes.push_back(node);
+            }
+            assert(path_nodes.size()>0); // No direct link for src_host to dest_host or vice_versa
+            MemoizedPaths *memoized_paths = result->GetMemoizedPaths(path_nodes[0], *path_nodes.rbegin());
+            memoized_paths->GetPath(temp_path);
         }
         else if (op == "SS"){
             double snapshot_time_ms;
@@ -106,7 +117,6 @@ void GetDataFromLogFile(string filename, LogData *result){
             line_stream >> snapshot_time_ms >> packets_sent >> packets_lost >> packets_randomly_lost;
             assert (flow != NULL);
             flow->AddSnapshot(snapshot_time_ms, packets_sent, packets_lost, packets_randomly_lost);
-            //mem_taken += sizeof(FlowSnapshot);
         }
         else if (op == "FID"){
             // Log the previous flow
@@ -121,14 +131,20 @@ void GetDataFromLogFile(string filename, LogData *result){
                     //if (chunk_flows.size() % 10000==0){
                     //    cout << "Finished "<<chunk_flows.size() << " flows from " << filename << endl;
                     //}
+                    //cout << "Pushing flow ";
+                    //flow->PrintFlowMetrics();
                     chunk_flows.push_back(flow);
                 }
             }
-            int src, dest, nbytes;
+            int src, dest, srcrack, destrack, nbytes;
             double start_time_ms;
-            line_stream >> src >> dest >> nbytes >> start_time_ms;
+            line_stream >> src >> dest >> srcrack >> destrack >> nbytes >> start_time_ms;
             flow = new Flow(src, "", 0, dest, "", 0, nbytes, start_time_ms);
-            //mem_taken += sizeof(Flow);
+            // Set flow paths
+            MemoizedPaths *memoized_paths = result->GetMemoizedPaths(srcrack, destrack);
+            memoized_paths->GetAllPaths(flow->paths);
+            flow->SetFirstLinkId(GetLinkId(Link(flow->src, srcrack)));
+            flow->SetLastLinkId(GetLinkId(Link(destrack, flow->dest)));
         }
         else if (op == "Failing_link"){
             int src, dest;
@@ -156,8 +172,6 @@ void GetDataFromLogFile(string filename, LogData *result){
             chunk_flows.push_back(flow);
         }
     }
-    //mem_taken += sizeof(chunk_flows) + sizeof(Flow*) * chunk_flows.capacity();
-    //cout << "Total space taken by forward paths " << mem_taken/1024 << endl;
     result->AddChunkFlows(chunk_flows);
     if constexpr (VERBOSE){
         cout<< "Read log file in "<<GetTimeSinceMilliSeconds(start_time)

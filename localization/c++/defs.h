@@ -47,6 +47,9 @@ struct SmallVector{
         }
         return equal;
     }
+    T &operator[] (int ii){
+        return arr[ii];
+    }
     char size() {
         return arr_size;
     }
@@ -91,6 +94,16 @@ struct SmallVector{
     iterator end() { return iterator(arr + arr_size); }
     const_iterator begin() const { return const_iterator(arr); }
     const_iterator end() const { return const_iterator(arr + arr_size); }
+    friend ostream& operator<<(ostream& os, SmallVector<T> &sv) { 
+        os << "["; 
+        for (int i = 0; i < sv.size(); ++i) { 
+            os << sv[i]; 
+            if (i != sv.size() - 1) 
+                os << ", "; 
+        }
+        os << "]"; 
+        return os; 
+    } 
 };
 
 

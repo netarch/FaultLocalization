@@ -130,7 +130,7 @@ void Flow::PrintFlowSnapshots(ostream& out){
 }
 
 void Flow::PrintFlowMetrics(ostream& out){
-    out<<"Flowid= "<<src<<" "<<dest<<" "<<nbytes<<" "<<start_time_ms<<endl;
+    out<<"Flowid= "<<src<<" "<<dest<<" "<<nbytes/1500<<" "<<start_time_ms<<endl;
 }
 
 void Flow::PrintInfo(ostream& out){
@@ -203,10 +203,18 @@ inline double Flow::GetDropRate(double max_finish_time_ms){
     return 0.0;
 }
 
-inline int Flow::GetPacketsLost(double max_finish_time_ms){
+int Flow::GetPacketsLost(double max_finish_time_ms){
     UpdateSnapshotPtr(max_finish_time_ms);
     if (curr_snapshot_ptr >= 0){
         return snapshots[curr_snapshot_ptr]->packets_lost;
+    }
+    return 0;
+}
+
+int Flow::GetPacketsSent(double max_finish_time_ms){
+    UpdateSnapshotPtr(max_finish_time_ms);
+    if (curr_snapshot_ptr >= 0){
+        return snapshots[curr_snapshot_ptr]->packets_sent;
     }
     return 0;
 }

@@ -35,6 +35,12 @@ struct MemoizedPaths{
         lock.unlock();
         return ret; 
     }
+    void GetAllPaths(vector<Path*> &result){
+        for (auto &[node, paths]: paths_by_first_node){
+            for(Path *path: paths)
+                result.push_back(path);
+        }
+    }
 };
 
 class LogData;

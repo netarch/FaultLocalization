@@ -8,11 +8,13 @@ PATH_KNOWN = False
 
 class Flow:
     # Initialize flow without snapshot
-    def __init__(self, src, srcip, srcport, dest, destip, destport, nbytes, start_time_ms):
+    def __init__(self, src, srcrack, srcip, srcport, dest, destrack, destip, destport, nbytes, start_time_ms):
         self.src = src
+        self.srcrack = srcrack
         self.srcip = srcip
         self.srcport = srcport
         self.dest = dest
+        self.destrack = destrack
         self.destip = destip
         self.destport = destport
         self.nbytes = nbytes
@@ -70,7 +72,18 @@ class Flow:
             print("SS", snapshot_time_ms, packets_sent, lost_packets, randomly_lost_packets, file=outfile)
 
     def print_flow_metrics(self, outfile=sys.stdout):
-        print("FID", self.src, self.dest, self.nbytes, self.start_time_ms, file=outfile)
+        print("FID", self.src, self.dest, self.srcrack, self.destrack, self.nbytes, self.start_time_ms, file=outfile)
+
+    def print_path_taken(self, outfile=sys.stdout):
+        s = "FPT" #"flowpath"
+        for n in self.path_taken:
+            s += " " + str(n)
+        print(s, file=outfile)
+        if self.reverse_path_taken != None:
+            s = "FPRT" #"flowpath_reverse"
+            for n in self.reverse_path_taken:
+                s += " " + str(n)
+            print(s, file=outfile)
 
     def printinfo(self, outfile=sys.stdout):
         self.print_flow_metrics(outfile)

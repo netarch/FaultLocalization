@@ -5,10 +5,11 @@
 #include <chrono>
 #include "bayesian_net.h"
 #include "doubleO7.h"
+#include "score.h"
 
 using namespace std;
 
-vector<string> GetFiles(){
+vector<string> GetFilesNormal(){
     string file_prefix = "/home/vharsh2/ns-allinone-3.24.1/ns-3.24.1/topology/ft_k12_os3/plog";
     vector<PII> ignore_files = {{4,3}};
     vector<string> files;
@@ -23,11 +24,45 @@ vector<string> GetFiles(){
     return files;
 }
 
+vector<string> GetFiles007Verification(){
+    string file_prefix = "/home/vharsh2/ns-allinone-3.24.1/ns-3.24.1/topology/ft_core10_pods2_agg8_tor20_hosts40/fail_network_links/plog";
+    vector<pair<string, int> > ignore_files = {};
+    vector<string> files;
+    string loss_rate_string = "0.001";
+    for(int i=1; i<=16; i++){
+        if(find(ignore_files.begin(), ignore_files.end(),  pair<string, int>(loss_rate_string, i)) == ignore_files.end()){
+            files.push_back(file_prefix + "_1_" + loss_rate_string + "_" + to_string(i)); 
+            cout << "Adding file for analaysis " <<files.back() << endl;
+        }
+    }
+    return files;
+}
+
+vector<string> GetFiles(){
+    //return GetFilesNormal();
+    return GetFiles007Verification();
+}
+
+void GetPrecisionRecallTrendScore(double min_start_time_ms, double max_finish_time_ms,
+                                double step_ms, int nopenmp_threads){
+    vector<PDD> result;
+    Score estimator;
+    vector<double> param = {1.0};
+    estimator.SetParams(param);
+    GetPrecisionRecallTrendFiles(min_start_time_ms, max_finish_time_ms, step_ms,
+                                 result, &estimator, nopenmp_threads);
+    int ctr = 0;
+    for(double finish_time_ms=min_start_time_ms+step_ms;
+            finish_time_ms<=max_finish_time_ms; finish_time_ms += step_ms){
+        cout << "Finish time (ms) " << finish_time_ms << " " << result[ctr++] << endl;
+    }
+}
+
 void GetPrecisionRecallTrend007(double min_start_time_ms, double max_finish_time_ms,
                                 double step_ms, int nopenmp_threads){
     vector<PDD> result;
     DoubleO7 estimator;
-    vector<double> param = {0.0005};
+    vector<double> param = {0.01};
     estimator.SetParams(param);
     GetPrecisionRecallTrendFiles(min_start_time_ms, max_finish_time_ms, step_ms,
                                  result, &estimator, nopenmp_threads);
@@ -70,14 +105,33 @@ void SweepParamsBayesianNet(double min_start_time_ms, double max_finish_time_ms,
     }
 }
 
-void SweepParams007(double min_start_time_ms, double max_finish_time_ms, int nopenmp_threads){
-    double min_fail_percentile = 0.00125; //1; //0.001;
-    double max_fail_percentile = 0.00300; //16; //0.0025;
-    double step = 0.00005; //0.1; //0.00005;
+void SweepParamsScore(double min_start_time_ms, double max_finish_time_ms, int nopenmp_threads){
+    double min_fail_threshold = 1; //0.001;
+    double max_fail_threshold = 16; //0.0025;
+    double step = 0.1; //0.00005;
     vector<vector<double> > params;
-    for (double fail_percentile=min_fail_percentile;
-                fail_percentile < max_fail_percentile; fail_percentile += step){
-        params.push_back(vector<double> {fail_percentile});
+    for (double fail_threshold=min_fail_threshold;
+                fail_threshold < max_fail_threshold; fail_threshold += step){
+        params.push_back(vector<double> {fail_threshold});
+    }
+    vector<PDD> result;
+    Score estimator;
+    GetPrecisionRecallParamsFiles(min_start_time_ms, max_finish_time_ms, params,
+                                  result, &estimator, nopenmp_threads);
+    int ctr = 0;
+    for (auto &param: params){
+        cout << param << " " << result[ctr++] << endl;
+    }
+}
+
+void SweepParams007(double min_start_time_ms, double max_finish_time_ms, int nopenmp_threads){
+    double min_fail_threshold = 0.001; //0.00125; //1; //0.001;
+    double max_fail_threshold = 0.03; //16; //0.0025;
+    double step = 0.001; //0.00005; //0.1; //0.00005;
+    vector<vector<double> > params;
+    for (double fail_threshold=min_fail_threshold;
+                fail_threshold < max_fail_threshold; fail_threshold += step){
+        params.push_back(vector<double> {fail_threshold});
     }
     vector<PDD> result;
     DoubleO7 estimator;
@@ -97,6 +151,8 @@ int main(int argc, char *argv[]){
     cout << "Using " << nopenmp_threads << " openmp threads"<<endl;
     //GetPrecisionRecallTrendBayesianNet(min_start_time_ms, max_finish_time_ms,
     //                                   step_ms, nopenmp_threads);
-    SweepParamsBayesianNet(min_start_time_ms, max_finish_time_ms, nopenmp_threads);
+    //GetPrecisionRecallTrend007(min_start_time_ms, max_finish_time_ms,
+    //                                   step_ms, nopenmp_threads);
+    SweepParams007(min_start_time_ms, max_finish_time_ms, nopenmp_threads);
     return 0;
 }

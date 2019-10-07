@@ -56,7 +56,25 @@ void BayesianNet::SetParams(vector<double>& param) {
 void BayesianNet::SetLogData(LogData* data_, double max_finish_time_ms, int nopenmp_threads){
     Estimator::SetLogData(data_, max_finish_time_ms, nopenmp_threads);
     if(USE_CONDITIONAL){
+        /*
+        int npackets = 0,  npackets_dropped = 0;
+        for(Flow *flow: data->flows){
+            if (flow->first_link_id == data->links_to_ids[{11033, 25}]){
+                npackets += flow->GetPacketsSent(max_finish_time_ms);
+                npackets_dropped += flow->GetPacketsLost(max_finish_time_ms);
+                flow->PrintFlowMetrics();
+            }
+        }
+        cout << "Npackets dropped, sent across failed link " << npackets_dropped << " " << npackets << endl;
+        */
         data->FilterFlowsForConditional(max_finish_time_ms, nopenmp_threads);
+        /*
+        for(Flow *flow: data->flows){
+            if (flow->first_link_id == data->links_to_ids[{11033, 25}]){
+                flow->PrintFlowMetrics();
+            }
+        }
+        */
     }
 }
 

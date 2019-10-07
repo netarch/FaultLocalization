@@ -12,10 +12,11 @@ int main(int argc, char *argv[]){
     cout << "Running analysis on file "<<filename << endl;
     double min_start_time_ms = atof(argv[2]) * 1000.0, max_finish_time_ms = atof(argv[3]) * 1000.0;
     int nopenmp_threads = atoi(argv[4]);
-    cout << "Using " << nopenmp_threads << " openmp threads"<<endl;
-    int nchunks = 32;
+    //cout << "Using " << nopenmp_threads << " openmp threads"<<endl;
+    //int nchunks = 32;
     LogData data;
-    GetDataFromLogFileDistributed(filename, nchunks, &data, nchunks);
+    GetDataFromLogFile(filename, &data);
+    //GetDataFromLogFileDistributed(filename, nchunks, &data, nchunks);
     Hypothesis failed_links_set;
     data.GetFailedLinkIds(failed_links_set);
     BayesianNet estimator;

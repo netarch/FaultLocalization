@@ -36,16 +36,18 @@ def convert_path(p, hostip_to_host, linkip_to_link, host_switch_ip, flow, revers
         return False
     assert (srchost in hostip_to_host and destrack in host_switch_ip)
     path = []
-    path.append(hostip_to_host[srchost])
+    #path.append(hostip_to_host[srchost])
     for i in range(1, len(p)-1):
         link = linkip_to_link[p[i]]
         assert (link.srcip == p[i])
         path.append(link.src)
     path.append(host_switch_ip[destrack])
+    '''
     if (not reverse_path):
         path.append(flow.dest)
     else:
         path.append(flow.src)
+    '''
     return path
 
 
@@ -69,7 +71,7 @@ def process_logfile(filename, min_start_time_ms, max_start_time_ms, outfilename)
                 print(line.rstrip(), file=outfile);
                 continue
             tokens = line.split()
-            if (not start_simulation) and ("Starting simulation.." in line):
+            if (not start_simulation) and ("Starting simulation.." in line or "Populating routing tables" in line):
                 start_simulation = True
             if not start_simulation:
                 continue;
@@ -108,17 +110,19 @@ def process_logfile(filename, min_start_time_ms, max_start_time_ms, outfilename)
                 dest = offset_host(int(tokens[2]))
                 srcip = tokens[3]
                 destip = tokens[4]
-                srcport = int(tokens[5])
-                destport = int(tokens[6])
-                nbytes = int(tokens[7])
-                start_time_ms = float(tokens[8].strip('+ns')) * 1.0e-6
-                snapshot_time_ms = float(tokens[9].strip('+ns')) * 1.0e-6
-                packets_sent = int(tokens[10])
-                lost_packets = int(tokens[11])
-                randomly_lost_packets = int(tokens[12])
+                srcrack = int(tokens[5])
+                destrack = int(tokens[6])
+                srcport = int(tokens[7])
+                destport = int(tokens[8])
+                nbytes = int(tokens[9])
+                start_time_ms = float(tokens[10].strip('+ns')) * 1.0e-6
+                snapshot_time_ms = float(tokens[11].strip('+ns')) * 1.0e-6
+                packets_sent = int(tokens[12])
+                lost_packets = int(tokens[13])
+                randomly_lost_packets = int(tokens[14])
                 #acked packets
-                packets_acked = int(tokens[13])
-                if (curr_flow != None and len(curr_flow.paths)>0):
+                packets_acked = int(tokens[15])
+                if (curr_flow != None and len(curr_flow.paths)>=0):
                     flow_tuple = (curr_flow.srcip, curr_flow.destip, curr_flow.srcport, curr_flow.destport)
                     flows[flow_tuple] = curr_flow
                 flow_tuple = (srcip, destip, srcport, destport)
@@ -128,33 +132,36 @@ def process_logfile(filename, min_start_time_ms, max_start_time_ms, outfilename)
                     curr_flow = None
                 else:
                     #Create a new flow entry
-                    curr_flow = Flow(src, srcip, srcport, dest, destip, destport, nbytes, start_time_ms)
+                    curr_flow = Flow(src, srcrack, srcip, srcport, dest, destrack, destip, destport, nbytes, start_time_ms)
                     curr_flow.add_snapshot(snapshot_time_ms, packets_acked, lost_packets, randomly_lost_packets)
                     if start_time_ms < min_start_time_ms or start_time_ms >= max_start_time_ms:
                         print("Ignoring flow", end=" ")
                         curr_flow.printinfo(sys.stdout)
                         nignored += 1
                         continue
-            elif "flowpath_reverse" in line:
-                #flowpath_reverse 0 2 1
-                path = []
-                for i in range(1, len(tokens)):
-                    path.append(int(tokens[i]))
-                if(len(path) > 0):
-                    path = offset_endhosts_in_path(path)
-                    curr_flow.add_reverse_path(path)
             elif "flowpath" in line:
-                #flowpath 0 2 1
-                path = []
-                for i in range(1, len(tokens)):
-                    path.append(int(tokens[i]))
-                if(len(path) > 0):
-                    path = offset_endhosts_in_path(path)
-                    curr_flow.add_path(path)
+                #simply echo the line
+                print(line.replace("flowpath", "FP").rstrip(), file=outfile)
             else:
                 pass
                 #print("Unrecognized log statement: ", line)
-        if curr_flow != None and len(curr_flow.paths)>0: #log the previous flow
+           # elif "flowpath_reverse" in line:
+           #     #flowpath_reverse 0 2 1
+           #     path = []
+           #     for i in range(1, len(tokens)):
+           #         path.append(int(tokens[i]))
+           #     if(len(path) > 0):
+           #         path = offset_endhosts_in_path(path)
+           #         curr_flow.add_reverse_path(path)
+           # elif "flowpath" in line:
+           #     #flowpath 0 2 1
+           #     path = []
+           #     for i in range(1, len(tokens)):
+           #         path.append(int(tokens[i]))
+           #     if(len(path) > 0):
+           #         path = offset_endhosts_in_path(path)
+           #         curr_flow.add_path(path)
+        if curr_flow != None and len(curr_flow.paths)>=0: #log the previous flow
             flow_tuple = (curr_flow.srcip, curr_flow.destip, curr_flow.srcport, curr_flow.destport)
             flows[flow_tuple] = curr_flow
         nsetup_failed = 0
@@ -175,6 +182,7 @@ def process_logfile(filename, min_start_time_ms, max_start_time_ms, outfilename)
             if (reverse_path != False):
                 flow.set_reverse_path_taken(reverse_path)
                 flow.printinfo(outfile)
+                flow.print_path_taken(outfile)
             else:
                 nsetup_failed += 1
             #if flow.lost_packets > 0:

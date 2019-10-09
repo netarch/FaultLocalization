@@ -28,7 +28,7 @@ vector<string> GetFiles007Verification(){
     string file_prefix = "/home/vharsh2/ns-allinone-3.24.1/ns-3.24.1/topology/ft_core10_pods2_agg8_tor20_hosts40/fail_network_links/plog";
     vector<pair<string, int> > ignore_files = {};
     vector<string> files;
-    string loss_rate_string = "0.001";
+    string loss_rate_string = "0.002";
     for(int i=1; i<=16; i++){
         if(find(ignore_files.begin(), ignore_files.end(),  pair<string, int>(loss_rate_string, i)) == ignore_files.end()){
             files.push_back(file_prefix + "_1_" + loss_rate_string + "_" + to_string(i)); 

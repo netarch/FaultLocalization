@@ -19,7 +19,6 @@ int main(int argc, char *argv[]){
     //GetDataFromLogFileDistributed(filename, nchunks, &data, nchunks);
     Hypothesis failed_links_set;
     data.GetFailedLinkIds(failed_links_set);
-    cout << failed_links_set << " " << data.IdsToLinks(failed_links_set) << endl;
     BayesianNet estimator;
     estimator.SetLogData(&data, max_finish_time_ms, nopenmp_threads);
     Hypothesis estimator_hypothesis;

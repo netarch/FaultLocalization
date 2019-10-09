@@ -57,6 +57,15 @@ for edge in edges:
         fail_prob[edge] = random.uniform(0.00005, 0.0001)
 
 
+def PrintPath(prefix, path, out=sys.stdout):
+    s = prefix
+    for n in path:
+        s += " " + str(n)
+    print(s, file=out) 
+    
+def GetHostRack(host):
+    return host_rack_map[host]
+
 nracks = len(racks)
 servers_per_rack = int(nservers/nracks)
 print("Num racks", nracks, "Servers per rack", servers_per_rack)
@@ -86,7 +95,7 @@ print("Using skewed_random TM: fraction_busy", fraction_busy, "nflows", nflows, 
 
 #print("Servers busy", servers_busy, "Servers idle", servers_idle)
 
-def get_flows(nflows, G, fail_prob, servers_busy, servers_idle, outfile, response_queue):
+def GetFlows(thread_num, nflows, G, fail_prob, servers_busy, servers_idle, host_rack_map, racks, outfile, response_queue):
     flows = []
     #nflows = 250
     mean_bytes = 200.0 * 1024 
@@ -101,11 +110,27 @@ def get_flows(nflows, G, fail_prob, servers_busy, servers_idle, outfile, respons
     random_server_generator = skewed_random
     packetsize = 1500 #bytes
     sumflowsize = 0
+    host_offset_copy = host_offset + 0
+    print("Host offset copy", host_offset_copy)
+
+    all_rack_pair_paths = dict()
+    for src_rack in racks:
+        print ("printing paths", src_rack)
+        src_paths = dict()
+        for dst_rack in racks:
+            paths = list(nx.all_shortest_paths(G, source=src_rack, target=dst_rack))
+            src_paths[dst_rack] = paths
+            if thread_num == 0:
+                for path in paths:
+                    PrintPath("FP", path, out=outfile)
+        all_rack_pair_paths[src_rack] = src_paths
     for i in range(nflows):
-        if i%1000 == 0:
+        if i%50000 == 0:
             print("Finished", i, "flows")
         src = random_server_generator()
         dst = random_server_generator()
+        src_rack = host_rack_map[src]
+        dst_rack = host_rack_map[dst]
         #src = random.randint(0, servers-1)
         #dst = random.randint(0, servers-1)
         flowsize = (np.random.pareto(shape) + 1) * scale
@@ -113,8 +138,8 @@ def get_flows(nflows, G, fail_prob, servers_busy, servers_idle, outfile, respons
             flowsize = (np.random.pareto(shape) + 1) * scale
         #print(src, dst, flowsize)
         packets_sent = math.ceil(flowsize/packetsize)
-        paths = list(nx.all_shortest_paths(G, source=src+host_offset, target=dst+host_offset))
-        path_taken = random.choice(paths)
+        #path_taken = random.choice(list(nx.all_shortest_paths(G, source=src_rack, target=dst_rack)))
+        path_taken = random.choice(all_rack_pair_paths[src_rack][dst_rack])
         packets_dropped = 0
         for i in range(packets_sent):
             for k in range(0, len(path_taken)-1):
@@ -123,20 +148,14 @@ def get_flows(nflows, G, fail_prob, servers_busy, servers_idle, outfile, respons
                 if (random.random() <= fail_prob[(u,v)]):
                     packets_dropped += 1
                     break
-        print("Flowid= ", src, dst, packetsize * packets_sent, 0.0, file=outfile)
-        print("Snapshot ", 1.0, packets_sent, packets_dropped, 0, file=outfile)
-        for path in paths:
-            s = "flowpath"                                                                                             
-            if path == path_taken:
-                s += "_taken"
-            for n in path:
-                s += " " + str(n)
-            print(s, file=outfile) 
+        print("FID ", host_offset_copy + src, host_offset_copy + dst, src_rack, dst_rack, packetsize * packets_sent, 0.0, file=outfile)
+        PrintPath("FPT", path_taken, out=outfile)
+        print("SS ", 1.0, packets_sent, packets_dropped, 0, file=outfile)
         sumflowsize += flowsize
     response_queue.put(sumflowsize)
     return
 
-nprocesses = 40
+nprocesses = 1
 outfiles = [open(outfilename + "/" + str(i),"w+") for i in range(nprocesses)]
 for (u,v) in failed_links:
     print("Failing_link", u, v, fail_prob[(u,v)], file=outfiles[0])
@@ -146,17 +165,21 @@ G_copies = []
 servers_busy_copies = []
 servers_idle_copies = []
 fail_prob_copies = []
+host_rack_map_copies = []
+racks_copies = []
 start_time = time.time()
 for i in range(nprocesses):
     G_copies.append(copy.deepcopy(G))
     servers_busy_copies.append(list(servers_busy))
     servers_idle_copies.append(list(servers_idle))
     fail_prob_copies.append(copy.deepcopy(fail_prob))
+    host_rack_map_copies.append(copy.deepcopy(host_rack_map));
+    racks_copies.append(copy.deepcopy(racks))
 print("Arrays copied for parallel execution in ", time.time() - start_time, " seconds")
 
 response_queue = Queue()
 for i in range(nprocesses):
-    proc = Process(target=get_flows, args=(int(nflows/nprocesses), G_copies[i], fail_prob_copies[i], servers_busy_copies[i], servers_idle_copies[i], outfiles[i], response_queue))
+    proc = Process(target=GetFlows, args=(i, int(nflows/nprocesses), G_copies[i], fail_prob_copies[i], servers_busy_copies[i], servers_idle_copies[i], host_rack_map_copies[i], racks_copies[i], outfiles[i], response_queue))
     procs.append(proc)
 for proc in procs:
     proc.start()

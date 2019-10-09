@@ -6,6 +6,8 @@
 #include <unordered_set>
 #include <atomic>
 #include <chrono>
+#include <sparsehash/dense_hash_map>
+using google::dense_hash_map;
 
 using namespace std;
 
@@ -152,7 +154,6 @@ constexpr pair<T, S> operator+(const pair<T, S>& v1, const pair<T, S>& v2) {
     return pair<T, S>(v1.first + v2.first, v1.second + v2.second);
 }
 
-// C++ template to print vector container elements 
 template <typename T> 
 ostream& operator<<(ostream& os, const vector<T>& v) { 
     os << "["; 
@@ -165,7 +166,6 @@ ostream& operator<<(ostream& os, const vector<T>& v) {
     return os; 
 } 
 
-// C++ template to print set container elements 
 template <typename T> 
 ostream& operator<<(ostream& os, const set<T>& v) { 
     os << "["; 
@@ -177,6 +177,19 @@ ostream& operator<<(ostream& os, const set<T>& v) {
     os << "]"; 
     return os; 
 } 
+
+template <typename K, typename V>
+ostream& operator<<(ostream& os, dense_hash_map<K,V,hash<K> >& v) {
+    os << "[";
+    auto it = v.begin();
+    while(it != v.end()){
+        os << "(" << it->first << "," << it->second << ")";
+        if (++it != v.end())
+            os << ", ";
+    }
+    os << "]";
+    return os;
+}
 
 // C++ template to print unordered_set container elements 
 template <typename T> 

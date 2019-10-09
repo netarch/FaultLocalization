@@ -13,7 +13,7 @@ class BayesianNet : public Estimator{
     // For printing purposes
     const int N_MAX_K_LIKELIHOODS = 20;
     const bool USE_CONDITIONAL = false;
-    const double PRIOR = -5.0;
+    const double PRIOR = -10.0;
     bool REDUCED_ANALYSIS = false;
     void SetReducedAnalysis(bool val) { REDUCED_ANALYSIS = val; }
     void SetNumReducedLinksMap(unordered_map<int, int>* num_reduced_links_map_) {
@@ -95,8 +95,8 @@ private:
     void GetIndicesOfTopK(vector<double>& scores, int k, vector<int>& result, Hypothesis *exclude);
 
     // Noise parameters
-    //double p1 = 1.0-2.5e-3, p2 = 2.5e-4;
-    double p1 = 1.0-1.0e-4, p2 = 1.0e-5;
+    double p1 = 1.0-2.5e-3, p2 = 2.5e-4;
+    //double p1 = 1.0-1.0e-4, p2 = 1.0e-5;
     // For reduced analysis
     unordered_map<int, int>* num_reduced_links_map;
 };

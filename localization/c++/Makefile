@@ -18,7 +18,7 @@ loss_estimator_trend: $(OBJS) common_testing_system.o loss_estimator_trend.cpp
 	$(CC) $(INCLUDE) $(CFLAGS) $(OBJS) common_testing_system.o -o loss_estimator_trend loss_estimator_trend.cpp
 
 flow.o: flow.cpp flow.h defs.h
-	$(CC) $(CFLAGS) -c flow.cpp
+	$(CC) $(INCLUDE) $(CFLAGS) -c flow.cpp
 
 utils.o: utils.cpp utils.h flow.o
 	$(CC) $(INCLUDE) $(CFLAGS) -c utils.cpp

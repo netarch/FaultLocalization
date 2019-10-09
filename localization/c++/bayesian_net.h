@@ -89,10 +89,10 @@ private:
     // Cache intermediate results of time consuming arithmetic operations
     void ComputeAndStoreIntermediateValues(int nopenmp_threads, double max_finish_time_ms);
 
-    void UpdateScores(vector<double> &likelihood_scores, Hypothesis* hypothesis,
+    int UpdateScores(vector<double> &likelihood_scores, Hypothesis* hypothesis,
                       Hypothesis* base_hypothesis, double min_start_time_ms,
                       double max_finish_time_ms, int nopenmp_threads);
-    void GetIndicesOfTopK(vector<double>& scores, int k, vector<int>& result);
+    void GetIndicesOfTopK(vector<double>& scores, int k, vector<int>& result, Hypothesis *exclude);
 
     // Noise parameters
     //double p1 = 1.0-2.5e-3, p2 = 2.5e-4;

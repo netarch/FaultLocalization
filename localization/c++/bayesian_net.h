@@ -7,7 +7,7 @@ class BayesianNet : public Estimator{
     BayesianNet() : Estimator() {}
     void LocalizeFailures(double min_start_time_ms, double max_finish_time_ms,
                           Hypothesis &localized_links, int nopenmp_threads);
-    const int MAX_FAILS = 10;
+    const int MAX_FAILS = 50;
     const int NUM_CANDIDATES = max(15, 5 * MAX_FAILS);
     const int NUM_TOP_HYPOTHESIS_AT_EACH_STAGE = 5;
     // For printing purposes
@@ -58,7 +58,7 @@ private:
     // computes relevant_flows and calls the other version
     double ComputeLogLikelihood(Hypothesis* hypothesis, Hypothesis* base_hypothesis,
                     double base_likelihood, double min_start_time_ms,
-                    double max_finish_time_ms);
+                    double max_finish_time_ms, int nopenmp_threads=1);
 
     // for a set of hypothesis
     void ComputeLogLikelihood(vector<Hypothesis*> &hypothesis_space,
@@ -72,6 +72,10 @@ private:
 
     inline double BnfWeighted(int naffected, int npaths, int naffected_r,
                     int npaths_r, double weight_good, double weight_bad);
+
+    inline double BnfWeighted(int naffected, int npaths, int naffected_r,
+                              int npaths_r, double weight_good,
+                              double weight_bad, double intermediate_val);
 
     inline double BnfWeightedConditional(int naffected, int npaths, int naffected_r,
                     int npaths_r, double weight_good, double weight_bad);
@@ -93,6 +97,10 @@ private:
                       Hypothesis* base_hypothesis, double min_start_time_ms,
                       double max_finish_time_ms, int nopenmp_threads);
     void GetIndicesOfTopK(vector<double>& scores, int k, vector<int>& result, Hypothesis *exclude);
+
+    // Verify likelihood computation optimizations with the vanilla version
+    bool VerifyLikelihoodComputation(unordered_map<Hypothesis*, double>& all_hypothesis,
+              double min_start_time_ms, double max_finish_time_ms, int nopenmp_threads);
 
     // Noise parameters
     double p1 = 1.0-2.5e-3, p2 = 2.5e-4;

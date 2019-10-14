@@ -75,7 +75,6 @@ void DoubleO7::LocalizeFailures(double min_start_time_ms, double max_finish_time
              << " numflows " << bad_flows.size() << endl;
     }
     while (max_votes >= fail_threshold * sum_votes and max_votes > 0){
-    //while (max_votes >= fail_threshold){
         int faulty_link_id = distance(votes.begin(), max_element(votes.begin(), votes.end()));
         localized_links.insert(faulty_link_id);
         if(ADJUST_VOTES){
@@ -83,7 +82,7 @@ void DoubleO7::LocalizeFailures(double min_start_time_ms, double max_finish_time
                                                      min_start_time_ms, max_finish_time_ms);
         }
         else{
-            votes[faulty_link_id] = -1; // Ensure it doesn't show up again
+            votes[faulty_link_id] = 0; // Ensure it doesn't show up again
             sum_votes = accumulate(votes.begin(), votes.end(), 0.0, plus<double>());
             max_votes = *max_element(votes.begin(), votes.end());
         }

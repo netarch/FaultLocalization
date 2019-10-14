@@ -428,7 +428,7 @@ void BayesianNet::ComputeInitialLikelihoods(vector<double> &initial_likelihoods,
 
         // For the first and last links that are common to all paths
         int naffected = npaths;
-        //if (REDUCED_ANALYSIS) naffected = 1;
+        //if (REDUCED_ANALYSIS) naffected = npaths;
         double log_likelihood = BnfWeighted(naffected, npaths, naffected_r,
                                            npaths_r, weight.first,
                                            weight.second, intermediate_val);
@@ -489,16 +489,19 @@ void BayesianNet::ComputeLogLikelihood(vector<Hypothesis*> &hypothesis_space,
     }
 }
 
-inline double BayesianNet::BnfWeighted(int naffected, int npaths, int naffected_r, int npaths_r,
-                                       double weight_good, double weight_bad){
+inline double BayesianNet::BnfWeighted(int naffected, int npaths, int naffected_r,
+                              int npaths_r, double weight_good, double weight_bad){
     if (USE_CONDITIONAL)
-        return BnfWeightedConditional(naffected, npaths, naffected_r, npaths_r, weight_good, weight_bad);
+        return BnfWeightedConditional(naffected, npaths, naffected_r,
+                                      npaths_r, weight_good, weight_bad);
     else
-        return BnfWeightedUnconditional(naffected, npaths, naffected_r, npaths_r, weight_good, weight_bad);
+        return BnfWeightedUnconditional(naffected, npaths, naffected_r,
+                                        npaths_r, weight_good, weight_bad);
 }
 
-inline double BayesianNet::BnfWeighted(int naffected, int npaths, int naffected_r, int npaths_r,
-                                 double weight_good, double weight_bad, double intermediate_val){
+inline double BayesianNet::BnfWeighted(int naffected, int npaths, int naffected_r,
+                                       int npaths_r, double weight_good,
+                                       double weight_bad, double intermediate_val){
     if (USE_CONDITIONAL)
         return BnfWeightedConditional(naffected, npaths, naffected_r,
                                       npaths_r, weight_good, weight_bad);

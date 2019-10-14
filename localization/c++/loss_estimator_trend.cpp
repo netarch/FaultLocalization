@@ -24,15 +24,32 @@ vector<string> GetFilesNormal(){
     return files;
 }
 
+vector<string> GetFilesSoftness(){
+    string file_prefix = "/home/vharsh2/ns-allinone-3.24.1/ns-3.24.1/topology/ft_k12_os3/softness_logs/plog";
+    vector<pair<string, int> > ignore_files = {};
+    vector<string> files;
+    //vector<string> loss_rate_strings = {"0.001", "0.002", "0.004", "0.006", "0.008"};
+    vector<string> loss_rate_strings = {"0.004", "0.006", "0.008"};
+    for (string& loss_rate_string: loss_rate_strings){
+        for(int i=1; i<=16; i++){
+            if(find(ignore_files.begin(), ignore_files.end(),  pair<string, int>(loss_rate_string, i)) == ignore_files.end()){
+                files.push_back(file_prefix + "_1_" + loss_rate_string + "_" + to_string(i)); 
+                cout << "adding file for analaysis " <<files.back() << endl;
+            }
+        }
+    }
+    return files;
+}
+
 vector<string> GetFiles007Verification(){
     string file_prefix = "/home/vharsh2/ns-allinone-3.24.1/ns-3.24.1/topology/ft_core10_pods2_agg8_tor20_hosts40/fail_network_links/plog";
     vector<pair<string, int> > ignore_files = {};
     vector<string> files;
-    string loss_rate_string = "0.002";
+    string loss_rate_string = "0.0001";
     for(int i=1; i<=16; i++){
         if(find(ignore_files.begin(), ignore_files.end(),  pair<string, int>(loss_rate_string, i)) == ignore_files.end()){
             files.push_back(file_prefix + "_1_" + loss_rate_string + "_" + to_string(i)); 
-            cout << "Adding file for analaysis " <<files.back() << endl;
+            cout << "adding file for analaysis " <<files.back() << endl;
         }
     }
     return files;
@@ -41,6 +58,7 @@ vector<string> GetFiles007Verification(){
 vector<string> GetFiles(){
     //return GetFilesNormal();
     return GetFiles007Verification();
+    //return GetFilesSoftness();
 }
 
 void GetPrecisionRecallTrendScore(double min_start_time_ms, double max_finish_time_ms,
@@ -77,7 +95,7 @@ void GetPrecisionRecallTrendBayesianNet(double min_start_time_ms, double max_fin
                                         double step_ms, int nopenmp_threads){
     vector<PDD> result;
     BayesianNet estimator;
-    vector<double> param = {1.0-2.5e-3, 2.5e-4};
+    vector<double> param = {1.0-4.0e-3, 1.5e-4};
     estimator.SetParams(param);
     GetPrecisionRecallTrendFiles(min_start_time_ms, max_finish_time_ms, step_ms,
                                  result, &estimator, nopenmp_threads);
@@ -90,8 +108,8 @@ void GetPrecisionRecallTrendBayesianNet(double min_start_time_ms, double max_fin
 
 void SweepParamsBayesianNet(double min_start_time_ms, double max_finish_time_ms, int nopenmp_threads){
     vector<vector<double> > params;
-    for (double p1c = 0.5e-3; p1c <= 5e-3; p1c += 0.25e-3){
-        for (double p2 = 0.5e-4; p2 <= 5e-4; p2 += 0.25e-4){
+    for (double p1c = 1.0e-3; p1c <= 7.5e-3; p1c += 0.5e-3){
+        for (double p2 = 1.0e-4; p2 <= 5e-4; p2 += 0.5e-4){
             params.push_back(vector<double> {1.0 - p1c, p2});
         }
     }
@@ -101,6 +119,7 @@ void SweepParamsBayesianNet(double min_start_time_ms, double max_finish_time_ms,
                                   result, &estimator, nopenmp_threads);
     int ctr = 0;
     for (auto &param: params){
+        param[0] = 1.0 - param[0];
         cout << param << " " << result[ctr++] << endl;
     }
 }
@@ -126,8 +145,8 @@ void SweepParamsScore(double min_start_time_ms, double max_finish_time_ms, int n
 
 void SweepParams007(double min_start_time_ms, double max_finish_time_ms, int nopenmp_threads){
     double min_fail_threshold = 0.001; //0.00125; //1; //0.001;
-    double max_fail_threshold = 0.03; //16; //0.0025;
-    double step = 0.001; //0.00005; //0.1; //0.00005;
+    double max_fail_threshold = 0.04; //16; //0.0025;
+    double step = 0.0005; //0.00005; //0.1; //0.00005;
     vector<vector<double> > params;
     for (double fail_threshold=min_fail_threshold;
                 fail_threshold < max_fail_threshold; fail_threshold += step){

@@ -7,7 +7,7 @@ class BayesianNet : public Estimator{
     BayesianNet() : Estimator() {}
     void LocalizeFailures(double min_start_time_ms, double max_finish_time_ms,
                           Hypothesis &localized_links, int nopenmp_threads);
-    const int MAX_FAILS = 50;
+    const int MAX_FAILS = 10;
     const int NUM_CANDIDATES = max(15, 5 * MAX_FAILS);
     const int NUM_TOP_HYPOTHESIS_AT_EACH_STAGE = 5;
     // For printing purposes
@@ -103,8 +103,8 @@ private:
               double min_start_time_ms, double max_finish_time_ms, int nopenmp_threads);
 
     // Noise parameters
-    double p1 = 1.0-2.5e-3, p2 = 2.5e-4;
-    //double p1 = 1.0-1.0e-4, p2 = 1.0e-5;
+    //double p1 = 1.0-2.5e-3, p2 = 2.0e-4;
+    double p1 = 1.0-4.0e-3, p2 = 1.5e-4;
     // For reduced analysis
     unordered_map<int, int>* num_reduced_links_map;
 };

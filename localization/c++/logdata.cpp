@@ -15,21 +15,27 @@ using google::dense_hash_map;
 MemoizedPaths* LogData::GetMemoizedPaths(int src_rack, int dest_rack){
     PII st(src_rack, dest_rack);
     MemoizedPaths* ret;
-    memoized_paths_lock.lock_shared();
+    if constexpr (PARALLEL_IO) memoized_paths_lock.lock_shared();
     auto it = memoized_paths.find(st);
-    memoized_paths_lock.unlock_shared();
+    if constexpr (PARALLEL_IO) memoized_paths_lock.unlock_shared();
     if (it == memoized_paths.end()){
-        memoized_paths_lock.lock();
-        // need to check a second time for correctness
-        it = memoized_paths.find(st);
-        if (it == memoized_paths.end()){
+        if constexpr (PARALLEL_IO) {
+            memoized_paths_lock.lock();
+            // need to check a second time for correctness
+            it = memoized_paths.find(st);
+            if (it == memoized_paths.end()){
+                ret = new MemoizedPaths();
+                memoized_paths.insert(make_pair(st, ret));
+            }
+            else{
+                ret = it->second;
+            }
+            memoized_paths_lock.unlock();
+        }
+        else{
             ret = new MemoizedPaths();
             memoized_paths.insert(make_pair(st, ret));
         }
-        else{
-            ret = it->second;
-        }
-        memoized_paths_lock.unlock();
     }
     else{
         ret = it->second;

@@ -12,7 +12,6 @@
 using google::dense_hash_map;
 using namespace std;
 
-
 class LogData{
 public:
     dense_hash_map<Link, double, hash<Link> > failed_links;

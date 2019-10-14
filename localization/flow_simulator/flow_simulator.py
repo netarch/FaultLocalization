@@ -52,9 +52,9 @@ fail_prob = dict()
 
 for edge in edges:
     if edge  in failed_links:
-        fail_prob[edge] = random.uniform(0.001, 0.005)
+        fail_prob[edge] = random.uniform(0.001, 0.010)
     else:
-        fail_prob[edge] = random.uniform(0.00005, 0.0001)
+        fail_prob[edge] = random.uniform(0.0000, 0.0001)
 
 
 def PrintPath(prefix, path, out=sys.stdout):

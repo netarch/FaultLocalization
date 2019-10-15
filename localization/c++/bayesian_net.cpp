@@ -250,6 +250,7 @@ int BayesianNet::UpdateScores(vector<double> &likelihood_scores, Hypothesis* hyp
     for (int ii=0; ii<relevant_flows.size(); ii++){
         int thread_num = omp_get_thread_num();
         Flow *flow = data->flows[relevant_flows[ii]];
+        if (DiscardFlow(flow, min_start_time_ms, max_finish_time_ms)) continue;
         vector<Path*>* flow_paths = flow->GetPaths(max_finish_time_ms);
         int npaths = flow_paths->size();
         if (REDUCED_ANALYSIS) npaths = flow->npaths_unreduced;
@@ -397,7 +398,7 @@ void BayesianNet::ComputeInitialLikelihoods(vector<double> &initial_likelihoods,
     #pragma omp parallel for num_threads(nopenmp_threads)
     for (int ii=0; ii<data->flows.size(); ii++){
         Flow* flow = data->flows[ii];
-        if (USE_CONDITIONAL and !flow->TracerouteFlow(max_finish_time_ms)) continue;
+        if (DiscardFlow(flow, min_start_time_ms, max_finish_time_ms)) continue;
         int thread_num = omp_get_thread_num();
         vector<Path*>* flow_paths = flow->GetPaths(max_finish_time_ms);
         int npaths = flow_paths->size();
@@ -556,6 +557,11 @@ inline double BayesianNet::BnfWeightedUnconditionalIntermediate(int naffected, i
     return log (a + b * intermediate_val); 
 }
 
+bool BayesianNet::DiscardFlow(Flow *flow, double min_start_time_ms, double max_finish_time_ms){
+    return (flow->start_time_ms < min_start_time_ms or
+           (USE_CONDITIONAL and !flow->TracerouteFlow(max_finish_time_ms)));
+}
+
 void BayesianNet::GetRelevantFlows(Hypothesis* hypothesis, Hypothesis* base_hypothesis,
                                    double min_start_time_ms, double max_finish_time_ms,
                                    vector<int>& relevant_flows){
@@ -568,8 +574,7 @@ void BayesianNet::GetRelevantFlows(Hypothesis* hypothesis, Hypothesis* base_hypo
             for(int f: link_id_flows){
                 Flow* flow = data->flows[f];
                 //!TODO: Add option for active_flows_only
-                if (flow->start_time_ms >= min_start_time_ms and
-                    (!USE_CONDITIONAL or flow->TracerouteFlow(max_finish_time_ms))){
+                if (!DiscardFlow(flow, min_start_time_ms, max_finish_time_ms)){
                     relevant_flows_set.insert(f);
                 }
             }

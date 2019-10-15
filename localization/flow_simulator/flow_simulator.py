@@ -134,7 +134,7 @@ def GetFlows(thread_num, nflows, G, fail_prob, servers_busy, servers_idle, host_
         #src = random.randint(0, servers-1)
         #dst = random.randint(0, servers-1)
         flowsize = (np.random.pareto(shape) + 1) * scale
-        while flowsize > 200 * 1024 * 1024 or flowsize < 10 * 1024:
+        while flowsize > 200 * 1024 * 1024:
             flowsize = (np.random.pareto(shape) + 1) * scale
         #print(src, dst, flowsize)
         packets_sent = math.ceil(flowsize/packetsize)

@@ -112,7 +112,8 @@ void GetDataFromLogFile(string filename, LogData *result){
             }
             assert(path_nodes.size()>0); // No direct link for src_host to dest_host or vice_versa
             MemoizedPaths *memoized_paths = result->GetMemoizedPaths(path_nodes[0], *path_nodes.rbegin());
-            memoized_paths->GetPath(temp_path);
+            memoized_paths->AddPath(temp_path);
+            //memoized_paths->GetPath(temp_path);
             //cout << temp_path << endl;
         }
         else if (op == "SS"){
@@ -159,8 +160,6 @@ void GetDataFromLogFile(string filename, LogData *result){
             GetFirstInt(linec, src);
             GetFirstInt(linec, dest);
             GetFirstDouble(linec, failparam);
-            //!TODO
-            //line_stream >> failparam;
             //sscanf (linum + op.size(),"%d %*d %f", &src, &dest, &failparam);
             result->AddFailedLink(Link(src, dest), failparam);
             if constexpr (VERBOSE){
@@ -274,7 +273,8 @@ void GetDataFromLogFile1(string filename, LogData *result){
             }
             assert(path_nodes.size()>0); // No direct link for src_host to dest_host or vice_versa
             MemoizedPaths *memoized_paths = result->GetMemoizedPaths(path_nodes[0], *path_nodes.rbegin());
-            memoized_paths->GetPath(temp_path);
+            //memoized_paths->GetPath(temp_path);
+            memoized_paths->AddPath(temp_path);
         }
         else if (op == "SS"){
             double snapshot_time_ms;

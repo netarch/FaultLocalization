@@ -45,6 +45,8 @@ private:
                                  double min_start_time_ms, double max_finish_time_ms,
                                  vector<int>& relevant_flows);
 
+    inline bool DiscardFlow(Flow *flow, double min_start_time_ms, double max_finish_time_ms);
+
     array<int, 6> ComputeFlowPathCountersUnreduced(Flow *flow, Hypothesis *hypothesis,
                               Hypothesis *base_hypothesis, double max_finish_time_ms);
     array<int, 6> ComputeFlowPathCountersReduced(Flow *flow, Hypothesis *hypothesis,
@@ -103,8 +105,8 @@ private:
               double min_start_time_ms, double max_finish_time_ms, int nopenmp_threads);
 
     // Noise parameters
-    //double p1 = 1.0-2.5e-3, p2 = 2.0e-4;
-    double p1 = 1.0-4.0e-3, p2 = 1.5e-4;
+    double p1 = 1.0-2.5e-3, p2 = 2.0e-4;
+    //double p1 = 1.0-4.0e-3, p2 = 1.5e-4;
     // For reduced analysis
     unordered_map<int, int>* num_reduced_links_map;
 };

@@ -8,25 +8,27 @@
 #include <mutex>
 #include <utility>
 #include <shared_mutex>
+#include <charconv>
 #include <algorithm>
-#include <locale>
 #include <string>
 #include <sparsehash/dense_hash_map>
 using google::dense_hash_map;
 using namespace std;
 
-inline constexpr bool PARALLEL_IO=true;
+inline constexpr bool PARALLEL_IO=false;
 
 struct MemoizedPaths{
-    dense_hash_map<int, vector<Path*> > paths_by_first_node;
+    vector<Path*> paths;
     shared_mutex lock;
-    MemoizedPaths() {
-        paths_by_first_node.set_empty_key(-1000000);
+    MemoizedPaths() {}
+    //Doesn't check for duplicates
+    void AddPath(vector<int>& vi_path){
+        if constexpr (PARALLEL_IO) lock.lock();
+        paths.push_back(new Path(vi_path));
+        if constexpr (PARALLEL_IO) lock.unlock();
     }
     Path* GetPath(vector<int>& vi_path){
-        int first_node = (vi_path.size()>0? vi_path[0] : -1);
         if constexpr (PARALLEL_IO) lock.lock();
-        vector<Path*> &paths = paths_by_first_node[first_node];
         Path* ret = NULL;
         for (Path* path: paths){
             if (*path == vi_path){
@@ -37,17 +39,18 @@ struct MemoizedPaths{
         if (ret == NULL){
             ret = new Path(vi_path);
             paths.push_back(ret);
+            //cout << "Path not found " << vi_path << endl;
+            assert(vi_path.size() == 0);
         }
         if constexpr (PARALLEL_IO) lock.unlock();
         return ret; 
     }
     void GetAllPaths(vector<Path*> &result){
-        for (auto &[node, paths]: paths_by_first_node){
-            for(Path *path: paths)
-                result.push_back(path);
-        }
+        result.reserve(paths.size());
+        result.insert(result.begin(), paths.begin(), paths.end());
     }
 };
+
 
 class LogData;
 void GetDataFromLogFile(string filename, LogData* result);
@@ -92,26 +95,15 @@ inline pair<char*, bool> to_int(char *s, int length, int &result){
 } 
 
 inline bool GetFirstInt(char* &str, int &result){
+    while(*str==' ') str++; //Trim initial whitespace
     int token_length = GetTokenLength(str);
-    //auto [p, ec] = from_chars(str, str + token_length, result);
-    auto [p, success] = to_int(str, token_length, result);
-    str = p;
-    return success;
+    auto [p, ec] = from_chars(str, str + token_length, result);
+    //auto [p, success] = to_int(str, token_length, result);
+    //cout << "GetFirstInt " << string(str, token_length) << " : " << result << endl;
+    str = const_cast<char*>(p);
+    //return success;
+    return (ec == errc());
 }
-/*
-inline bool GetFirstInt(char* &str, int &result){
-    int token_length = GetTokenLength(str);
-    char c = str[token_length]; str[token_length] = '\0'; //temporary sentinel value
-    bool all_white_space = all_of(str, str+token_length, [](char c){return isspace(c);});
-    //auto [p, ec] = from_chars(str, str + token_length, result);
-    //str = p;
-    if (!all_white_space) result = atoi(str);
-    //cout << str << " : " << result <<endl;
-    str[token_length] = c;
-    str += token_length;
-    return !all_white_space;
-}
-*/
 
 inline bool GetFirstDouble(char* &str, double &result){
     int token_length = GetTokenLength(str);

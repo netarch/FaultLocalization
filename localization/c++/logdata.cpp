@@ -97,41 +97,84 @@ void LogData::FilterFlowsForConditional(double max_finish_time_ms, int nopenmp_t
     }
 }
 
-vector<vector<int> >* LogData::GetForwardFlowsByLinkId1(double max_finish_time_ms, int nopenmp_threads){
+vector<vector<int> >* LogData::GetForwardFlowsByLinkId(double max_finish_time_ms, int nopenmp_threads){
     if (forward_flows_by_link_id != NULL) delete(forward_flows_by_link_id);
     int nlinks = inverse_links.size();
-    forward_flows_by_link_id = new vector<vector<int> >(nlinks);
-    vector<vector<int> > flows_by_link_id_threads[nopenmp_threads];
-    for (int thread_num=0; thread_num < nopenmp_threads; thread_num++){
-        flows_by_link_id_threads[thread_num] = vector<vector<int> >(nlinks);
+    vector<int> sizes[nopenmp_threads];
+    for(int thread_num=0; thread_num<nopenmp_threads; thread_num++){
+        sizes[thread_num] = vector<int> (nlinks, 0);
     }
-    #pragma omp parallel for num_threads(nopenmp_threads) schedule(auto)
-    for (int ff=0; ff<flows.size(); ff++){
+    auto start_time = chrono::high_resolution_clock::now();
+    int chunk_size = (flows.size() + nopenmp_threads)/nopenmp_threads; //ceiling
+    #pragma omp parallel num_threads(nopenmp_threads)
+    {
         int thread_num = omp_get_thread_num();
-        Flow *flow = flows[ff];
-        // src --> src_tor
-        flows_by_link_id_threads[thread_num][flow->first_link_id].push_back(ff);
-        // dest_tor --> dest
-        flows_by_link_id_threads[thread_num][flow->last_link_id].push_back(ff);
-        auto flow_paths = flow->GetPaths(max_finish_time_ms);
-        for (Path* path: *flow_paths){
-            for (int link_id: *path){
-                flows_by_link_id_threads[thread_num][link_id].push_back(ff);
+        int start = min((int)flows.size(), thread_num * chunk_size);
+        int end = min((int)flows.size(), (thread_num+1) * chunk_size);
+        assert(start <= end);
+        for (int ff=start; ff<end; ff++){
+            Flow *flow = flows[ff];
+            auto flow_paths = flow->GetPaths(max_finish_time_ms);
+            sizes[thread_num][flow->first_link_id]++;
+            sizes[thread_num][flow->last_link_id]++;
+            for (Path* path: *flow_paths){
+                for (int link_id: *path){
+                    sizes[thread_num][link_id]++;
+                }
             }
         }
     }
-    #pragma omp parallel for num_threads(nopenmp_threads) schedule(auto)
-    for(int link_id=0; link_id < nlinks; link_id++){
-        int nflows = 0;
-        for (int thread_num=0; thread_num < nopenmp_threads; thread_num++)
-            nflows += flows_by_link_id_threads[thread_num][link_id].size();
-        forward_flows_by_link_id->at(link_id).reserve(nflows);
-        for (int thread_num=0; thread_num < nopenmp_threads; thread_num++){
-            for (int f: flows_by_link_id_threads[thread_num][link_id])
-                forward_flows_by_link_id->at(link_id).push_back(f);
-
+    vector<int> final_sizes;
+    final_sizes.resize(nlinks);
+    #pragma omp parallel for num_threads(nopenmp_threads)
+    for (int link_id=0; link_id<nlinks; link_id++){
+        // use sizes as offsets
+        int curr_bin_size = sizes[0][link_id], last_bin_size;
+        sizes[0][link_id] = 0;
+        for (int thread_num=1; thread_num<nopenmp_threads; thread_num++){
+            last_bin_size = curr_bin_size;
+            curr_bin_size = sizes[thread_num][link_id];
+            sizes[thread_num][link_id] = sizes[thread_num-1][link_id] + last_bin_size;
+        }
+        final_sizes[link_id] = sizes[nopenmp_threads-1][link_id] + curr_bin_size;
+    }
+    if constexpr (VERBOSE){
+        cout<<"Binning flows part 1 done in "<<GetTimeSinceMilliSeconds(start_time)<< " seconds"<<endl;
+    }
+    start_time = chrono::high_resolution_clock::now();
+    forward_flows_by_link_id = new vector<vector<int> >(nlinks);
+    int nthreads = min(12, nopenmp_threads);
+    #pragma omp parallel for num_threads(nthreads)
+    for(int link_id=0; link_id<nlinks; link_id++){
+        (*forward_flows_by_link_id)[link_id].resize(final_sizes[link_id]);
+    }
+    if constexpr (VERBOSE){
+        cout<<"Binning flows part 2 done in "<<GetTimeSinceMilliSeconds(start_time)<< " seconds"<<endl;
+    }
+    start_time = chrono::high_resolution_clock::now();
+    #pragma omp parallel num_threads(nopenmp_threads)
+    {
+        int thread_num = omp_get_thread_num();
+        int start = min((int)flows.size(), thread_num * chunk_size);
+        int end = min((int)flows.size(), (thread_num+1) * chunk_size);
+        auto &offsets = sizes[thread_num];
+        assert(start <= end);
+        for (int ff=start; ff<end; ff++){
+            Flow *flow =  flows[ff];
+            auto flow_paths = flow->GetPaths(max_finish_time_ms);
+            (*forward_flows_by_link_id)[flow->first_link_id][offsets[flow->first_link_id]++] = ff;
+            (*forward_flows_by_link_id)[flow->last_link_id][offsets[flow->last_link_id]++] = ff;
+            for (Path* path: *flow_paths){
+                for (int link_id: *path){
+                    (*forward_flows_by_link_id)[link_id][offsets[link_id]++] = ff;
+                }
+            }
         }
     }
+    if constexpr (VERBOSE){
+        cout<<"Binning flows part 3 done in "<<GetTimeSinceMilliSeconds(start_time)<< " seconds"<<endl;
+    }
+    start_time = chrono::high_resolution_clock::now();
     return forward_flows_by_link_id;
 }
 
@@ -194,7 +237,7 @@ void LogData::GetSizesForForwardFlowsByLinkId(double max_finish_time_ms, int nop
 }
 
 // Lockless version
-vector<vector<int> >* LogData::GetForwardFlowsByLinkId(double max_finish_time_ms, int nopenmp_threads){
+vector<vector<int> >* LogData::GetForwardFlowsByLinkId1(double max_finish_time_ms, int nopenmp_threads){
     int nlinks = inverse_links.size();
     forward_flows_by_link_id = new vector<vector<int> >(nlinks);
     auto start_time = chrono::high_resolution_clock::now();
@@ -270,6 +313,7 @@ vector<vector<int> >* LogData::GetFlowsByLinkId(double max_finish_time_ms, int n
     GetForwardFlowsByLinkId(max_finish_time_ms, nopenmp_threads);
     if constexpr (!CONSIDER_REVERSE_PATH) flows_by_link_id = forward_flows_by_link_id;
     else{
+        assert(false);
         GetReverseFlowsByLinkId(max_finish_time_ms);
         flows_by_link_id = new vector<vector<int> >(inverse_links.size());
         for (int link_id=0; link_id<inverse_links.size(); link_id++){
@@ -315,16 +359,18 @@ void LogData::AddFailedLink(Link link, double failparam){
 }
         
 int LogData::GetLinkId(Link link){
-    int ret;
+    int link_id;
     #pragma omp critical (AddNewLink)
     {
-        if (links_to_ids.find(link) == links_to_ids.end()){
-                links_to_ids[link] = inverse_links.size();
-                inverse_links.push_back(link);
+        auto it = links_to_ids.find(link);
+        if (it == links_to_ids.end()){
+            link_id = inverse_links.size();
+            links_to_ids[link] = link_id;
+            inverse_links.push_back(link);
         }
-        ret = links_to_ids[link];
+        else link_id = it->second;
     }
-    return ret;
+    return link_id;
 }
 
 

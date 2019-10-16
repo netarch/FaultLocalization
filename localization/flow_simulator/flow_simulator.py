@@ -71,7 +71,7 @@ servers_per_rack = int(nservers/nracks)
 print("Num racks", nracks, "Servers per rack", servers_per_rack)
 
 #nflows = random.randint(200000, 400000)
-nflows = 200 * nservers
+nflows = 400 * nservers
 #nflows = 250
 servers_busy = []
 servers_idle = []
@@ -134,7 +134,7 @@ def GetFlows(thread_num, nflows, G, fail_prob, servers_busy, servers_idle, host_
         #src = random.randint(0, servers-1)
         #dst = random.randint(0, servers-1)
         flowsize = (np.random.pareto(shape) + 1) * scale
-        while flowsize > 200 * 1024 * 1024:
+        while flowsize > 100 * 1024 * 1024:
             flowsize = (np.random.pareto(shape) + 1) * scale
         #print(src, dst, flowsize)
         packets_sent = math.ceil(flowsize/packetsize)
@@ -142,12 +142,17 @@ def GetFlows(thread_num, nflows, G, fail_prob, servers_busy, servers_idle, host_
         path_taken = random.choice(all_rack_pair_paths[src_rack][dst_rack])
         packets_dropped = 0
         for i in range(packets_sent):
-            for k in range(0, len(path_taken)-1):
-                u = path_taken[k]
-                v = path_taken[k+1]
-                if (random.random() <= fail_prob[(u,v)]):
-                    packets_dropped += 1
-                    break
+            first_link = (src + host_offset_copy,path_taken[0])
+            last_link = (path_taken[-1], dst + host_offset_copy)
+            if (random.random() <= fail_prob[first_link] or random.random() <= fail_prob[last_link]):
+                packets_dropped += 1
+            else:
+                for k in range(0, len(path_taken)-1):
+                    u = path_taken[k]
+                    v = path_taken[k+1]
+                    if (random.random() <= fail_prob[(u,v)]):
+                        packets_dropped += 1
+                        break
         print("FID ", host_offset_copy + src, host_offset_copy + dst, src_rack, dst_rack, packetsize * packets_sent, 0.0, file=outfile)
         PrintPath("FPT", path_taken, out=outfile)
         print("SS ", 1.0, packets_sent, packets_dropped, 0, file=outfile)

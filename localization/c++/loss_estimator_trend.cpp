@@ -24,12 +24,30 @@ vector<string> GetFilesNormal(){
     return files;
 }
 
+vector<string> GetFilesFlowSimulator(){
+    string file_prefix = "/home/vharsh2/ns-allinone-3.24.1/ns-3.24.1/localization/flow_simulator/ft_logs/plog";
+    vector<pair<string, int> > ignore_files = {};
+    vector<string> files;
+    //vector<string> loss_rate_strings = {"0.001", "0.002", "0.004", "0.006", "0.008"};
+    vector<string> loss_rate_strings = {"0.002"};
+    for (string& loss_rate_string: loss_rate_strings){
+        for(int i=1; i<=1; i++){
+            for(int f: {10}){
+                if(find(ignore_files.begin(), ignore_files.end(),  pair<string, int>(loss_rate_string, i)) == ignore_files.end()){
+                    files.push_back(file_prefix + "_" + loss_rate_string + "_" + to_string(f) + "_" + to_string(i)); 
+                    cout << "adding file for analaysis " <<files.back() << endl;
+                }
+            }
+        }
+    }
+    return files;
+}
 vector<string> GetFilesSoftness(){
     string file_prefix = "/home/vharsh2/ns-allinone-3.24.1/ns-3.24.1/topology/ft_k12_os3/softness_logs/plog";
     vector<pair<string, int> > ignore_files = {};
     vector<string> files;
     //vector<string> loss_rate_strings = {"0.001", "0.002", "0.004", "0.006", "0.008"};
-    vector<string> loss_rate_strings = {"0.004", "0.006", "0.008"};
+    vector<string> loss_rate_strings = {"0.001"};
     for (string& loss_rate_string: loss_rate_strings){
         for(int i=1; i<=16; i++){
             if(find(ignore_files.begin(), ignore_files.end(),  pair<string, int>(loss_rate_string, i)) == ignore_files.end()){
@@ -57,7 +75,8 @@ vector<string> GetFiles007Verification(){
 
 vector<string> GetFiles(){
     //return GetFilesNormal();
-    return GetFiles007Verification();
+    //return GetFiles007Verification();
+    return GetFilesFlowSimulator();
     //return GetFilesSoftness();
 }
 
@@ -108,11 +127,13 @@ void GetPrecisionRecallTrendBayesianNet(double min_start_time_ms, double max_fin
 
 void SweepParamsBayesianNet(double min_start_time_ms, double max_finish_time_ms, int nopenmp_threads){
     vector<vector<double> > params;
-    for (double p1c = 1.0e-3; p1c <= 7.5e-3; p1c += 0.5e-3){
-        for (double p2 = 1.0e-4; p2 <= 5e-4; p2 += 0.5e-4){
+    for (double p1c = 1.0e-3; p1c <= 5.0e-3; p1c += 0.5e-3){
+        for (double p2 = 1.0e-4; p2 <= 5.0e-4; p2 += 0.5e-4){
+        //double p2 = 7.5e-4;{
             params.push_back(vector<double> {1.0 - p1c, p2});
         }
     }
+    //params = {{1.0 - 3.0e-3, 3.0e-4}};
     vector<PDD> result;
     BayesianNet estimator;
     GetPrecisionRecallParamsFiles(min_start_time_ms, max_finish_time_ms, params,
@@ -120,7 +141,9 @@ void SweepParamsBayesianNet(double min_start_time_ms, double max_finish_time_ms,
     int ctr = 0;
     for (auto &param: params){
         param[0] = 1.0 - param[0];
-        cout << param << " " << result[ctr++] << endl;
+        auto p_r = result[ctr++];
+        if (p_r.first > 0.82 and p_r.second > 0.2)
+            cout << param << " " << p_r << endl;
     }
 }
 
@@ -144,9 +167,9 @@ void SweepParamsScore(double min_start_time_ms, double max_finish_time_ms, int n
 }
 
 void SweepParams007(double min_start_time_ms, double max_finish_time_ms, int nopenmp_threads){
-    double min_fail_threshold = 0.001; //0.00125; //1; //0.001;
-    double max_fail_threshold = 0.04; //16; //0.0025;
-    double step = 0.0005; //0.00005; //0.1; //0.00005;
+    double min_fail_threshold = 0.0001; //0.00125; //1; //0.001;
+    double max_fail_threshold = 0.02; //16; //0.0025;
+    double step = 0.0001; //0.00005; //0.1; //0.00005;
     vector<vector<double> > params;
     for (double fail_threshold=min_fail_threshold;
                 fail_threshold < max_fail_threshold; fail_threshold += step){
@@ -158,7 +181,9 @@ void SweepParams007(double min_start_time_ms, double max_finish_time_ms, int nop
                                   result, &estimator, nopenmp_threads);
     int ctr = 0;
     for (auto &param: params){
-        cout << param << " " << result[ctr++] << endl;
+        auto p_r = result[ctr++];
+        if (p_r.first > 0.1 or p_r.second > 0.05)
+            cout << param << " " << p_r << endl;
     }
 }
 
@@ -172,6 +197,6 @@ int main(int argc, char *argv[]){
     //                                   step_ms, nopenmp_threads);
     //GetPrecisionRecallTrend007(min_start_time_ms, max_finish_time_ms,
     //                                   step_ms, nopenmp_threads);
-    SweepParams007(min_start_time_ms, max_finish_time_ms, nopenmp_threads);
+    SweepParamsBayesianNet(min_start_time_ms, max_finish_time_ms, nopenmp_threads);
     return 0;
 }

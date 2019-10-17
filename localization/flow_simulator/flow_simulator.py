@@ -52,7 +52,8 @@ fail_prob = dict()
 
 for edge in edges:
     if edge  in failed_links:
-        fail_prob[edge] = random.uniform(0.001, 0.010)
+        #fail_prob[edge] = random.uniform(0.001, 0.010)
+        fail_prob[edge] = 0.004
     else:
         fail_prob[edge] = random.uniform(0.0000, 0.0001)
 
@@ -71,7 +72,7 @@ servers_per_rack = int(nservers/nracks)
 print("Num racks", nracks, "Servers per rack", servers_per_rack)
 
 #nflows = random.randint(200000, 400000)
-nflows = 400 * nservers
+nflows = 1000 * nservers
 #nflows = 250
 servers_busy = []
 servers_idle = []
@@ -155,7 +156,7 @@ def GetFlows(thread_num, nflows, G, fail_prob, servers_busy, servers_idle, host_
                         break
         print("FID ", host_offset_copy + src, host_offset_copy + dst, src_rack, dst_rack, packetsize * packets_sent, 0.0, file=outfile)
         PrintPath("FPT", path_taken, out=outfile)
-        print("SS ", 1.0, packets_sent, packets_dropped, 0, file=outfile)
+        print("SS ", 1000.0 * random.random(), packets_sent, packets_dropped, 0, file=outfile)
         sumflowsize += flowsize
     response_queue.put(sumflowsize)
     return
@@ -165,31 +166,34 @@ outfiles = [open(outfilename + "/" + str(i),"w+") for i in range(nprocesses)]
 for (u,v) in failed_links:
     print("Failing_link", u, v, fail_prob[(u,v)], file=outfiles[0])
 
-procs = []
-G_copies = []
-servers_busy_copies = []
-servers_idle_copies = []
-fail_prob_copies = []
-host_rack_map_copies = []
-racks_copies = []
-start_time = time.time()
-for i in range(nprocesses):
-    G_copies.append(copy.deepcopy(G))
-    servers_busy_copies.append(list(servers_busy))
-    servers_idle_copies.append(list(servers_idle))
-    fail_prob_copies.append(copy.deepcopy(fail_prob))
-    host_rack_map_copies.append(copy.deepcopy(host_rack_map));
-    racks_copies.append(copy.deepcopy(racks))
-print("Arrays copied for parallel execution in ", time.time() - start_time, " seconds")
-
-response_queue = Queue()
-for i in range(nprocesses):
-    proc = Process(target=GetFlows, args=(i, int(nflows/nprocesses), G_copies[i], fail_prob_copies[i], servers_busy_copies[i], servers_idle_copies[i], host_rack_map_copies[i], racks_copies[i], outfiles[i], response_queue))
-    procs.append(proc)
-for proc in procs:
-    proc.start()
 sumflowsize = 0
-for i in range(nprocesses):
-    sumflowsize += response_queue.get()
+response_queue = Queue()
+if nprocesses == 1:
+    GetFlows(0, int(nflows/nprocesses), G, fail_prob, servers_busy, servers_idle, host_rack_map, racks, outfiles[0], response_queue)
+    sumflowsize = response_queue.get()
+else:
+    procs = []
+    G_copies = []
+    servers_busy_copies = []
+    servers_idle_copies = []
+    fail_prob_copies = []
+    host_rack_map_copies = []
+    racks_copies = []
+    start_time = time.time()
+    for i in range(nprocesses):
+        G_copies.append(copy.deepcopy(G))
+        servers_busy_copies.append(list(servers_busy))
+        servers_idle_copies.append(list(servers_idle))
+        fail_prob_copies.append(copy.deepcopy(fail_prob))
+        host_rack_map_copies.append(copy.deepcopy(host_rack_map));
+        racks_copies.append(copy.deepcopy(racks))
+    print("Arrays copied for parallel execution in ", time.time() - start_time, " seconds")
+    for i in range(nprocesses):
+        proc = Process(target=GetFlows, args=(i, int(nflows/nprocesses), G_copies[i], fail_prob_copies[i], servers_busy_copies[i], servers_idle_copies[i], host_rack_map_copies[i], racks_copies[i], outfiles[i], response_queue))
+        procs.append(proc)
+    for proc in procs:
+        proc.start()
+    for i in range(nprocesses):
+        sumflowsize += response_queue.get()
 
 print("Sum flow size: ", sumflowsize, "Numflow", nflows, "fraction_busy", fraction_busy)

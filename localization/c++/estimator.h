@@ -26,7 +26,11 @@ class Estimator{
         if (flows_by_link_id != NULL) delete(flows_by_link_id);
         flows_by_link_id = data->GetFlowsByLinkId(max_finish_time_ms, nopenmp_threads);
         if constexpr (VERBOSE){
-            cout << "Finished binning " << data->flows.size() << " flows by links in "
+            int num_flows = count_if (data->flows.begin(), data->flows.end(),
+                                      [max_finish_time_ms](Flow *flow){
+                                        return flow->AnySnapshotBefore(max_finish_time_ms);
+                                      });
+            cout << "Finished binning " << num_flows << " flows by links in "
                  << GetTimeSinceMilliSeconds(start_bin_time) << " seconds" << endl;
         }
     }

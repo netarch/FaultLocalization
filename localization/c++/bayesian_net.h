@@ -7,9 +7,9 @@ class BayesianNet : public Estimator{
     BayesianNet() : Estimator() {}
     void LocalizeFailures(double min_start_time_ms, double max_finish_time_ms,
                           Hypothesis &localized_links, int nopenmp_threads);
-    const int MAX_FAILS = 10;
+    const int MAX_FAILS = 20;
     const int NUM_CANDIDATES = max(15, 5 * MAX_FAILS);
-    const int NUM_TOP_HYPOTHESIS_AT_EACH_STAGE = 5;
+    const int NUM_TOP_HYPOTHESIS_AT_EACH_STAGE = 10;
     // For printing purposes
     const int N_MAX_K_LIKELIHOODS = 20;
     const bool USE_CONDITIONAL = false;
@@ -34,6 +34,9 @@ private:
     void SearchHypotheses1(double min_start_time_ms, double max_finish_time_ms,
                           unordered_map<Hypothesis*, double> &all_hypothesis,
                           int nopenmp_threads);
+
+    void PrintScores(double min_start_time_ms, double max_finish_time_ms,
+                     int nopenmp_threads);
 
     void ComputeInitialLikelihoods(vector<double> &initial_likelihoods,
                                  double min_start_time_ms, double max_finish_time_ms,
@@ -69,7 +72,7 @@ private:
                     double min_start_time_ms, double  max_finish_time_ms,
                     int nopenmp_threads);
 
-    inline double GetBnfWeightedUnconditionalIntermediateValue(Flow *flow,
+    inline long double GetBnfWeightedUnconditionalIntermediateValue(Flow *flow,
                                                 double max_finish_time_ms);
 
     inline double BnfWeighted(int naffected, int npaths, int naffected_r,
@@ -77,7 +80,7 @@ private:
 
     inline double BnfWeighted(int naffected, int npaths, int naffected_r,
                               int npaths_r, double weight_good,
-                              double weight_bad, double intermediate_val);
+                              double weight_bad, long double intermediate_val);
 
     inline double BnfWeightedConditional(int naffected, int npaths, int naffected_r,
                     int npaths_r, double weight_good, double weight_bad);
@@ -86,7 +89,7 @@ private:
                     int npaths_r, double weight_good, double weight_bad);
 
     inline double BnfWeightedUnconditionalIntermediate(int naffected, int npaths,
-                         int naffected_r, int npaths_r, double intermediate_val);
+                         int naffected_r, int npaths_r, long double intermediate_val);
 
     double ComputeLogPrior(Hypothesis *hypothesis);
     void SortCandidatesWrtNumRelevantFlows(vector<int> &candidates);
@@ -105,7 +108,7 @@ private:
               double min_start_time_ms, double max_finish_time_ms, int nopenmp_threads);
 
     // Noise parameters
-    double p1 = 1.0-2.5e-3, p2 = 2.0e-4;
+    double p1 = 1.0-3.0e-3, p2 = 3.0e-4;
     //double p1 = 1.0-4.0e-3, p2 = 1.5e-4;
     // For reduced analysis
     unordered_map<int, int>* num_reduced_links_map;

@@ -4,7 +4,7 @@ CFLAGS = -std=c++17 -O3 -fopenmp -ffast-math -w -Wall -Wno-deprecated -Wno-unuse
 LIBS = -L/home/vharsh2/ns-allinone-3.24.1/ns-3.24.1/localization/c++/sparsehash/libs
 INCLUDE = -I/home/vharsh2/ns-allinone-3.24.1/ns-3.24.1/localization/c++/sparsehash/include
 
-OBJS = flow.o logdata.o bayesian_net.o doubleO7.o score.o utils.o
+OBJS = flow.o logdata.o bayesian_net_continuous.o bayesian_net.o doubleO7.o score.o utils.o
 
 all: loss_estimator loss_estimator_trend reduced_estimator
 
@@ -29,14 +29,16 @@ logdata.o: logdata.cpp logdata.h utils.o flow.o
 common_testing_system.o: common_testing_system.cpp common_testing_system.h utils.o flow.o logdata.o
 	$(CC) $(INCLUDE) $(CFLAGS) -c common_testing_system.cpp
 
-doubleO7.o: doubleO7.cpp doubleO7.h flow.o utils.o logdata.o
+doubleO7.o: doubleO7.cpp doubleO7.h estimator.h flow.o utils.o logdata.o
 	$(CC) $(INCLUDE) $(CFLAGS) -c doubleO7.cpp $(LIBS) 
 
-score.o: score.cpp score.h flow.o utils.o logdata.o
+score.o: score.cpp score.h estimator.h flow.o utils.o logdata.o
 	$(CC) $(INCLUDE) $(CFLAGS) -c score.cpp $(LIBS) 
 
-bayesian_net.o: bayesian_net.cpp bayesian_net.h flow.o utils.o logdata.o
+bayesian_net.o: bayesian_net.cpp bayesian_net.h estimator.h flow.o utils.o logdata.o
 	$(CC) $(INCLUDE) $(CFLAGS) -c bayesian_net.cpp $(LIBS) 
 
+bayesian_net_continuous.o: bayesian_net_continuous.cpp bayesian_net_continuous.h estimator.h flow.o utils.o logdata.o
+	$(CC) $(INCLUDE) $(CFLAGS) -c bayesian_net_continuous.cpp $(LIBS) 
 clean:	
 	rm -f *.o loss_estimator reduced_estimator loss_estimator_trend

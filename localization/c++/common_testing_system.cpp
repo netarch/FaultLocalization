@@ -86,8 +86,8 @@ void GetPrecisionRecallParamsFile(string filename, double min_start_time_ms,
         result.push_back(precision_recall);
         if constexpr (VERBOSE or true) {
             cout << filename << " " << params[ii] << " "
-                 << data->IdsToLinks(estimator_hypothesis)<< "  "
-                 << precision_recall.first << " " << precision_recall.second<<endl;
+                << data->IdsToLinks(estimator_hypothesis)<< "  "
+                << precision_recall.first << " " << precision_recall.second<<endl;
         }
     }
     delete(estimator);
@@ -103,10 +103,10 @@ void GetPrecisionRecallParamsFiles(double min_start_time_ms, double max_finish_t
     }
     mutex lock;
     int nfiles = filenames.size();
-    int nthreads1 = min({16, nfiles, nopenmp_threads});
+    int nthreads1 = min({1, nfiles, nopenmp_threads});
     int nthreads2 = nopenmp_threads/nthreads1;
     cout << nthreads1 << " " << nthreads2 << endl;
-    #pragma omp parallel for num_threads(nthreads1)
+    //#pragma omp parallel for num_threads(nthreads1) if (nthreads1 > 1)
     for (int ff=0; ff<filenames.size(); ff++){
         string filename = filenames[ff];
         vector<PDD> intermediate_result;

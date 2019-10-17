@@ -53,9 +53,7 @@ void GetDataFromLogFile(string filename, LogData *result){
     Flow *flow = NULL;
     int curr_link_index = 0;
     int nlines = 0;
-    int nchars = 0;
     while (getline(infile, line)){
-        nchars += line.size();
         char* linec = const_cast<char*>(line.c_str());
         GetString(linec, op);
         //cout << op <<endl;
@@ -170,7 +168,6 @@ void GetDataFromLogFile(string filename, LogData *result){
             assert (false);
         }
     }
-    cout << "Number of characters read: "<<nchars<< endl;
     // Log the last flow
     if (flow != NULL) flow->DoneAddingPaths();
     if (flow != NULL and flow->paths.size() > 0 and flow->path_taken_vector.size() == 1){
@@ -215,7 +212,6 @@ void GetDataFromLogFile1(string filename, LogData *result){
     Flow *flow = NULL;
     int curr_link_index = 0;
     int nlines = 0;
-    int nchars = 0;
     while (getline(infile, line)){
         //const char *linum = line.c_str();
         istringstream line_stream (line);
@@ -224,7 +220,6 @@ void GetDataFromLogFile1(string filename, LogData *result){
         line_stream >> op;
         //cout << "op " << op << " : " << line << endl;
         nlines += 1;
-        nchars += line.size();
         if (StringStartsWith(op, "FPRT")){
             assert (flow != NULL);
             temp_path.clear();
@@ -320,7 +315,6 @@ void GetDataFromLogFile1(string filename, LogData *result){
             assert (false);
         }
     }
-    cout << "Number of characters read: "<<nchars<< endl;
     // Log the last flow
     if (flow != NULL) flow->DoneAddingPaths();
     if (flow != NULL and flow->paths.size() > 0 and flow->path_taken_vector.size() == 1){

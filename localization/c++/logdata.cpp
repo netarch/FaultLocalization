@@ -78,6 +78,7 @@ void LogData::GetReducedData(unordered_map<Link, Link>& reduced_graph_map,
 
 
 void LogData::FilterFlowsForConditional(double max_finish_time_ms, int nopenmp_threads){
+    auto start_filter_time = chrono::high_resolution_clock::now();
     vector<Flow*> filtered_flows[nopenmp_threads];
     #pragma omp parallel for num_threads(nopenmp_threads)
     for (int ff=0; ff<flows.size(); ff++){
@@ -95,10 +96,13 @@ void LogData::FilterFlowsForConditional(double max_finish_time_ms, int nopenmp_t
     for (int t=0; t<nopenmp_threads; t++){
         flows.insert(flows.end(), filtered_flows[t].begin(), filtered_flows[t].end());
     }
+    if constexpr (VERBOSE) {
+        cout << "Filtered flows for conditional analysis in "
+             << GetTimeSinceMilliSeconds(start_filter_time) << " seconds" << endl;
+    }
 }
 
 vector<vector<int> >* LogData::GetForwardFlowsByLinkId(double max_finish_time_ms, int nopenmp_threads){
-    if (forward_flows_by_link_id != NULL) delete(forward_flows_by_link_id);
     int nlinks = inverse_links.size();
     vector<int> sizes[nopenmp_threads];
     for(int thread_num=0; thread_num<nopenmp_threads; thread_num++){
@@ -114,12 +118,14 @@ vector<vector<int> >* LogData::GetForwardFlowsByLinkId(double max_finish_time_ms
         assert(start <= end);
         for (int ff=start; ff<end; ff++){
             Flow *flow = flows[ff];
-            auto flow_paths = flow->GetPaths(max_finish_time_ms);
-            sizes[thread_num][flow->first_link_id]++;
-            sizes[thread_num][flow->last_link_id]++;
-            for (Path* path: *flow_paths){
-                for (int link_id: *path){
-                    sizes[thread_num][link_id]++;
+            if (flow->AnySnapshotBefore(max_finish_time_ms)){
+                auto flow_paths = flow->GetPaths(max_finish_time_ms);
+                sizes[thread_num][flow->first_link_id]++;
+                sizes[thread_num][flow->last_link_id]++;
+                for (Path* path: *flow_paths){
+                    for (int link_id: *path){
+                        sizes[thread_num][link_id]++;
+                    }
                 }
             }
         }
@@ -161,12 +167,14 @@ vector<vector<int> >* LogData::GetForwardFlowsByLinkId(double max_finish_time_ms
         assert(start <= end);
         for (int ff=start; ff<end; ff++){
             Flow *flow =  flows[ff];
-            auto flow_paths = flow->GetPaths(max_finish_time_ms);
-            (*forward_flows_by_link_id)[flow->first_link_id][offsets[flow->first_link_id]++] = ff;
-            (*forward_flows_by_link_id)[flow->last_link_id][offsets[flow->last_link_id]++] = ff;
-            for (Path* path: *flow_paths){
-                for (int link_id: *path){
-                    (*forward_flows_by_link_id)[link_id][offsets[link_id]++] = ff;
+            if (flow->AnySnapshotBefore(max_finish_time_ms)){
+                auto flow_paths = flow->GetPaths(max_finish_time_ms);
+                (*forward_flows_by_link_id)[flow->first_link_id][offsets[flow->first_link_id]++] = ff;
+                (*forward_flows_by_link_id)[flow->last_link_id][offsets[flow->last_link_id]++] = ff;
+                for (Path* path: *flow_paths){
+                    for (int link_id: *path){
+                        (*forward_flows_by_link_id)[link_id][offsets[link_id]++] = ff;
+                    }
                 }
             }
         }
@@ -179,29 +187,30 @@ vector<vector<int> >* LogData::GetForwardFlowsByLinkId(double max_finish_time_ms
 }
 
 vector<vector<int> >* LogData::GetForwardFlowsByLinkId2(double max_finish_time_ms, int nopenmp_threads){
-    if (forward_flows_by_link_id != NULL) delete(forward_flows_by_link_id);
     int nlinks = inverse_links.size();
     forward_flows_by_link_id = new vector<vector<int> >(nlinks);
     mutex link_locks[nlinks];
     #pragma omp parallel for num_threads(nopenmp_threads) schedule(auto)
     for (int ff=0; ff<flows.size(); ff++){
         Flow *flow = flows[ff];
-        // src --> src_tor
-        link_locks[flow->first_link_id].lock();
-        (*forward_flows_by_link_id)[flow->first_link_id].push_back(ff);
-        link_locks[flow->first_link_id].unlock();
+        if (flow->AnySnapshotBefore(max_finish_time_ms)){
+            // src --> src_tor
+            link_locks[flow->first_link_id].lock();
+            (*forward_flows_by_link_id)[flow->first_link_id].push_back(ff);
+            link_locks[flow->first_link_id].unlock();
 
-        // dest_tor --> dest
-        link_locks[flow->last_link_id].lock();
-        (*forward_flows_by_link_id)[flow->last_link_id].push_back(ff);
-        link_locks[flow->last_link_id].unlock();
+            // dest_tor --> dest
+            link_locks[flow->last_link_id].lock();
+            (*forward_flows_by_link_id)[flow->last_link_id].push_back(ff);
+            link_locks[flow->last_link_id].unlock();
 
-        auto flow_paths = flow->GetPaths(max_finish_time_ms);
-        for (Path* path: *flow_paths){
-            for (int link_id: *path){
-                link_locks[link_id].lock();
-                (*forward_flows_by_link_id)[link_id].push_back(ff);
-                link_locks[link_id].unlock();
+            auto flow_paths = flow->GetPaths(max_finish_time_ms);
+            for (Path* path: *flow_paths){
+                for (int link_id: *path){
+                    link_locks[link_id].lock();
+                    (*forward_flows_by_link_id)[link_id].push_back(ff);
+                    link_locks[link_id].unlock();
+                }
             }
         }
     }
@@ -217,13 +226,15 @@ void LogData::GetSizesForForwardFlowsByLinkId(double max_finish_time_ms, int nop
     #pragma omp parallel for num_threads(nopenmp_threads)
     for (int ff=0; ff<flows.size(); ff++){
         Flow *flow = flows[ff];
-        auto flow_paths = flow->GetPaths(max_finish_time_ms);
-        int thread_num = omp_get_thread_num();
-        sizes[thread_num][flow->first_link_id]++;
-        sizes[thread_num][flow->last_link_id]++;
-        for (Path* path: *flow_paths){
-            for (int link_id: *path){
-                sizes[thread_num][link_id]++;
+        if (flow->AnySnapshotBefore(max_finish_time_ms)){
+            auto flow_paths = flow->GetPaths(max_finish_time_ms);
+            int thread_num = omp_get_thread_num();
+            sizes[thread_num][flow->first_link_id]++;
+            sizes[thread_num][flow->last_link_id]++;
+            for (Path* path: *flow_paths){
+                for (int link_id: *path){
+                    sizes[thread_num][link_id]++;
+                }
             }
         }
     }
@@ -261,27 +272,29 @@ vector<vector<int> >* LogData::GetForwardFlowsByLinkId1(double max_finish_time_m
     #pragma omp parallel for num_threads(nopenmp_threads) schedule(auto)
     for (int ff=0; ff<flows.size(); ff++){
         Flow *flow =  flows[ff];
-        auto flow_paths = flow->GetPaths(max_finish_time_ms);
+        if (flow->AnySnapshotBefore(max_finish_time_ms)){
+            auto flow_paths = flow->GetPaths(max_finish_time_ms);
 
-        //link_locks[flow->first_link_id].lock();
-        while (link_locks[flow->first_link_id].test_and_set(std::memory_order_acquire));
-        (*forward_flows_by_link_id)[flow->first_link_id].push_back(ff);
-        link_locks[flow->first_link_id].clear(std::memory_order_release);
-        //link_locks[flow->first_link_id].unlock();
+            //link_locks[flow->first_link_id].lock();
+            while (link_locks[flow->first_link_id].test_and_set(std::memory_order_acquire));
+            (*forward_flows_by_link_id)[flow->first_link_id].push_back(ff);
+            link_locks[flow->first_link_id].clear(std::memory_order_release);
+            //link_locks[flow->first_link_id].unlock();
 
-        //link_locks[flow->last_link_id].lock();
-        while (link_locks[flow->last_link_id].test_and_set(std::memory_order_acquire));
-        (*forward_flows_by_link_id)[flow->last_link_id].push_back(ff);
-        link_locks[flow->last_link_id].clear(std::memory_order_release);
-        //link_locks[flow->last_link_id].unlock();
+            //link_locks[flow->last_link_id].lock();
+            while (link_locks[flow->last_link_id].test_and_set(std::memory_order_acquire));
+            (*forward_flows_by_link_id)[flow->last_link_id].push_back(ff);
+            link_locks[flow->last_link_id].clear(std::memory_order_release);
+            //link_locks[flow->last_link_id].unlock();
 
-        for (Path* path: *flow_paths){
-            for (int link_id: *path){
-                //link_locks[link_id].lock();
-                while (link_locks[link_id].test_and_set(std::memory_order_acquire));
-                (*forward_flows_by_link_id)[link_id].push_back(ff);
-                link_locks[link_id].clear(std::memory_order_release);
-                //link_locks[link_id].unlock();
+            for (Path* path: *flow_paths){
+                for (int link_id: *path){
+                    //link_locks[link_id].lock();
+                    while (link_locks[link_id].test_and_set(std::memory_order_acquire));
+                    (*forward_flows_by_link_id)[link_id].push_back(ff);
+                    link_locks[link_id].clear(std::memory_order_release);
+                    //link_locks[link_id].unlock();
+                }
             }
         }
     }
@@ -297,12 +310,14 @@ vector<vector<int> >* LogData::GetReverseFlowsByLinkId(double max_finish_time_ms
     reverse_flows_by_link_id = new vector<vector<int> >(inverse_links.size());
     for (int ff=0; ff<flows.size(); ff++){
         Flow *flow = flows[ff];
-        auto flow_reverse_paths = flow->GetReversePaths(max_finish_time_ms);
-        (*reverse_flows_by_link_id)[flow->reverse_first_link_id].push_back(ff);
-        (*reverse_flows_by_link_id)[flow->reverse_last_link_id].push_back(ff);
-        for (Path* path: *flow_reverse_paths){
-            for (int link_id: *path){
-                (*reverse_flows_by_link_id)[link_id].push_back(ff);
+        if (flow->AnySnapshotBefore(max_finish_time_ms)){
+            auto flow_reverse_paths = flow->GetReversePaths(max_finish_time_ms);
+            (*reverse_flows_by_link_id)[flow->reverse_first_link_id].push_back(ff);
+            (*reverse_flows_by_link_id)[flow->reverse_last_link_id].push_back(ff);
+            for (Path* path: *flow_reverse_paths){
+                for (int link_id: *path){
+                    (*reverse_flows_by_link_id)[link_id].push_back(ff);
+                }
             }
         }
     }

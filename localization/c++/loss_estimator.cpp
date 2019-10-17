@@ -2,6 +2,7 @@
 #include <assert.h>
 #include "utils.h"
 #include "bayesian_net.h"
+#include "bayesian_net_continuous.h"
 #include <chrono>
 
 using namespace std;

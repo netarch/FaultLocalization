@@ -20,7 +20,7 @@ private:
 
     // Noise parameters
     double fail_threshold = 0.0025;
-    const bool ADJUST_VOTES = true;
+    const bool ADJUST_VOTES = false;
 };
 
 #endif

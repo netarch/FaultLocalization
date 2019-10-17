@@ -99,9 +99,9 @@ public:
     void ResetSnapshotCounter();
 
     /* To accelerate bayesian net computations, cache an intermediate value */
-    double cached_intermediate_value;
-    void SetCachedIntermediateValue(double value);
-    double GetCachedIntermediateValue();
+    long double cached_intermediate_value;
+    void SetCachedIntermediateValue(long double value);
+    long double GetCachedIntermediateValue();
 
     int nbytes;
 private:

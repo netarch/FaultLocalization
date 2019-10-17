@@ -262,11 +262,11 @@ void Flow::ResetSnapshotCounter(){
     curr_snapshot_ptr = -1;
 }
 
-void Flow::SetCachedIntermediateValue(double value){
+void Flow::SetCachedIntermediateValue(long double value){
     cached_intermediate_value = value;
 }
 
-double Flow::GetCachedIntermediateValue(){
+long double Flow::GetCachedIntermediateValue(){
     return cached_intermediate_value;
 }
 

@@ -20,6 +20,11 @@
 using namespace ns3;
 using namespace std;
 
+struct Flow{
+    int src_host, dest_host, nbytes;
+    Flow (int src_host_, int dest_host_, int nbytes_): src_host(src_host_), dest_host(dest_host_), nbytes(nbytes_) {}
+};
+
 
 // Function to create address string from numbers
 //
@@ -31,10 +36,10 @@ class Topology{
   public:
     int num_tor = 0; //number of switches in the network
     int total_host = 0;	// number of hosts in the network	
-    vector<vector<double> > server_TM;
+    vector<Flow> flows;
 
     void Toplogy() {}
-    void ReadServerTmFromFile(string tm_filename);
+    void ReadFlowsFromFile(string tm_filename);
     void ReadTopologyFromFile(string topology_filename);
     void ChooseFailedLinks(int nfails);
 
@@ -47,11 +52,11 @@ class Topology{
     void ConnectSwitchesAndHosts(PointToPointHelper &p2p, NodeContainer &tors,
                                  NodeContainer *rack_hosts, double fail_param);
 
-    void PrintFlowPath(int src_host, int dest_host);
-    void PrintFlowInfo(int src_host, int dest_host, int bytes, ApplicationContainer& flow_app);
+    void PrintFlowPath(Flow flow);
+    void PrintFlowInfo(Flow flow, ApplicationContainer& flow_app);
     void PrintAllPairShortestPaths();
     void PrintIpAddresses();
-    void SnapshotFlow(int src_host, int dest_host, int bytes, ApplicationContainer& flow_app,
+    void SnapshotFlow(Flow flow, ApplicationContainer& flow_app,
                       Time start_time, Time snapshot_time);
 
     void AdaptNetwork();

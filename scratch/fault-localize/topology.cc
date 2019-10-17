@@ -46,24 +46,23 @@ char * IpOctectsToString(int first, int second, int third, int fourth){
     return address;
 }
 
-void Topology::ReadServerTmFromFile(string tm_filename){
+void Topology::ReadFlowsFromFile(string tm_filename){
     //< read TM from the TM File
+    flows.clear();
     ifstream myfile(tm_filename.c_str());
     string line;
     if (myfile.is_open()){
         string delimiter = ",";
         while(myfile.good()){
+            line.clear();
             getline(myfile, line);
             std::replace(line.begin(), line.end(), ',', ' ');
-            vector<double> array;
+            if (line.find_first_not_of (' ') == line.npos) continue;
             stringstream ss(line);
-            double temp;
-            while (ss >> temp){
-                array.push_back(temp); 
-                //cout<<temp<<",";
-            }
-            server_TM.push_back(array);
-            //cout<<endl;
+            int src_host, dest_host, nbytes;
+            ss >> src_host >> dest_host >> nbytes;
+            cout << "Flow " << src_host << " " <<dest_host << " " << nbytes  << endl;
+            flows.push_back(Flow(src_host, dest_host, nbytes));
         }
         myfile.close();
     }
@@ -414,7 +413,8 @@ void Topology::PrintAllPairShortestPaths(){
     }
 }
 
-void Topology::PrintFlowPath(int src_host, int dest_host){
+void Topology::PrintFlowPath(Flow flow){
+    int src_host = flow.src_host, dest_host = flow.dest_host;
     vector<vector<int> > paths;
     GetPathsHost(src_host, dest_host, paths);
     for (vector<int>& p: paths){
@@ -435,14 +435,14 @@ void Topology::PrintFlowPath(int src_host, int dest_host){
     }
 }
 
-void Topology::SnapshotFlow(int src_host, int dest_host, int bytes, ApplicationContainer& flow_app, Time start_time, Time snapshot_time){
+void Topology::SnapshotFlow(Flow flow, ApplicationContainer& flow_app, Time start_time, Time snapshot_time){
     assert (flow_app.GetN() == 1);
     Ptr<Application> app = flow_app.Get(0);
     Ptr<TcpSocketBase> tcp_socket_base = GetSocketFromOnOffApp(app);
-    cout<<"Flowid "<<OffsetHost(src_host)<<" "<<OffsetHost(dest_host)<<" "<<GetHostIpAddress(src_host)
-        <<" "<<GetHostIpAddress(dest_host)<<" " <<host_to_tor[src_host]
-        << " " << host_to_tor[dest_host] <<" "<<tcp_socket_base->GetLocalPort()
-        <<" "<<tcp_socket_base->GetPeerPort()<<" "<<bytes<<" "
+    cout<<"Flowid "<<OffsetHost(flow.src_host)<<" "<<OffsetHost(flow.dest_host)<<" "<<GetHostIpAddress(flow.src_host)
+        <<" "<<GetHostIpAddress(flow.dest_host)<<" " <<host_to_tor[flow.src_host]
+        << " " << host_to_tor[flow.dest_host] <<" "<<tcp_socket_base->GetLocalPort()
+        <<" "<<tcp_socket_base->GetPeerPort()<<" "<<flow.nbytes<<" "
         <<start_time<<" "<<snapshot_time
         <<" "<<tcp_socket_base->GetSentPackets()<<" "
         <<tcp_socket_base->GetLostPackets()<<" "
@@ -450,20 +450,20 @@ void Topology::SnapshotFlow(int src_host, int dest_host, int bytes, ApplicationC
         <<tcp_socket_base->GetAckedPackets()<<endl;
 }
 
-void Topology::PrintFlowInfo(int src_host, int dest_host, int bytes, ApplicationContainer& flow_app){
+void Topology::PrintFlowInfo(Flow flow, ApplicationContainer& flow_app){
     assert (flow_app.GetN() == 1);
     Ptr<Application> app = flow_app.Get(0);
     Ptr<TcpSocketBase> tcp_socket_base = GetSocketFromBulkSendApp(app);
-    cout<<"Flowid "<<OffsetHost(src_host)<<" "<<OffsetHost(dest_host)<<" "
-        <<GetHostIpAddress(src_host)<<" "<<GetHostIpAddress(dest_host)<<" "
-        <<host_to_tor[src_host] << " " << host_to_tor[dest_host] <<" "
+    cout<<"Flowid "<<OffsetHost(flow.src_host)<<" "<<OffsetHost(flow.dest_host)<<" "
+        <<GetHostIpAddress(flow.src_host)<<" "<<GetHostIpAddress(flow.dest_host)<<" "
+        <<host_to_tor[flow.src_host] << " " << host_to_tor[flow.dest_host] <<" "
         <<tcp_socket_base->GetLocalPort()<<" "<<tcp_socket_base->GetPeerPort()<<" "
-        <<bytes<<" "<<app->GetStartTime()<<" "<<tcp_socket_base->GetFinishTime()
+        <<flow.nbytes<<" "<<app->GetStartTime()<<" "<<tcp_socket_base->GetFinishTime()
         <<" "<<tcp_socket_base->GetSentPackets()<<" "
         <<tcp_socket_base->GetLostPackets()<<" "
         <<tcp_socket_base->GetRandomlyLostPackets()<<" "
         <<tcp_socket_base->GetAckedPackets()<<endl;
-    PrintFlowPath(src_host, dest_host);
+    PrintFlowPath(flow);
 }
 
 void Topology::PrintIpAddresses(){

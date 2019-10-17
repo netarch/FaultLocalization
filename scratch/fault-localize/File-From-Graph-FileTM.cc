@@ -82,31 +82,21 @@ inline int TruncateBytes(int bytes){
     return (bytes < 10? 0 : bytes);
 }
 
-void echo_progress(double delay_seconds){
-    Simulator::Schedule (Seconds(delay_seconds), &echo_progress, delay_seconds);
+void EchoProgress(double delay_seconds){
+    Simulator::Schedule (Seconds(delay_seconds), &EchoProgress, delay_seconds);
     cout<<"Finished: "<<Simulator::Now().GetSeconds()<<" seconds"<<endl;
 }
 
-void snapshot_flows(Topology* topology, ApplicationContainer** flow_app, double snapshot_period_seconds){
-    Simulator::Schedule (Seconds(snapshot_period_seconds), &snapshot_flows, topology,
+void SnapshotFlows(Topology* topology, ApplicationContainer* flow_app, double snapshot_period_seconds){
+    Simulator::Schedule (Seconds(snapshot_period_seconds), &SnapshotFlows, topology,
                          flow_app, snapshot_period_seconds);
     double curr_time_seconds = Simulator::Now().GetSeconds();
-    for (int i=0;i<topology->total_host;i++){
-        for (int j=0;j<topology->total_host;j++){
-            int bytes = TruncateBytes((int)(topology->server_TM[i][j]));
-            if(bytes > 0 && flow_app[i][j].GetStartTime().GetSeconds() < curr_time_seconds){
-                /*
-                cout<<"Recording snapshot "<<" "<<flow_app[i][j].GetStartTime().GetSeconds()
-                      <<" "<<curr_time_seconds<<" "<<snapshot_period_seconds<<endl;
-                */
-                topology->SnapshotFlow(i, j, bytes, flow_app[i][j], flow_app[i][j].GetStartTime(), Simulator::Now());
-                /*
-                // Print path information for the first time
-                if(flow_app[i][j].GetStartTime().GetSeconds() + snapshot_period_seconds >= curr_time_seconds){
-                    topology->PrintFlowPath(i, j);
-                }
-                */
-            }
+    for (int ff = 0; ff<topology->flows.size(); ff++){
+        int bytes = TruncateBytes(topology->flows[ff].nbytes);
+        if(bytes > 0 && flow_app[ff].GetStartTime().GetSeconds() < curr_time_seconds){
+            cout<<"Recording snapshot "<<" "<<flow_app[ff].GetStartTime().GetSeconds()
+                  <<" "<<curr_time_seconds<<" "<<snapshot_period_seconds<<endl;
+            topology->SnapshotFlow(topology->flows[ff], flow_app[ff], flow_app[ff].GetStartTime(), Simulator::Now());
         }
     }
 }
@@ -149,10 +139,10 @@ int main(int argc, char *argv[]){
     // Define topology
     Topology topology;
     topology.ReadTopologyFromFile(topology_filename);
-    topology.ReadServerTmFromFile(tm_filename);
+    topology.ReadFlowsFromFile(tm_filename);
 
     // Initialize parameters for On/Off application
-    int port = 9; //port for background app
+
     int packet_size_bytes = 1500;
     string data_rate_on_off = on_off_datarate + "Kbps"; 
     string data_rate_on_off_inf = "5Gbps"; 
@@ -160,7 +150,7 @@ int main(int argc, char *argv[]){
 
     // Initialize parameters for PointToPoint protocol
     char dataRate [] = "10Gbps";
-    uint64_t delay_us = 5; //microseconds
+    uint64_t delay_us = 2.5; //microseconds
 
     // Fail some links, by setting loss rates
     double silent_drop_rate = fail_param;
@@ -190,86 +180,107 @@ int main(int argc, char *argv[]){
     }
 
     // Read traffic matrix for the simulation
+    int nflows = topology.flows.size();
     cout<<"Creating application flows .... "<<endl;
-    double max_traffic = 0.0;
-    for(int i=0; i<topology.total_host; i++){
-        //cout<<"row.size(): "<<topology.server_TM[i].size()<<endl;
-        max_traffic = max(max_traffic, *max_element(topology.server_TM[i].begin(),topology.server_TM[i].end()));
-    }
+    int max_traffic = 0;
+    for (int ff=0; ff<nflows; ff++)
+        max_traffic = max(max_traffic, topology.flows[ff].nbytes);
     double traffic_wt = 1.0;
     cout<<"Max Traffic: "<<max_traffic<<", Weighted: "<<max_traffic * traffic_wt<<endl;
-    ApplicationContainer** flow_app = new ApplicationContainer*[topology.total_host];
-    for(int i=0; i<topology.total_host; i++)
-        flow_app[i] = new ApplicationContainer[topology.total_host];
-    int nflows = 0;
+    ApplicationContainer* flow_app = new ApplicationContainer[nflows];
     long long total_bytes=0;
+    int neffective_flows=0;
     int nactive_flows = 0, npassive_flows = 0;
-    for(int i=0; i<topology.total_host; i++){
-        for(int j=0; j<topology.total_host; j++){
-            int bytes = TruncateBytes((int)(topology.server_TM[i][j] * traffic_wt));
-            //cout<<"bytes: "<<bytes<<endl;
-            if(bytes > 0){
-                nflows++;
-                total_bytes += bytes;
-                char *src_ip = topology.GetHostIpAddress(i);
-                char *remote_ip = topology.GetHostIpAddress(j);
 
-                char* bytes_c = new char[50];
-                sprintf(bytes_c,"%d",bytes);
 
-                //cout<<i<<"-->"<<j<<endl;
-                Address remote_ip_address(InetSocketAddress(Ipv4Address(remote_ip), port));
-                int irack = topology.GetHostRack(i);
-                if(on_off_application){
-                    //cout<<"Initializing On Off flow"<<endl;
-                    // Initialize On/Off Application with ip addresss of server
-                    OnOffHelper oo = OnOffHelper("ns3::TcpSocketFactory", remote_ip_address);
-                    //!TODO: Hack, infinite flow size is only 1e9 bytes, set to identify active probe flows
-                    if (bytes >= 1000000000){
-                        //Active Flow
-                        nactive_flows++;
-                        oo.SetAttribute("DataRate",StringValue (data_rate_on_off));      
-                    }
-                    else{
-                        //normal flow, burst at full speed 
-                        npassive_flows++;
-                        oo.SetAttribute("DataRate",StringValue (data_rate_on_off_inf));      
-                    }
-                    oo.SetAttribute("PacketSize",UintegerValue (packet_size_bytes));
-                    //oo.SetAttribute ("Remote", Address(InetSocketAddress(Ipv4Address(remote_ip), port)));
-                    // Simulate flows that never stop by having a very large onTime
-                    oo.SetAttribute("OnTime", StringValue ("ns3::ConstantRandomVariable[Constant=1000000.0]"));
-                    oo.SetAttribute("OffTime", StringValue ("ns3::ConstantRandomVariable[Constant=0.0]"));
-                    oo.SetAttribute("MaxBytes",StringValue (bytes_c));
-                    NodeContainer on_off_container;
-                    on_off_container.Add(rack_hosts[irack].Get(topology.GetHostIndexInRack(i)));
-                    flow_app[i][j] = oo.Install(on_off_container);
-                    //cout << "Finished creating On/Off traffic"<<"\n";
+    int start_port = 9; //port for background app
+    vector<int> last_unused_port; //last unused port
+    for (int i=0; i<topology.total_host; i++){
+        last_unused_port.push_back(start_port);
+    }
+    typedef pair<int, int> PII;
+    map<PII, int> endpoint_last_unused_port; //last_unused_port
+
+
+    for (int ff = 0; ff < nflows; ff++){
+        int src_host = topology.flows[ff].src_host;
+        int dest_host = topology.flows[ff].dest_host;
+        int bytes = TruncateBytes((int)(topology.flows[ff].nbytes * traffic_wt));
+        //cout<<"bytes: "<<bytes<<endl;
+        if(bytes > 0){
+            neffective_flows++;
+            total_bytes += bytes;
+            char *src_ip = topology.GetHostIpAddress(src_host);
+            char *remote_ip = topology.GetHostIpAddress(dest_host);
+
+            char* bytes_c = new char[50];
+            sprintf(bytes_c,"%d",bytes);
+
+            int port;
+            PII endpoints(src_host, dest_host);
+            if (endpoint_last_unused_port.find(endpoints) == endpoint_last_unused_port.end()){
+                endpoint_last_unused_port[endpoints] = start_port;
+            }
+            port = endpoint_last_unused_port[endpoints];
+            last_unused_port[src_host] = max(last_unused_port[src_host], port+1);
+            last_unused_port[dest_host] = max(last_unused_port[dest_host], port+1);
+            endpoint_last_unused_port[endpoints] = port+1;
+
+            //cout<<src_host<<"-->"<<dest_host<<endl;
+            Address remote_ip_address(InetSocketAddress(Ipv4Address(remote_ip), port));
+            int src_rack = topology.GetHostRack(src_host);
+            if(on_off_application){
+                //cout<<"Initializing On Off flow"<<endl;
+                // Initialize On/Off Application with ip addresss of server
+                OnOffHelper oo = OnOffHelper("ns3::TcpSocketFactory", remote_ip_address);
+                //!TODO: Hack, infinite flow size is only 1e9 bytes, set to identify active probe flows
+                if (bytes >= 1000000000){
+                    //Active Flow
+                    nactive_flows++;
+                    oo.SetAttribute("DataRate",StringValue (data_rate_on_off));      
                 }
-                //Initialize BulkSend application
                 else{
-                    BulkSendHelper source ("ns3::TcpSocketFactory", remote_ip_address);
-                    // Set the amount of data to send in bytes. Zero is unlimited.
-                    source.SetAttribute("SendSize",UintegerValue (packet_size_bytes));
-                    source.SetAttribute("MaxBytes",StringValue (bytes_c));
-                    NodeContainer bulk_send_container;
-                    bulk_send_container.Add(rack_hosts[irack].Get(topology.GetHostIndexInRack(i)));
-                    flow_app[i][j] = source.Install(bulk_send_container);
-                    //cout << "Finished creating Bulk send and Packet Sink Applications"<<"\n";
+                    //normal flow, burst at full speed 
+                    npassive_flows++;
+                    oo.SetAttribute("DataRate",StringValue (data_rate_on_off_inf));      
                 }
+                oo.SetAttribute("PacketSize",UintegerValue (packet_size_bytes));
+                //oo.SetAttribute ("Remote", Address(InetSocketAddress(Ipv4Address(remote_ip), port)));
+                // Simulate flows that never stop by having a very large onTime
+                oo.SetAttribute("OnTime", StringValue ("ns3::ConstantRandomVariable[Constant=1000000.0]"));
+                oo.SetAttribute("OffTime", StringValue ("ns3::ConstantRandomVariable[Constant=0.0]"));
+                oo.SetAttribute("MaxBytes",StringValue (bytes_c));
+                NodeContainer on_off_container;
+                on_off_container.Add(rack_hosts[src_rack].Get(topology.GetHostIndexInRack(src_host)));
+                flow_app[ff] = oo.Install(on_off_container);
+                //cout << "Finished creating On/Off traffic"<<"\n";
+            }
+            //Initialize BulkSend application
+            else{
+                BulkSendHelper source ("ns3::TcpSocketFactory", remote_ip_address);
+                // Set the amount of data to send in bytes. Zero is unlimited.
+                source.SetAttribute("SendSize",UintegerValue (packet_size_bytes));
+                source.SetAttribute("MaxBytes",StringValue (bytes_c));
+                NodeContainer bulk_send_container;
+                bulk_send_container.Add(rack_hosts[src_rack].Get(topology.GetHostIndexInRack(src_host)));
+                flow_app[ff] = source.Install(bulk_send_container);
+                //cout << "Finished creating Bulk send and Packet Sink Applications"<<"\n";
             }
         }
     }
-    cout<<"Total Flows in the system: "<<nflows<<" carrying "<<total_bytes<<" bytes"<<endl;
-    cout<<"Active Flows: "<<nactive_flows<<", Passive Flows: "<<npassive_flows<<endl;
+    cout<<"Total Flows in the system: "<<nflows<<" carrying "<<total_bytes<<" bytes, "
+        << " non-zero flows: " << neffective_flows << endl;
+    cout<<"Active Flows: "<<nactive_flows<<", Passive Flows: "<<npassive_flows << endl;
 
     // Create packet sink application on every server
     for(int i=0;i<topology.total_host; i++){
-        PacketSinkHelper sink ("ns3::TcpSocketFactory", InetSocketAddress (Ipv4Address::GetAny (), port));
-        int irack = topology.GetHostRack(i);
-        ApplicationContainer sinkApps = sink.Install(rack_hosts[irack].Get(topology.GetHostIndexInRack(i)));
-        sinkApps.Start(Seconds(0.0));
-        sinkApps.Stop(Seconds(warmup_time_seconds + sim_time_seconds));
+        for (int port=start_port; port <= last_unused_port[i]; port++){
+            PacketSinkHelper sink ("ns3::TcpSocketFactory", InetSocketAddress (Ipv4Address::GetAny (), port));
+            int irack = topology.GetHostRack(i);
+            ApplicationContainer sinkApps = sink.Install(rack_hosts[irack].Get(topology.GetHostIndexInRack(i)));
+            sinkApps.Start(Seconds(0.0));
+            sinkApps.Stop(Seconds(warmup_time_seconds + sim_time_seconds));
+        }
     }
     cout<<"Finished creating applications"<<endl;
 
@@ -288,9 +299,9 @@ int main(int argc, char *argv[]){
     cout << "Finished connecting switches and switches  "<< endl;
 
     // Set functions that need to be periodically invoked in the simulation
-    Simulator::Schedule(Seconds(warmup_time_seconds), &echo_progress, sim_time_seconds/1000.0);
+    Simulator::Schedule(Seconds(warmup_time_seconds), &EchoProgress, sim_time_seconds/100.0);
     double snapshot_period_seconds = sim_time_seconds/20.0;
-    Simulator::Schedule(Seconds(warmup_time_seconds + snapshot_period_seconds), &snapshot_flows,
+    Simulator::Schedule(Seconds(warmup_time_seconds + snapshot_period_seconds), &SnapshotFlows,
                         &topology, flow_app, snapshot_period_seconds);
 
     //Check if ECMP routing is working 
@@ -305,22 +316,20 @@ int main(int argc, char *argv[]){
     cout << "Starting simulation.. "<<"\n";
     nactive_flows = 0;
     npassive_flows = 0;
-    for (int i=0;i<topology.total_host;i++){
-        for (int j=0;j<topology.total_host;j++){
-            int bytes = TruncateBytes((int)(topology.server_TM[i][j] * traffic_wt));
-            if(bytes < 1) continue;
-            //add some small random delay to unsynchronize    
-            if (bytes >= 1000000000){ //infinite length flow
-                //!TODO: Hack, infinite flow size is only 1e9 bytes, set to identify active probe flows
-                flow_app[i][j].Start(Seconds(warmup_time_seconds + rand() * sim_time_seconds * 0.0001/RAND_MAX)); 
-                nactive_flows++;
-            }
-            else{
-                flow_app[i][j].Start(Seconds(warmup_time_seconds + rand() * sim_time_seconds/RAND_MAX));
-                npassive_flows++;
-            }
-            flow_app[i][j].Stop(Seconds(warmup_time_seconds + sim_time_seconds));
+    for (int ff=0; ff<nflows; ff++){
+        int bytes = TruncateBytes((int)(topology.flows[ff].nbytes * traffic_wt));
+        if(bytes < 1) continue;
+        //add some small random delay to unsynchronize    
+        if (bytes >= 1000000000){ //infinite length flow
+            //!TODO: Hack, infinite flow size is only 1e9 bytes, set to identify active probe flows
+            flow_app[ff].Start(Seconds(warmup_time_seconds + rand() * sim_time_seconds * 0.0001/RAND_MAX)); 
+            nactive_flows++;
         }
+        else{
+            flow_app[ff].Start(Seconds(warmup_time_seconds + rand() * sim_time_seconds/RAND_MAX));
+            npassive_flows++;
+        }
+        flow_app[ff].Stop(Seconds(warmup_time_seconds + sim_time_seconds));
     }
     cout<<"Active Flows: "<<nactive_flows<<", Passive Flows: "<<npassive_flows<<endl;
 

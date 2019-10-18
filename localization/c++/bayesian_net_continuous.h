@@ -13,8 +13,9 @@ class BayesianNetContinuous : public Estimator{
     void SetParams(vector<double>& param);
 
     const bool USE_CONDITIONAL = false;
+    const bool APPLY_PRIOR = false;
 private:
-    void ComputeGradients(vector<double> &gradients, vector<double> &loss_rates,
+    int ComputeGradients(vector<double> &gradients, vector<double> &loss_rates,
            double start_time_ms, double max_finish_time_ms, int nopenmp_threads);
 
     inline bool DiscardFlow(Flow *flow, double min_start_time_ms, double max_finish_time_ms);
@@ -31,7 +32,16 @@ private:
     inline long double FlowProbabilityForPath(int weight_good, int weight_bad,
                                                        double path_fail_rate);
     double initial_loss_rate = 1.0e-4;
-    double learning_rate = 0.1;
+    double learning_rate = 5.0e-8;
+    double moving_average_weight = 0.95;
+    double nav_momentum = 0.9;
+    double decay_rate = 0.1;
+
+    /* For prior computations */
+    inline long double ComputeLogPrior(double loss_rate);
+    inline long double ComputeLogPriorGradient(double loss_rate);
+    double loss_rate_mid = 1.0e-4;
+    double sigmoid_constant = 1.0e4;
 
 };
 #endif

@@ -36,6 +36,7 @@ public:
     vector<vector<int> >* GetFlowsByLinkId(double max_finish_time_ms, int nopenmp_threads);
     void GetFailedLinkIds(Hypothesis &failed_links_set);
     void FilterFlowsForConditional(double max_finish_time_ms, int nopenmp_threads);
+    void FilterFlowsBeforeTime(double finish_time_ms, int nopenmp_threads);
 
     int GetLinkId(Link link);
     void AddChunkFlows(vector<Flow*> &chunk_flows);

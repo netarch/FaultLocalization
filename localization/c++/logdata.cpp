@@ -76,6 +76,29 @@ void LogData::GetReducedData(unordered_map<Link, Link>& reduced_graph_map,
     }
 }
 
+void LogData::FilterFlowsBeforeTime(double finish_time_ms, int nopenmp_threads){
+    auto start_filter_time = chrono::high_resolution_clock::now();
+    vector<Flow*> filtered_flows[nopenmp_threads];
+    #pragma omp parallel for num_threads(nopenmp_threads)
+    for (int ff=0; ff<flows.size(); ff++){
+        int thread_num = omp_get_thread_num();
+        Flow* f = flows[ff];
+        if (f->AnySnapshotBefore(finish_time_ms)){
+            filtered_flows[thread_num].push_back(f);
+        }
+        else{
+            delete(f);
+        }
+    }
+    flows.clear();
+    for (int t=0; t<nopenmp_threads; t++){
+        flows.insert(flows.end(), filtered_flows[t].begin(), filtered_flows[t].end());
+    }
+    if constexpr (VERBOSE) {
+        cout << "Filtered flows for analysis before " << finish_time_ms << " (ms) simtime in "
+             << GetTimeSinceMilliSeconds(start_filter_time) << " seconds" << endl;
+    }
+}
 
 void LogData::FilterFlowsForConditional(double max_finish_time_ms, int nopenmp_threads){
     auto start_filter_time = chrono::high_resolution_clock::now();

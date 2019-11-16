@@ -32,7 +32,7 @@ private:
     inline long double FlowProbabilityForPath(int weight_good, int weight_bad,
                                                        double path_fail_rate);
     double initial_loss_rate = 1.0e-4;
-    double learning_rate = 5.0e-8;
+    double learning_rate = 5e-8;
     double moving_average_weight = 0.95;
     double nav_momentum = 0.9;
     double decay_rate = 0.1;

@@ -13,7 +13,7 @@ class BayesianNet : public Estimator{
     // For printing purposes
     const int N_MAX_K_LIKELIHOODS = 20;
     const bool USE_CONDITIONAL = false;
-    const double PRIOR = -10.0;
+    double PRIOR = -10.0;
     bool REDUCED_ANALYSIS = false;
     void SetReducedAnalysis(bool val) { REDUCED_ANALYSIS = val; }
     void SetNumReducedLinksMap(unordered_map<int, int>* num_reduced_links_map_) {
@@ -59,6 +59,11 @@ private:
     double ComputeLogLikelihood(Hypothesis* hypothesis, Hypothesis* base_hypothesis,
                    double base_likelihood, double min_start_time_ms, double max_finish_time_ms,
                    vector<int> &relevant_flows, int nopenmp_threads=1);
+
+    double ComputeLogLikelihood2(Hypothesis* hypothesis, Hypothesis* base_hypothesis,
+                   double base_likelihood, double min_start_time_ms, double max_finish_time_ms,
+                   vector<int> &relevant_flows, int nopenmp_threads=1);
+
 
     // computes relevant_flows and calls the other version
     double ComputeLogLikelihood(Hypothesis* hypothesis, Hypothesis* base_hypothesis,
@@ -108,10 +113,13 @@ private:
               double min_start_time_ms, double max_finish_time_ms, int nopenmp_threads);
 
     // Noise parameters
-    double p1 = 1.0-3.0e-3, p2 = 3.0e-4;
+    double p1 = 1.0-5.0e-3, p2 = 2.0e-4;
     //double p1 = 1.0-4.0e-3, p2 = 1.5e-4;
     // For reduced analysis
     unordered_map<int, int>* num_reduced_links_map;
+
+    // For printing scores
+    vector<double> drops_per_link, flows_per_link;
 };
 
 #endif

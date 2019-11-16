@@ -61,7 +61,7 @@ void Topology::ReadFlowsFromFile(string tm_filename){
             stringstream ss(line);
             int src_host, dest_host, nbytes;
             ss >> src_host >> dest_host >> nbytes;
-            cout << "Flow " << src_host << " " <<dest_host << " " << nbytes  << endl;
+            //cout << "Flow " << src_host << " " <<dest_host << " " << nbytes  << endl;
             flows.push_back(Flow(src_host, dest_host, nbytes));
         }
         myfile.close();
@@ -250,8 +250,8 @@ double Topology::GetDropRateLinkUniform(double min_drop_rate, double max_drop_ra
 
 double Topology::GetDropRateFailedLink(){
     //if (drand48() <= 0.5){
-        double min_drop_rate_failed_link = 0.001;
-        double max_drop_rate_failed_link = 0.010;
+        double min_drop_rate_failed_link = 0.002;
+        double max_drop_rate_failed_link = 0.020;
         return GetDropRateLinkUniform(min_drop_rate_failed_link, max_drop_rate_failed_link);
     //}
     //else{

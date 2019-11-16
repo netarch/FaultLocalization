@@ -38,7 +38,12 @@ PDD DoubleO7::ComputeVotes(vector<Flow*>& bad_flows, vector<double>& votes,
             (problematic_link_ids.count(flow->first_link_id) == 0) and
             (problematic_link_ids.count(flow->last_link_id) == 0)){
             int flow_vote = (int) (flow->LabelWeightsFunc(max_finish_time_ms).second > 0);
-            assert(flow_vote == 1);
+            if (FILTER_NOISY_DROPS){
+                flow_vote = (int) (flow->LabelWeightsFunc(max_finish_time_ms).second > 1);
+            }
+            else{
+                assert(flow_vote == 1);
+            }
             int total_path_length = path_taken->size() + 2;
             double vote = ((double)flow_vote) / total_path_length;
             votes[flow->first_link_id] += vote;

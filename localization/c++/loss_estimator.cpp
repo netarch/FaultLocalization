@@ -20,7 +20,9 @@ int main(int argc, char *argv[]){
     //GetDataFromLogFileDistributed(filename, nchunks, &data, nchunks);
     Hypothesis failed_links_set;
     data.GetFailedLinkIds(failed_links_set);
-    BayesianNetContinuous estimator;
+    BayesianNet estimator;
+    vector<double> params = {1.0-5.0e-3, 2.0e-4};
+    estimator.SetParams(params);
     estimator.SetLogData(&data, max_finish_time_ms, nopenmp_threads);
     Hypothesis estimator_hypothesis;
     estimator.LocalizeFailures(min_start_time_ms, max_finish_time_ms,

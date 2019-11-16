@@ -181,6 +181,7 @@ void GetDataFromLogFile(string filename, LogData *result){
         }
     }
     result->AddChunkFlows(chunk_flows);
+    cout << "Num flows " << chunk_flows.size() << endl;
     if constexpr (VERBOSE){
         cout<< "Read log file in "<<GetTimeSinceMilliSeconds(start_time)
             << " seconds, numlines " << nlines << endl;

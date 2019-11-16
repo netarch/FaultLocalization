@@ -27,7 +27,7 @@ void GetPrecisionRecallTrendFile(string filename, double min_start_time_ms,
                                    estimator_hypothesis, nopenmp_threads);
         PDD precision_recall = GetPrecisionRecall(failed_links_set, estimator_hypothesis);
         result.push_back(precision_recall);
-        cout << "Finish time " << finish_time_ms << " Output Hypothesis: "
+        cout << filename << " Finish time " << finish_time_ms << " Output Hypothesis: "
              << data->IdsToLinks(estimator_hypothesis)<< " precsion_recall "
              << precision_recall.first << " " << precision_recall.second<<endl;
     }
@@ -45,8 +45,10 @@ void GetPrecisionRecallTrendFiles(double min_start_time_ms, double max_finish_ti
     }
     mutex lock;
     int nfiles = filenames.size();
-    int nthreads1 = min({8, nfiles, nopenmp_threads});
-    int nthreads2 = nopenmp_threads/nthreads1;
+    int nthreads1 = min({24, nfiles, nopenmp_threads});
+    int nthreads2 = 1;
+    //int nthreads1 = 1;
+    //int nthreads2 = nopenmp_threads;
     cout << nthreads1 << " " << nthreads2 << endl;
     #pragma omp parallel for num_threads(nthreads1)
     for (int ff=0; ff<filenames.size(); ff++){
@@ -103,10 +105,11 @@ void GetPrecisionRecallParamsFiles(double min_start_time_ms, double max_finish_t
     }
     mutex lock;
     int nfiles = filenames.size();
-    int nthreads1 = min({1, nfiles, nopenmp_threads});
-    int nthreads2 = nopenmp_threads/nthreads1;
+    int nthreads1 = min({16, nfiles, nopenmp_threads});
+    int nthreads2 = 1;
+    //int nthreads1 = 1, nthreads2 = nopenmp_threads;
     cout << nthreads1 << " " << nthreads2 << endl;
-    //#pragma omp parallel for num_threads(nthreads1) if (nthreads1 > 1)
+    #pragma omp parallel for num_threads(nthreads1)
     for (int ff=0; ff<filenames.size(); ff++){
         string filename = filenames[ff];
         vector<PDD> intermediate_result;

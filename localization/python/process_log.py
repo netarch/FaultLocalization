@@ -131,7 +131,7 @@ def process_logfile(filename, min_start_time_ms, max_start_time_ms, outfilename)
                     flows[flow_tuple].add_snapshot(snapshot_time_ms, packets_acked, lost_packets, randomly_lost_packets)
                     curr_flow = None
                 else:
-                    print("New Flow_tuple", flow_tuple)
+                    #print("New Flow_tuple", flow_tuple)
                     #Create a new flow entry
                     curr_flow = Flow(src, srcrack, srcip, srcport, dest, destrack, destip, destport, nbytes, start_time_ms)
                     curr_flow.add_snapshot(snapshot_time_ms, packets_acked, lost_packets, randomly_lost_packets)

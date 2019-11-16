@@ -271,6 +271,7 @@ long double Flow::GetCachedIntermediateValue(){
 }
 
 bool Flow::DiscardFlow(){
-    return false;
+    return (GetLatestPacketsSent() < 100);
+    //return false;
     //return (src < 256 && dest <256);
 }

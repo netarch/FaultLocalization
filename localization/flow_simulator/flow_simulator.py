@@ -52,8 +52,8 @@ fail_prob = dict()
 
 for edge in edges:
     if edge  in failed_links:
-        #fail_prob[edge] = random.uniform(0.001, 0.010)
-        fail_prob[edge] = 0.004
+        fail_prob[edge] = random.uniform(0.003, 0.030)
+        #fail_prob[edge] = 0.004
     else:
         fail_prob[edge] = random.uniform(0.0000, 0.0001)
 
@@ -72,7 +72,7 @@ servers_per_rack = int(nservers/nracks)
 print("Num racks", nracks, "Servers per rack", servers_per_rack)
 
 #nflows = random.randint(200000, 400000)
-nflows = 1000 * nservers
+nflows = 400 * nservers
 #nflows = 250
 servers_busy = []
 servers_idle = []

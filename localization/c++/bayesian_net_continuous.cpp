@@ -72,13 +72,21 @@ void BayesianNetContinuous::LocalizeFailures(double min_start_time_ms, double ma
     vector<double> loss_rates(nlinks, initial_loss_rate);
     // For Nesterov's accelerated gradient
     vector<double> loss_rates_nav(nlinks, initial_loss_rate);
+    /* Imperfectly mimic initialization by output of discrete version */
+    for (int link_id=0; link_id < nlinks; link_id++){
+        if (data->failed_links.count(data->inverse_links[link_id]) > 0){
+            loss_rates[link_id] = 1.0e-3;
+            loss_rates_nav[link_id] = 1.0e-3;
+        }
+    }
     vector<double> gradients(nlinks, 0.0);
     vector<double> moving_gradients(nlinks, 0.0);
     long double log_likelihood=-1.0e9, delta = 1.0e9;
-    int iter=0, niters = 5000;
+    int iter=0, niters = 2000;
     Hypothesis failed_links_set;
     data->GetFailedLinkIds(failed_links_set);
-    while (++iter < niters and delta >= -1.0e3){
+    while (++iter < niters and delta >= -1.0e2){
+        auto start_iter_time = chrono::high_resolution_clock::now();
         delta = -log_likelihood;
         log_likelihood = ComputeLogLikelihood(loss_rates, min_start_time_ms,
                                             max_finish_time_ms, nopenmp_threads);
@@ -98,7 +106,7 @@ void BayesianNetContinuous::LocalizeFailures(double min_start_time_ms, double ma
             // restrict loss_rate in the range [1.0e-7, 0.9]
             loss_rates[link_id] = min(0.9, loss_rates[link_id]);
             loss_rates[link_id] = max(1.0e-7, loss_rates[link_id]);
-            if (loss_rates[link_id]>2.0e-3){
+            if (loss_rates[link_id]>0.9e-3){
                 localized_links.insert(link_id);
             }
         }
@@ -106,8 +114,8 @@ void BayesianNetContinuous::LocalizeFailures(double min_start_time_ms, double ma
             PDD precision_recall = GetPrecisionRecall(failed_links_set, localized_links);
             cout << "Iteration " << iter << " log likelihood " << log_likelihood 
                  << " delta " << delta << " learning rate " << decayed_learning_rate
-                 << " hypothesis "<< data->IdsToLinks(localized_links)
-                 << " pr " << precision_recall << endl;
+                 << " hypothesis "<< data->IdsToLinks(localized_links) << " pr "
+                 << precision_recall << " in time " << GetTimeSinceMilliSeconds(start_iter_time) << endl;
         }
     }
     for (int link_id: localized_links){

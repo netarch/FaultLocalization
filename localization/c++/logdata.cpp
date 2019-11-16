@@ -136,6 +136,7 @@ vector<vector<int> >* LogData::GetForwardFlowsByLinkId(double max_finish_time_ms
     #pragma omp parallel num_threads(nopenmp_threads)
     {
         int thread_num = omp_get_thread_num();
+        assert (thread_num < nopenmp_threads);
         int start = min((int)flows.size(), thread_num * chunk_size);
         int end = min((int)flows.size(), (thread_num+1) * chunk_size);
         assert(start <= end);
@@ -158,6 +159,7 @@ vector<vector<int> >* LogData::GetForwardFlowsByLinkId(double max_finish_time_ms
     #pragma omp parallel for num_threads(nopenmp_threads)
     for (int link_id=0; link_id<nlinks; link_id++){
         // use sizes as offsets
+        assert (omp_get_thread_num() < nopenmp_threads);
         int curr_bin_size = sizes[0][link_id], last_bin_size;
         sizes[0][link_id] = 0;
         for (int thread_num=1; thread_num<nopenmp_threads; thread_num++){
@@ -175,6 +177,7 @@ vector<vector<int> >* LogData::GetForwardFlowsByLinkId(double max_finish_time_ms
     int nthreads = min(12, nopenmp_threads);
     #pragma omp parallel for num_threads(nthreads)
     for(int link_id=0; link_id<nlinks; link_id++){
+        assert (omp_get_thread_num() < nthreads);
         (*forward_flows_by_link_id)[link_id].resize(final_sizes[link_id]);
     }
     if constexpr (VERBOSE){
@@ -184,6 +187,7 @@ vector<vector<int> >* LogData::GetForwardFlowsByLinkId(double max_finish_time_ms
     #pragma omp parallel num_threads(nopenmp_threads)
     {
         int thread_num = omp_get_thread_num();
+        assert (thread_num < nopenmp_threads);
         int start = min((int)flows.size(), thread_num * chunk_size);
         int end = min((int)flows.size(), (thread_num+1) * chunk_size);
         auto &offsets = sizes[thread_num];

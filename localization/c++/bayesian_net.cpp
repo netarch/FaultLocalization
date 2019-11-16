@@ -80,7 +80,7 @@ void BayesianNet::SearchHypotheses(double min_start_time_ms, double max_finish_t
     while (nfails <= MAX_FAILS){
         auto start_stage_time = chrono::high_resolution_clock::now();
         vector<pair<double, Hypothesis*> > result;
-        if (nfails == 1) {
+        if (nfails == 1 and false) {
             ComputeSingleLinkLogLikelihood(result, min_start_time_ms,
                                        max_finish_time_ms, nopenmp_threads);
         }
@@ -119,6 +119,14 @@ void BayesianNet::SearchHypotheses(double min_start_time_ms, double max_finish_t
                 candidates.push_back(link_id);
                 if constexpr (VERBOSE){
                     cout << "Candidate " << data->IdsToLinks(*h) << " " << result[i].first << endl;
+                }
+            }
+            if constexpr (VERBOSE) {
+                for (auto [link, failparam]: data->failed_links){
+                    int link_id = data->links_to_ids[link];
+                    if (find(candidates.begin(), candidates.end(), link_id) == candidates.end()){
+                        cout << "Link " << link << " absent from initial candidates" << endl;
+                    }
                 }
             }
             //SortCandidatesWrtNumRelevantFlows(candidates);
@@ -186,10 +194,16 @@ void BayesianNet::LocalizeFailures(double min_start_time_ms, double max_finish_t
         Hypothesis* no_failure_hypothesis = new Hypothesis();
         double likelihood_correct_hypothesis = ComputeLogLikelihood(&correct_hypothesis,
                              no_failure_hypothesis, 0.0, min_start_time_ms, max_finish_time_ms);
+        for (int link_id: localized_links){
+            Hypothesis single_link_hypothesis = {link_id}; 
+            double l = ComputeLogLikelihood(&single_link_hypothesis, no_failure_hypothesis, 0.0,
+                                  min_start_time_ms, max_finish_time_ms, nopenmp_threads);
+            cout << "Score of predicted failed link " << data->inverse_links[link_id] << " score " << drops_per_link[link_id] << " E[nflows] " << flows_per_link[link_id] << " likelihood " << l << endl;
+        }
         cout << "Correct Hypothesis " << data->IdsToLinks(correct_hypothesis)
              << " likelihood " << likelihood_correct_hypothesis << endl;
-        VerifyLikelihoodComputation(all_hypothesis, min_start_time_ms,
-                                    max_finish_time_ms, nopenmp_threads);
+        //VerifyLikelihoodComputation(all_hypothesis, min_start_time_ms,
+        //                            max_finish_time_ms, nopenmp_threads);
         delete(no_failure_hypothesis);
     }
     CleanUpAfterLocalization(all_hypothesis);
@@ -464,8 +478,8 @@ void BayesianNet::PrintScores(double min_start_time_ms, double max_finish_time_m
             }
         }
     }
-    vector<double> scores(nlinks, 0.0);
-    vector<double> nflows(nlinks, 0.0);
+    drops_per_link.resize(nlinks, 0.0);
+    flows_per_link.resize(nlinks, 0.0);
 
     auto GetScore =
         [&scores1, &scores2, nopenmp_threads] (int link_id){
@@ -480,25 +494,25 @@ void BayesianNet::PrintScores(double min_start_time_ms, double max_finish_time_m
     for (int link_id=0; link_id<nlinks; link_id++){
         //!TODO: Try changing likelihoods 2d array from (threads X links) to (links X threads)
         auto [score2, score1] = GetScore(link_id);
-        scores[link_id] = score2/score1;
+        drops_per_link[link_id] = score2/score1;
         double f = 0.0;
         for(int t=0; t<nopenmp_threads; t++){
             f += nflows_threads[t][link_id];
         }
-        nflows[link_id] = f;
+        flows_per_link[link_id] = f;
     }
-    vector<int> idx(scores.size());
+    vector<int> idx(drops_per_link.size());
     iota(idx.begin(), idx.end(), 0);
-    sort(idx.begin(), idx.end(), [&scores](int i1, int i2) {return (abs(scores[i1] - scores[i2]) < 1.0e-6? false: (scores[i1] < scores[i2]));});
-    for (int ii = max(0, (int)idx.size()-20); ii<idx.size(); ii++){
+    sort(idx.begin(), idx.end(), [this](int i1, int i2) {return (abs(drops_per_link[i1] - drops_per_link[i2]) < 1.0e-6? false: (drops_per_link[i1] < drops_per_link[i2]));});
+    for (int ii = max(0, (int)idx.size()-50); ii<idx.size(); ii++){
         int link_id = idx[ii];
         auto [score2, score1] = GetScore(link_id);
-        cout << "Link " << data->inverse_links[link_id] << " " << score2 << " " << score1 << " " << score2/score1 << " E[nflows] " << nflows[link_id] << endl;
+        cout << "Link " << data->inverse_links[link_id] << " " << score2 << " " << score1 << " " << drops_per_link[link_id] << " E[nflows] " << flows_per_link[link_id] << endl;
     }
     for (auto [link, failparam]: data->failed_links){
         int link_id = data->links_to_ids[link];
         auto [score2, score1] = GetScore(link_id);
-        cout << "Failed Link " << link << " " << score2 << " " << score1 << " " << scores[link_id] << " E[nflows] " << nflows[link_id] << endl;
+        cout << "Failed Link " << link << " " << score2 << " " << score1 << " " << drops_per_link[link_id] << " E[nflows] " << flows_per_link[link_id] << endl;
     }
 }
 
@@ -560,8 +574,7 @@ void BayesianNet::ComputeInitialLikelihoods(vector<double> &initial_likelihoods,
         likelihoods[thread_num][flow->first_link_id] += log_likelihood;
         likelihoods[thread_num][flow->last_link_id] += log_likelihood;
     }
-    initial_likelihoods.resize(nlinks);
-    fill(initial_likelihoods.begin(), initial_likelihoods.end(), 0.0);
+    initial_likelihoods.resize(nlinks, 0.0);
     #pragma omp parallel for num_threads(nopenmp_threads)
     for (int link_id=0; link_id<nlinks; link_id++){
         //!TODO: Try changing likelihoods 2d array from (threads X links) to (links X threads)
@@ -720,6 +733,8 @@ double BayesianNet::ComputeLogLikelihood(Hypothesis* hypothesis, Hypothesis* bas
                                          double max_finish_time_ms, int nopenmp_threads){
     vector<int> relevant_flows;
     GetRelevantFlows(hypothesis, base_hypothesis, min_start_time_ms, max_finish_time_ms, relevant_flows);
+    //cout << " Relevant flows for ComputeLogLikelihood " << relevant_flows.size() 
+    //     << " Num flows "<< data->flows.size() << " relevant flows "<< (*flows_by_link_id)[*hypothesis->begin()].size() << endl;  
     return ComputeLogLikelihood(hypothesis, base_hypothesis, base_likelihood,
              min_start_time_ms, max_finish_time_ms, relevant_flows, nopenmp_threads);
 }
@@ -780,6 +795,64 @@ array<int, 6> BayesianNet::ComputeFlowPathCountersUnreduced(Flow *flow, Hypothes
     //!TODO: implement REVERSE_PATH case
     if constexpr (CONSIDER_REVERSE_PATH){ assert (false); }
     return {npaths, naffected, naffected_base, npaths_r, naffected_r, naffected_base_r};
+}
+
+double BayesianNet::ComputeLogLikelihood2(Hypothesis* hypothesis, Hypothesis* base_hypothesis,
+                    double base_likelihood, double min_start_time_ms, double max_finish_time_ms,
+                    vector<int> &relevant_flows, int nopenmp_threads){
+    vector<double> log_likelihoods_threads(nopenmp_threads, 0.0);
+    #pragma omp parallel for num_threads(nopenmp_threads) if(nopenmp_threads > 1)
+    for (int ii=0; ii<relevant_flows.size(); ii++){
+        Flow *flow = data->flows[relevant_flows[ii]];
+        double log_likelihood = 0.0;
+        PII weight = flow->LabelWeightsFunc(max_finish_time_ms);
+        if (weight.first == 0 and weight.second == 0) continue;
+        //!TODO Reduced Analaysis
+        assert (!REDUCED_ANALYSIS);
+        //!TODO: implement REVERSE_PATH case
+        if constexpr (CONSIDER_REVERSE_PATH){ assert (false); }
+        vector<Path*>* flow_paths = flow->GetPaths(max_finish_time_ms);
+        assert (flow_paths != NULL);
+        int npaths = flow_paths->size();
+        long double ll = 0.0, ll_base = 0.0;
+        long double flow_dir = pow((long double)1.0 - p1, weight.second) * pow ((long double) p1, weight.first);
+        flow_dir /= pow((long double)p2, weight.second) * pow ((long double)1.0 - p2, weight.first);
+        for (Path* path: *flow_paths){
+            int nfailed = (hypothesis->count(flow->first_link_id) > 0);
+            nfailed += (hypothesis->count(flow->last_link_id) > 0);
+            int nfailed_base = (base_hypothesis->count(flow->first_link_id) > 0);
+            nfailed_base += (base_hypothesis->count(flow->last_link_id) > 0);
+            for (int link_id: *path){
+                nfailed += (hypothesis->count(link_id) > 0);
+                nfailed_base += (base_hypothesis->count(link_id) > 0);
+            }
+            /*
+            if (flow_dir >= 1.0){
+                double p_bad = (nfailed > 0 ? 1.0 - p1 : p2);
+                double p_bad_base = (nfailed_base > 0 ? 1.0 - p1 : p2);
+                ll += (pow((long double)p_bad, weight.second) * pow((long double)(1.0 - p_bad), weight.first))/npaths;
+                ll_base += (pow((long double)p_bad_base, weight.second) * pow((long double)(1.0 - p_bad_base), weight.first))/npaths;
+            }
+            else{
+                long double no_failure_score = pow((long double)p2, weight.second) * pow ((long double)1.0 - p2, weight.first);
+                long double one_failure_score = flow_dir * no_failure_score;
+                ll += no_failure_score * pow((long double) flow_dir, nfailed)/npaths;
+                ll_base += no_failure_score * pow((long double) flow_dir, nfailed_base)/npaths;
+                //ll += (nfailed * (one_failure_score  - no_failure_score) + no_failure_score)/npaths;
+                //ll_base += (nfailed_base * (one_failure_score  - no_failure_score) + no_failure_score)/npaths;
+            }
+            */
+            double p_bad = 1.0 - (pow(p1, nfailed) * pow(1.0 - p2, (path->size() + 2 - nfailed)));
+            double p_bad_base = 1.0 - (pow(p1, nfailed_base) * pow(1.0 - p2, (path->size() + 2 - nfailed_base)));
+            ll += (pow((long double)p_bad, weight.second) * pow((long double)(1.0 - p_bad), weight.first))/npaths;
+            ll_base += (pow((long double)p_bad_base, weight.second) * pow((long double)(1.0 - p_bad_base), weight.first))/npaths;
+        }
+        log_likelihoods_threads[omp_get_thread_num()] += (log(ll) - log(ll_base));
+    }
+    double log_likelihood = max(-1.0e9, accumulate(log_likelihoods_threads.begin(),
+                                         log_likelihoods_threads.end(), 0.0, plus<double>()));
+    //cout << *hypothesis << " " << log_likelihood + hypothesis->size() * PRIOR << endl;
+    return base_likelihood + log_likelihood + ComputeLogPrior(hypothesis) - ComputeLogPrior(base_hypothesis);
 }
 
 double BayesianNet::ComputeLogLikelihood(Hypothesis* hypothesis, Hypothesis* base_hypothesis,

@@ -1,8 +1,8 @@
 CC = g++
 CFLAGS = -std=c++17 -O3 -fopenmp -ffast-math -w -Wall -Wno-deprecated -Wno-unused-variable
 #CFLAGS = -g -std=c++17 -fopenmp -ffast-math -w -Wall -Wno-deprecated -Wno-unused-variable
-LIBS = -L/home/vharsh2/ns-allinone-3.24.1/ns-3.24.1/localization/c++/sparsehash/libs
-INCLUDE = -I/home/vharsh2/ns-allinone-3.24.1/ns-3.24.1/localization/c++/sparsehash/include
+LIBS = -Lsparsehash/libs
+INCLUDE = -Isparsehash/include
 
 OBJS = flow.o logdata.o bayesian_net_continuous.o bayesian_net.o doubleO7.o score.o utils.o
 

@@ -12,6 +12,8 @@
 #include <unistd.h> // for close
 #include <pthread.h>
 #include <vector>
+/* Flock headers */
+#include <flow.h>
 
 char collector_ip[] = "192.168.100.101";
 int collector_port = 6000;

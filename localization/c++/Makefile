@@ -1,12 +1,15 @@
 CC = g++
 CFLAGS = -std=c++17 -O3 -fopenmp -ffast-math -w -Wall -Wno-deprecated -Wno-unused-variable
 #CFLAGS = -g -std=c++17 -fopenmp -ffast-math -w -Wall -Wno-deprecated -Wno-unused-variable
-LIBS = -Lsparsehash/libs
+LIBDIR = -Lsparsehash/libs
 INCLUDE = -Isparsehash/include
 
 OBJS = flow.o logdata.o bayesian_net_continuous.o bayesian_net.o doubleO7.o score.o utils.o
 
 all: loss_estimator loss_estimator_trend reduced_estimator
+
+libflock.a: $(OBJS)
+	ar crf libflock.a $(OBJS)
 
 reduced_estimator: $(OBJS) reduced_estimator.cpp
 	$(CC) $(INCLUDE) $(CFLAGS) $(OBJS) -o reduced_estimator reduced_estimator.cpp
@@ -30,15 +33,15 @@ common_testing_system.o: common_testing_system.cpp common_testing_system.h utils
 	$(CC) $(INCLUDE) $(CFLAGS) -c common_testing_system.cpp
 
 doubleO7.o: doubleO7.cpp doubleO7.h estimator.h flow.o utils.o logdata.o
-	$(CC) $(INCLUDE) $(CFLAGS) -c doubleO7.cpp $(LIBS) 
+	$(CC) $(INCLUDE) $(CFLAGS) -c doubleO7.cpp $(LIBDIR) 
 
 score.o: score.cpp score.h estimator.h flow.o utils.o logdata.o
-	$(CC) $(INCLUDE) $(CFLAGS) -c score.cpp $(LIBS) 
+	$(CC) $(INCLUDE) $(CFLAGS) -c score.cpp $(LIBDIR) 
 
 bayesian_net.o: bayesian_net.cpp bayesian_net.h estimator.h flow.o utils.o logdata.o
-	$(CC) $(INCLUDE) $(CFLAGS) -c bayesian_net.cpp $(LIBS) 
+	$(CC) $(INCLUDE) $(CFLAGS) -c bayesian_net.cpp $(LIBDIR) 
 
 bayesian_net_continuous.o: bayesian_net_continuous.cpp bayesian_net_continuous.h estimator.h flow.o utils.o logdata.o
-	$(CC) $(INCLUDE) $(CFLAGS) -c bayesian_net_continuous.cpp $(LIBS) 
+	$(CC) $(INCLUDE) $(CFLAGS) -c bayesian_net_continuous.cpp $(LIBDIR) 
 clean:	
-	rm -f *.o loss_estimator reduced_estimator loss_estimator_trend
+	rm -f *.o loss_estimator reduced_estimator loss_estimator_trend libflock.a

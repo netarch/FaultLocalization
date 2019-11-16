@@ -1,0 +1,11 @@
+PF_Ring based dumping analysis tool: userland/examples/pfflowdump
+
+To build and install, just run:
+$ make & sudo make install
+
+Then, run the following command:
+$ sudo pfflowdump -i eth1 -l 80 -m -v 1 -f "tcp port 5001"
+(only IPv4 TCP is supported currently, and change interface -i and BPF filter -f as needed)
+
+Note that, the pf_ring kernel module may need to be installed first:
+$ cd kernel & sudo insmod pf_ring.ko

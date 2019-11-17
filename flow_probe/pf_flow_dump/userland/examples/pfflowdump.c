@@ -435,6 +435,16 @@ static char *intoa(unsigned int addr) {
   return(_intoa(addr, buf, sizeof(buf)));
 }
 
+u_int32_t CalcDeltaTimeval(struct timeval ts_start, struct timeval ts_end) {
+  // Caller should guarantee ts_end is later than ts_start.
+  if (ts_start.tv_sec == ts_end.tv_sec) {
+    return ts_end.tv_usec - ts_start.tv_usec;
+  } else {
+    return (ts_end.tv_sec - ts_start.tv_sec - 1) * 1000000 +
+        (ts_end.tv_usec + 1000000 - ts_start.tv_usec);
+  }
+}
+
 void process_packet(const struct pfring_pkthdr *h, const u_char *p, u_int8_t dump_match) {
   memset((void *) &h->extended_hdr.parsed_pkt, 0, sizeof(struct pkt_parsing_info));
   pfring_parse_pkt((u_char *) p, (struct pfring_pkthdr *) h, 5, 0, 1);
@@ -483,11 +493,15 @@ void process_packet(const struct pfring_pkthdr *h, const u_char *p, u_int8_t dum
     entry->out_packets = 0;
     entry->retrans_bytes = 0;
     entry->retrans_packets = 0;
+    entry->max_rtt_usec = 0;
+    entry->min_rtt_usec = 10000000;
     entry->ts_first = h->ts;
     entry->ts_last = h->ts;
     entry->max_seq_no = h->extended_hdr.parsed_pkt.tcp.seq_num;
     entry->prev = prev;
     entry->next = NULL;
+    entry->seq_no_in_flight_head = NULL;
+    entry->seq_no_in_flight_tail = NULL;
     
     if (prev != NULL) {
       prev->next = entry;
@@ -499,33 +513,82 @@ void process_packet(const struct pfring_pkthdr *h, const u_char *p, u_int8_t dum
   if (!h->extended_hdr.rx_direction &&
       h->len > h->extended_hdr.parsed_pkt.offset.payload_offset) {
     // Only data packet is considered.
-    entry->out_bytes +=
-        (h->len - h->extended_hdr.parsed_pkt.offset.payload_offset);
+    u_int32_t payload_length =
+        h->len - h->extended_hdr.parsed_pkt.offset.payload_offset;
+    entry->out_bytes += payload_length;
     entry->out_packets += 1;
     entry->ts_last = h->ts;
     if (entry->max_seq_no > h->extended_hdr.parsed_pkt.tcp.seq_num) {
-      entry->retrans_bytes +=
-          (h->len - h->extended_hdr.parsed_pkt.offset.payload_offset);
+      entry->retrans_bytes += payload_length;
       entry->retrans_packets += 1;
+      // TODO: Handle retransmission and sack.
     } else {
       entry->max_seq_no = h->extended_hdr.parsed_pkt.tcp.seq_num;
+
+      struct SeqNoInFlight* seq_no_in_flight =
+          (struct SeqNoInFlight*)malloc(sizeof(struct SeqNoInFlight));
+      seq_no_in_flight->pending_ack_no =
+          h->extended_hdr.parsed_pkt.tcp.seq_num + payload_length;
+      seq_no_in_flight->ts_sent = h->ts;
+      seq_no_in_flight->next = NULL;
+      if (entry->seq_no_in_flight_head == NULL) {
+        entry->seq_no_in_flight_head = seq_no_in_flight;
+      } else {
+        entry->seq_no_in_flight_tail->next = seq_no_in_flight;
+      }
+      entry->seq_no_in_flight_tail = seq_no_in_flight;
+    }
+  } else if (h->extended_hdr.rx_direction) {
+    struct SeqNoInFlight* seq_no_in_flight = entry->seq_no_in_flight_head;
+    while (seq_no_in_flight != NULL) {
+      if (h->extended_hdr.parsed_pkt.tcp.ack_num <
+          seq_no_in_flight->pending_ack_no) {
+        entry->seq_no_in_flight_head = seq_no_in_flight;
+        break;
+      } else {
+        if (h->extended_hdr.parsed_pkt.tcp.ack_num ==
+            seq_no_in_flight->pending_ack_no) {
+          u_int32_t new_rtt =
+              CalcDeltaTimeval(seq_no_in_flight->ts_sent, h->ts);
+          if (new_rtt > entry->max_rtt_usec) {
+            entry->max_rtt_usec = new_rtt;
+          }
+          if (new_rtt < entry->min_rtt_usec) {
+            entry->min_rtt_usec = new_rtt;
+          }
+        }
+        struct SeqNoInFlight* seq_no_obsolete = seq_no_in_flight;
+        seq_no_in_flight = seq_no_in_flight->next;
+        free(seq_no_obsolete);
+      }
+    }
+    if (seq_no_in_flight == NULL) {
+      entry->seq_no_in_flight_head = NULL;
+      entry->seq_no_in_flight_tail = NULL;
     }
   }
 
   if ((h->extended_hdr.parsed_pkt.tcp.flags & FLAG_FIN) != 0) {
-    printf("%s:%d %s:%d [%lld.%06u -> %lld.%06u] %d/%d (%d/%d) [FIN]\n",
+    printf("%s:%d %s:%d [%lld.%06u -> %lld.%06u] %lu/%u (%lu/%u) (%u/%u) [FIN]\n",
         intoa(entry->src_ip), entry->src_port,
         intoa(entry->dst_ip), entry->dst_port,
         (long long)entry->ts_first.tv_sec, (u_int32_t)entry->ts_first.tv_usec,
         (long long)entry->ts_last.tv_sec, (u_int32_t)entry->ts_last.tv_usec,
         entry->out_bytes, entry->out_packets,
-        entry->retrans_bytes, entry->retrans_packets);
+        entry->retrans_bytes, entry->retrans_packets,
+        entry->max_rtt_usec, entry->min_rtt_usec);
 
     if (entry->prev != NULL) {
       entry->prev->next = entry->next;
     }
     if (entry->next != NULL) {
       entry->next->prev = entry->prev;
+    }
+    struct SeqNoInFlight* seq_no_left = entry->seq_no_in_flight_head;
+    while (seq_no_left != NULL) {
+      entry->seq_no_in_flight_head = seq_no_left->next;
+      free(seq_no_left);
+      seq_no_left = entry->seq_no_in_flight_head;
     }
     free(entry);
   }

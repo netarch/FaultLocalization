@@ -16,6 +16,7 @@ const bool CONSIDER_REVERSE_PATH=false;
 const bool VERBOSE=true;
 
 #define MAX_PATH_LENGTH 4
+#define NDEBUG 1
 
 template <typename T>
 struct SmallVector{

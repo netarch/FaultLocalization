@@ -45,16 +45,28 @@ struct MemoizedPaths{
         if constexpr (PARALLEL_IO) lock.unlock();
         return ret; 
     }
-    void GetAllPaths(vector<Path*> &result){
-        result.reserve(paths.size());
-        result.insert(result.begin(), paths.begin(), paths.end());
+    void GetAllPaths(vector<Path*> **result){
+        *result = &paths;
     }
 };
 
-
+struct FlowLines{
+    char *fid_c, *fpt_c, *fprt_c;
+    vector<char*> ss_c;
+    FlowLines(): fid_c(NULL), fpt_c(NULL), fprt_c(NULL) {}
+    void FreeMemory(){
+        if(fid_c != NULL) delete fid_c;
+        if(fpt_c != NULL) delete fpt_c;
+        if(fprt_c != NULL) delete fprt_c;
+        for(char* c: ss_c) delete c;
+    }
+};
 class LogData;
+void GetLinkMappings(string topology_file, LogData* result);
 void GetDataFromLogFile(string filename, LogData* result);
-void GetDataFromLogFile1(string filename, LogData* result);
+void ProcessFlowPathLines(vector<char*>& lines, vector<array<int, 10> >& path_nodes_list, int nopenmp_threads);
+void ProcessFlowLines(vector<FlowLines>& all_flow_lines, LogData* result, int nopenmp_threads);
+void GetDataFromLogFileParallel(string filename, string topology_filename, LogData* result, int nopenmp_threads);
 void GetDataFromLogFileDistributed(string dirname, int nchunks, LogData* result, int nopenmp_threads);
 
 inline bool HypothesisIntersectsPath(Hypothesis *hypothesis, Path *path){
@@ -104,6 +116,16 @@ inline bool GetFirstInt(char* &str, int &result){
     //return success;
     return (ec == errc());
 }
+/*
+inline bool GetFirstInt(char* &str, int &result){
+    //cout << "str " << str;
+    while(*str==' ' or *str=='\n') str++; //Trim initial whitespace
+    result = 0;
+    while(*str>='0' and *str<='9') result = result * 10 + (*(str++) - '0');
+    //cout << " result " << result << endl;;
+    return (*str!='\0');
+}
+*/
 
 inline bool GetFirstDouble(char* &str, double &result){
     int token_length = GetTokenLength(str);
@@ -119,10 +141,22 @@ inline bool GetFirstDouble(char* &str, double &result){
 }
 
 inline bool GetString(char* &str, string &result){
+    int ind = 0;
+    result.clear();
+    return true;
+    while(*str!=' ') result.push_back(*(str++)); //Trim initial whitespace
+
     int token_length = GetTokenLength(str);
     result.clear();
     result.insert(0, str, token_length);
     str = str + token_length;
+    return true;
+}
+
+inline bool GetString(char* &str, char *result){
+    int ind = 0;
+    while(*str!=' ') *(result++) = (*(str++));
+    *result = '\0';
     return true;
 }
 

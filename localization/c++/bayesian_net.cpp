@@ -159,7 +159,7 @@ void BayesianNet::LocalizeFailures(double min_start_time_ms, double max_finish_t
                  << GetTimeSinceMilliSeconds(start_time) << " seconds" << endl;
         }
     }
-    if constexpr (VERBOSE){
+    if (VERBOSE and PRINT_SCORES){
         auto start_print_time = chrono::high_resolution_clock::now();
         PrintScores(min_start_time_ms, max_finish_time_ms, nopenmp_threads);
         cout << "Finished printing scores in " << GetTimeSinceMilliSeconds(start_print_time)
@@ -194,11 +194,13 @@ void BayesianNet::LocalizeFailures(double min_start_time_ms, double max_finish_t
         Hypothesis* no_failure_hypothesis = new Hypothesis();
         double likelihood_correct_hypothesis = ComputeLogLikelihood(&correct_hypothesis,
                              no_failure_hypothesis, 0.0, min_start_time_ms, max_finish_time_ms);
-        for (int link_id: localized_links){
-            Hypothesis single_link_hypothesis = {link_id}; 
-            double l = ComputeLogLikelihood(&single_link_hypothesis, no_failure_hypothesis, 0.0,
-                                  min_start_time_ms, max_finish_time_ms, nopenmp_threads);
-            cout << "Score of predicted failed link " << data->inverse_links[link_id] << " score " << drops_per_link[link_id] << " E[nflows] " << flows_per_link[link_id] << " likelihood " << l << endl;
+        if (PRINT_SCORES){
+            for (int link_id: localized_links){
+                Hypothesis single_link_hypothesis = {link_id}; 
+                double l = ComputeLogLikelihood(&single_link_hypothesis, no_failure_hypothesis, 0.0,
+                                      min_start_time_ms, max_finish_time_ms, nopenmp_threads);
+                cout << "Score of predicted failed link " << data->inverse_links[link_id] << " score " << drops_per_link[link_id] << " E[nflows] " << flows_per_link[link_id] << " likelihood " << l << endl;
+            }
         }
         cout << "Correct Hypothesis " << data->IdsToLinks(correct_hypothesis)
              << " likelihood " << likelihood_correct_hypothesis << endl;

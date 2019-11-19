@@ -333,31 +333,41 @@ void ProcessFlowLines(vector<FlowLines>& all_flow_lines, LogData* result, int no
     }
 }
 
-void ProcessFlowPathLines(vector<char*>& lines, vector<array<int, MAX_PATH_LENGTH+2> >& path_nodes_list, int nopenmp_threads){
+void ProcessFlowPathLines(vector<char*>& lines, LogData* result, int nopenmp_threads){
     auto start_time = chrono::high_resolution_clock::now();
-    vector<int> path_nodes[nopenmp_threads];
+    vector<int> path_nodes_t[nopenmp_threads];
     for(int t=0; t<nopenmp_threads; t++){
-        path_nodes[t].reserve(MAX_PATH_LENGTH+2);
+        path_nodes_t[t].reserve(MAX_PATH_LENGTH+1);
     }
-    path_nodes_list.resize(lines.size());
+    Path* path_arr = new Path[lines.size()];
+    vector<PII> src_dest_rack (lines.size());
     #pragma omp parallel for num_threads(nopenmp_threads)
     for(int ii=0; ii<lines.size(); ii++){
         int thread_num = omp_get_thread_num();
         char *linec = lines[ii];
         //cout << "line " << linec << endl;
-        path_nodes[thread_num].clear();
+        path_nodes_t[thread_num].clear();
         int node;
         // This is only the portion from src_rack to dest_rack
         while (GetFirstInt(linec, node)){
-            path_nodes[thread_num].push_back(node);
+            path_nodes_t[thread_num].push_back(node);
         }
-        assert(path_nodes[thread_num].size()>0); // No direct link for src_host to dest_host or vice_versa
-        path_nodes_list[ii][0] = path_nodes[thread_num].size();
-        copy_n(path_nodes[thread_num].begin(), path_nodes[thread_num].size(), path_nodes_list[ii].begin()+1);
+        assert(path_nodes_t[thread_num].size()>0); // No direct link for src_host to dest_host or vice_versa
+
+        path_arr[ii] = Path(path_nodes_t[thread_num].size()-1);
+        for(int tt=1; tt<path_nodes_t[thread_num].size(); tt++){
+            path_arr[ii].push_back(result->GetLinkIdUnsafe(
+                         Link(path_nodes_t[thread_num][tt-1], path_nodes_t[thread_num][tt])));
+        }
+        src_dest_rack[ii] = PII(path_nodes_t[thread_num][0], path_nodes_t[thread_num].back());
     }
     if constexpr (VERBOSE){
         cout<< "Parsed flow path lines in "<<GetTimeSinceMilliSeconds(start_time)
             << " seconds, numlines " << lines.size() << endl;
+    }
+    for(int ii=0; ii<lines.size(); ii++){
+        MemoizedPaths *memoized_paths = result->GetMemoizedPaths(src_dest_rack[ii].first, src_dest_rack[ii].second);
+        memoized_paths->AddPath(&path_arr[ii]);
     }
 }
 
@@ -373,13 +383,13 @@ void GetDataFromLogFileParallel(string filename, string topology_filename, LogDa
     GetLinkMappings(topology_filename, result); 
 
     FILE *infile = fopen(filename.c_str(), "r");
-    char *linec = new char[512];
+    char *linec = new char[100];
     char *restore_c = linec;
-    size_t linesz = 0;
-    char *op = new char[100];
+    size_t max_line_size = 0;
+    char *op = new char[30];
     int nlines = 0;
 
-    auto getline_result = getline(&linec, &linesz, infile);
+    auto getline_result = getline(&linec, &max_line_size, infile);
     GetString(linec, op);
     while(getline_result > 0 and StringEqualTo(op, "Failing_link")){
         nlines += 1;
@@ -393,22 +403,22 @@ void GetDataFromLogFileParallel(string filename, string topology_filename, LogDa
             cout<< "Failed link "<<src<<" "<<dest<<" "<<failparam<<endl; 
         }
         linec = restore_c;
-        getline_result = getline(&linec, &linesz, infile);
+        getline_result = getline(&linec, &max_line_size, infile);
         GetString(linec, op);
     }
 
     const int FLOWPATH_BUFFER_SIZE = 5000001;
     vector<char* > buffered_lines;
     buffered_lines.reserve(FLOWPATH_BUFFER_SIZE);
-    const int FLOWLINE_BUFFER_SIZE = 11000000;
+    const int FLOW_LINE_BUFFER_SIZE = 10100000;
     FlowLines *curr_flow_lines;
     vector<FlowLines> buffered_flows;
-    buffered_flows.reserve(FLOWLINE_BUFFER_SIZE);
+    buffered_flows.reserve(FLOW_LINE_BUFFER_SIZE);
     while(getline_result > 0 and StringEqualTo(op, "FP")){
         nlines += 1;
         buffered_lines.push_back(strdup(linec));
         linec = restore_c;
-        getline_result = getline(&linec, &linesz, infile);
+        getline_result = getline(&linec, &max_line_size, infile);
         GetString(linec, op);
     }
     if constexpr (VERBOSE){
@@ -416,18 +426,7 @@ void GetDataFromLogFileParallel(string filename, string topology_filename, LogDa
             << " seconds" << endl;
     }
     if (buffered_lines.size() > 0){
-        vector<array<int, MAX_PATH_LENGTH+2> > path_nodes_list;
-        ProcessFlowPathLines(buffered_lines, path_nodes_list, nopenmp_threads);
-        vector<int> temp_path(MAX_PATH_LENGTH+2);
-        for(array<int, MAX_PATH_LENGTH+2>& path_nodes: path_nodes_list){
-            temp_path.clear();
-            int nnodes = path_nodes[0];
-            for (int i=2; i<nnodes+1; i++){
-                temp_path.push_back(result->GetLinkIdUnsafe(Link(path_nodes[i-1], path_nodes[i])));
-            }
-            MemoizedPaths *memoized_paths = result->GetMemoizedPaths(path_nodes[1], path_nodes[nnodes]);
-            memoized_paths->AddPath(temp_path);
-        }
+        ProcessFlowPathLines(buffered_lines, result, nopenmp_threads);
         //!TODO check where delete[] needs to be called instead of delete/free
         for (char* c: buffered_lines) delete[] c;
         if constexpr (VERBOSE){
@@ -436,17 +435,17 @@ void GetDataFromLogFileParallel(string filename, string topology_filename, LogDa
         }
     }
 
-    cout << "sizeof(Flow) " << sizeof(Flow) << endl;
+    cout << "sizeof(Flow) " << sizeof(Flow) << " bytes" << endl;
     while(getline_result > 0){
         nlines += 1;
         char *dup_linec = strdup(linec);
         //cout << "op " << op << " : " << line << endl;
         if (StringEqualTo(op, "SS")){
-            //assert(curr_flow_lines->fid_c != NULL);
+            assert(curr_flow_lines->fid_c != NULL);
             curr_flow_lines->ss_c.push_back(dup_linec);
         }
         else if (StringStartsWith(op, "FID")){
-            if(buffered_flows.size() > FLOWLINE_BUFFER_SIZE){
+            if(buffered_flows.size() > FLOW_LINE_BUFFER_SIZE){
                 ProcessFlowLines(buffered_flows, result, nopenmp_threads);
                 for_each(buffered_flows.begin(), buffered_flows.end(), [](FlowLines& fl){fl.FreeMemory();});
                 buffered_flows.clear();
@@ -456,15 +455,15 @@ void GetDataFromLogFileParallel(string filename, string topology_filename, LogDa
             curr_flow_lines->fid_c = dup_linec;
         }
         else if (StringEqualTo(op, "FPT")){
-            //assert(curr_flow_lines->fpt_c == NULL);
+            assert(curr_flow_lines->fpt_c == NULL);
             curr_flow_lines->fpt_c = dup_linec;
         }
         else if (StringEqualTo(op, "FPRT")){
-            //assert(curr_flow_lines->fprt_c == NULL);
+            assert(curr_flow_lines->fprt_c == NULL);
             curr_flow_lines->fprt_c = dup_linec;
         }
         linec = restore_c;
-        getline_result = getline(&linec, &linesz, infile);
+        getline_result = getline(&linec, &max_line_size, infile);
         GetString(linec, op);
     }
 
@@ -475,10 +474,9 @@ void GetDataFromLogFileParallel(string filename, string topology_filename, LogDa
     ProcessFlowLines(buffered_flows, result, nopenmp_threads);
     for_each(buffered_flows.begin(), buffered_flows.end(), [](FlowLines& fl){fl.FreeMemory();});
     buffered_flows.clear();
-    cout << "Num flows " << result->flows.size() << endl;
     if constexpr (VERBOSE){
         cout<< "Read log file in "<<GetTimeSinceMilliSeconds(start_time)
-            << " seconds, numlines " << nlines << endl;
+            << " seconds, numlines " << nlines << ", numflows " << result->flows.size() << endl;
     }
 }
 

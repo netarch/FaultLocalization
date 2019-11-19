@@ -27,6 +27,11 @@ struct MemoizedPaths{
         paths.push_back(new Path(vi_path));
         if constexpr (PARALLEL_IO) lock.unlock();
     }
+    void AddPath(Path* path){
+        if constexpr (PARALLEL_IO) lock.lock();
+        paths.push_back(path);
+        if constexpr (PARALLEL_IO) lock.unlock();
+    }
     Path* GetPath(vector<int>& vi_path){
         if constexpr (PARALLEL_IO) lock.lock();
         Path* ret = NULL;
@@ -154,7 +159,6 @@ inline bool GetString(char* &str, string &result){
 }
 
 inline bool GetString(char* &str, char *result){
-    int ind = 0;
     while(*str!=' ') *(result++) = (*(str++));
     *result = '\0';
     return true;

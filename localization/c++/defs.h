@@ -16,7 +16,6 @@ const bool CONSIDER_REVERSE_PATH=false;
 const bool VERBOSE=true;
 
 #define MAX_PATH_LENGTH 4
-#define NDEBUG 1
 
 template <typename T>
 struct SmallVector{
@@ -28,6 +27,7 @@ struct SmallVector{
             arr[ind++] = elt;
         }
     }
+    SmallVector() {}
     SmallVector(int _size): arr_size(_size), ind(0){
         //arr = new T[arr_size];
     }

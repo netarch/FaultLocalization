@@ -99,7 +99,7 @@ public:
 
     void ResetSnapshotCounter();
 
-    /* To accelerate bayesian net computations, cache an intermediate value */
+    /* To accelerate bayesian net computations, cache expensive intermediate calculation */
     long double cached_intermediate_value;
     void SetCachedIntermediateValue(long double value);
     long double GetCachedIntermediateValue();

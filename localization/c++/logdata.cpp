@@ -178,7 +178,8 @@ vector<vector<int> >* LogData::GetForwardFlowsByLinkId(double max_finish_time_ms
     #pragma omp parallel for num_threads(nthreads)
     for(int link_id=0; link_id<nlinks; link_id++){
         assert (omp_get_thread_num() < nthreads);
-        (*forward_flows_by_link_id)[link_id].resize(final_sizes[link_id]);
+        //(*forward_flows_by_link_id)[link_id].resize(final_sizes[link_id]);
+        (*forward_flows_by_link_id)[link_id] = vector<int>(final_sizes[link_id]);
     }
     if constexpr (VERBOSE){
         cout<<"Binning flows part 2 done in "<<GetTimeSinceMilliSeconds(start_time)<< " seconds"<<endl;
@@ -413,6 +414,12 @@ int LogData::GetLinkId(Link link){
         else link_id = it->second;
     }
     return link_id;
+}
+
+int LogData::GetLinkIdUnsafe(Link link){
+    auto it = links_to_ids.find(link);
+    assert(it != links_to_ids.end());
+    return it->second;
 }
 
 

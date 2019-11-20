@@ -27,6 +27,7 @@ struct SmallVector{
             arr[ind++] = elt;
         }
     }
+    SmallVector() {}
     SmallVector(int _size): arr_size(_size), ind(0){
         //arr = new T[arr_size];
     }

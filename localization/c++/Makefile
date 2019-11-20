@@ -23,25 +23,25 @@ loss_estimator_trend: $(OBJS) common_testing_system.o loss_estimator_trend.cpp
 flow.o: flow.cpp flow.h defs.h
 	$(CC) $(INCLUDE) $(CFLAGS) -c flow.cpp
 
-utils.o: utils.cpp utils.h flow.o
+utils.o: utils.cpp utils.h flow.h
 	$(CC) $(INCLUDE) $(CFLAGS) -c utils.cpp
 
-logdata.o: logdata.cpp logdata.h utils.o flow.o
+logdata.o: logdata.cpp logdata.h utils.h flow.h
 	$(CC) $(INCLUDE) $(CFLAGS) -c logdata.cpp
 
 common_testing_system.o: common_testing_system.cpp common_testing_system.h utils.o flow.o logdata.o
 	$(CC) $(INCLUDE) $(CFLAGS) -c common_testing_system.cpp
 
-doubleO7.o: doubleO7.cpp doubleO7.h estimator.h flow.o utils.o logdata.o
+doubleO7.o: doubleO7.cpp doubleO7.h estimator.h flow.h utils.h logdata.h
 	$(CC) $(INCLUDE) $(CFLAGS) -c doubleO7.cpp $(LIBDIR) 
 
-score.o: score.cpp score.h estimator.h flow.o utils.o logdata.o
+score.o: score.cpp score.h estimator.h flow.h utils.h logdata.h
 	$(CC) $(INCLUDE) $(CFLAGS) -c score.cpp $(LIBDIR) 
 
-bayesian_net.o: bayesian_net.cpp bayesian_net.h estimator.h flow.o utils.o logdata.o
+bayesian_net.o: bayesian_net.cpp bayesian_net.h estimator.h flow.h utils.h logdata.h
 	$(CC) $(INCLUDE) $(CFLAGS) -c bayesian_net.cpp $(LIBDIR) 
 
-bayesian_net_continuous.o: bayesian_net_continuous.cpp bayesian_net_continuous.h estimator.h flow.o utils.o logdata.o
+bayesian_net_continuous.o: bayesian_net_continuous.cpp bayesian_net_continuous.h estimator.h flow.h utils.h logdata.h
 	$(CC) $(INCLUDE) $(CFLAGS) -c bayesian_net_continuous.cpp $(LIBDIR) 
 clean:	
 	rm -f *.o loss_estimator reduced_estimator loss_estimator_trend libflock.a

@@ -26,9 +26,10 @@ struct FlowSnapshot{
 
 class Flow{
 public:
+    Flow() {}
+
     // Initialize flow without snapshot
-    Flow(int src_, string srcip_, int srcport_, int dest_, string destip_, int destport_,
-         int nbytes_, double start_time_ms_);
+    Flow(int src_, int srcport_, int dest_, int destport_, int nbytes_, double start_time_ms_);
 
     //!TODO
     Flow(Flow &flow, unordered_map<Link, Link> &reduced_graph_map, LogData &data,
@@ -83,7 +84,7 @@ public:
     void SetReverseFirstLinkId(int link_id);
     void SetReverseLastLinkId(int link_id);
 
-    vector<Path*> paths, reverse_paths;
+    vector<Path*>* paths, *reverse_paths;
     double start_time_ms;
     int src, dest;
     // Server to ToR links that are common to all paths
@@ -98,14 +99,13 @@ public:
 
     void ResetSnapshotCounter();
 
-    /* To accelerate bayesian net computations, cache an intermediate value */
+    /* To accelerate bayesian net computations, cache expensive intermediate calculation */
     long double cached_intermediate_value;
     void SetCachedIntermediateValue(long double value);
     long double GetCachedIntermediateValue();
 
     int nbytes;
 private:
-    string srcip, destip;
     int srcport, destport;
     vector<FlowSnapshot*> snapshots;
     int curr_snapshot_ptr;

@@ -16,17 +16,19 @@ class LogData{
 public:
     dense_hash_map<Link, double, hash<Link> > failed_links;
     vector<Flow*> flows;
+    dense_hash_map<int, int, hash<int> > hosts_to_racks;
     //dense_hash_map<Link, int, hash<Link> > links_to_ids;
     map<Link, int> links_to_ids;
     vector<Link> inverse_links;
     vector<vector<int> > *forward_flows_by_link_id, *reverse_flows_by_link_id, *flows_by_link_id;
     //dense_hash_map<PII, MemoizedPaths*, hash<PII> > memoized_paths;
-    map<PII, MemoizedPaths*> memoized_paths;
+    unordered_map<PII, MemoizedPaths*> memoized_paths;
     shared_mutex memoized_paths_lock;
     MemoizedPaths* GetMemoizedPaths(int src_rack, int dest_rack);
 
     LogData (): forward_flows_by_link_id(NULL), reverse_flows_by_link_id(NULL), flows_by_link_id(NULL) {
         failed_links.set_empty_key(Link(-1, -1));
+	hosts_to_racks.set_empty_key(-1);
         //links_to_ids.set_empty_key(Link(-1, -1));
         //memoized_paths.set_empty_key(PII(-1, -1));
     }
@@ -49,6 +51,9 @@ public:
 
     void GetReducedData(unordered_map<Link, Link>& reduced_graph_map, LogData& reduced_data,
                         int nopenmp_threads);
+
+    void ResetForAnalysis();
+    void GetAllPaths(vector<Path*> **result, int src_rack, int dest_rack);
 
 };
 

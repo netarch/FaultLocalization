@@ -13,7 +13,7 @@ using namespace std;
 
 const bool PATH_KNOWN=false;
 const bool CONSIDER_REVERSE_PATH=false;
-const bool VERBOSE=true;
+const bool VERBOSE=false;
 
 #define MAX_PATH_LENGTH 4
 

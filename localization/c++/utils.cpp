@@ -1,5 +1,6 @@
 #include "utils.h"
 #include "logdata.h"
+#include <queue>
 #include <cstring>
 #include <assert.h>
 #include <string>
@@ -37,15 +38,75 @@ void GetDataFromLogFileDistributed(string dirname, int nchunks, LogData *result,
     }
 }
 
+
+void ComputeAllPairShortestPaths(unordered_set<int>& nodes, unordered_set<Link>& links, LogData* result){
+    int MAX_NODE_ID = *max_element (nodes.begin(), nodes.end());
+    vector<vector<int> > shortest_path_len(MAX_NODE_ID+1);
+    for(int i=0; i<MAX_NODE_ID+1; i++){
+        shortest_path_len[i].resize(MAX_NODE_ID+1, 100000000);
+        shortest_path_len[i][i] = 0;
+    }
+    for(auto [i, j]: links){
+        shortest_path_len[i][j] = 1;
+    }
+    //floyd warshall
+    for(int k: nodes){
+        for(int i: nodes){
+            for(int j: nodes){
+                if(shortest_path_len[i][j] > shortest_path_len[i][k] + shortest_path_len[k][j])
+                    shortest_path_len[i][j] = shortest_path_len[i][k] + shortest_path_len[k][j];
+            }
+        }
+    }
+    for(int src_sw: nodes){
+        for(int dest_sw: nodes){
+            MemoizedPaths *memoized_paths = result->GetMemoizedPaths(src_sw, dest_sw);
+            if (src_sw != dest_sw){
+                vector<int> path_till_now;
+                path_till_now.push_back(src_sw);
+                queue<vector<int> > shortest_paths_till_now;
+                shortest_paths_till_now.push(path_till_now);
+                while(!shortest_paths_till_now.empty()){
+                    vector<int> path_till_now = shortest_paths_till_now.front();
+                    shortest_paths_till_now.pop();
+                    int last_vertex = path_till_now.back();
+                    for(int next_hop: nodes){
+                        if (links.find(Link(last_vertex, next_hop)) != links.end()){
+                            if(next_hop == dest_sw){
+                                //found a shortest path!
+                                path_till_now.push_back(next_hop);
+                                Path *path_link_ids = new Path(path_till_now.size()-1);
+                                for(int nn=1; nn<path_till_now.size(); nn++){
+                                    path_link_ids->push_back(result->GetLinkIdUnsafe(Link(path_till_now[nn-1], path_till_now[nn])));
+                                }
+                                cout << "Found a shortest path " << path_till_now << " link_id_paths " << *path_link_ids << endl;
+                                memoized_paths->AddPath(path_link_ids);
+                            }
+                            else if(shortest_path_len[last_vertex][dest_sw] == 1 + shortest_path_len[next_hop][dest_sw]){
+                                vector<int> shortest_path_till_now(path_till_now);
+                                shortest_path_till_now.push_back(next_hop);
+                                shortest_paths_till_now.push(shortest_path_till_now);
+                            }
+                        }
+                    }
+                }
+            }
+            else{
+                memoized_paths->AddPath(new Path(0));
+            }
+        }
+    }
+}
+
 //Compute and store (Link <-> Link-id) mappings
-void GetLinkMappings(string topology_file, LogData* result){
+void GetLinkMappings(string topology_file, LogData* result, bool compute_paths){
     ifstream tfile(topology_file);
     string line;
-    // All trace files have hosts numbered as host + OFFSET_HOST
-    const int OFFSET_HOST = 10000;
     if constexpr (VERBOSE){
         cout << "Asuuming trace file has hosts numbered as host_id + " << OFFSET_HOST << " (OFFSET)" << endl;
     }
+    unordered_set<int> nodes;
+    unordered_set<Link> links;
     while (getline(tfile, line)){
         char *linec = const_cast<char*>(line.c_str());
         int index = line.find("->");
@@ -55,6 +116,12 @@ void GetLinkMappings(string topology_file, LogData* result){
             GetFirstInt(linec, sw2);
             result->GetLinkId(Link(sw1, sw2));
             result->GetLinkId(Link(sw2, sw1));
+            if(compute_paths){
+                nodes.insert(sw1);
+                nodes.insert(sw2);
+                links.insert(Link(sw1, sw2));
+                links.insert(Link(sw2, sw1));
+            }
         }
         else{
             line.replace(index, 2, " ");
@@ -64,7 +131,12 @@ void GetLinkMappings(string topology_file, LogData* result){
             GetFirstInt(linec, sw);
             result->GetLinkId(Link(sw, svr));
             result->GetLinkId(Link(svr, sw));
+            result->hosts_to_racks[svr] = sw;
+	    cout << svr << "-->" << sw << endl;
         }
+    }
+    if (compute_paths){
+        ComputeAllPairShortestPaths(nodes, links, result);
     }
 }
 
@@ -259,8 +331,7 @@ void ProcessFlowLines(vector<FlowLines>& all_flow_lines, LogData* result, int no
         // Set flow paths
         flow->SetFirstLinkId(result->GetLinkIdUnsafe(Link(flow->src, srcrack)));
         flow->SetLastLinkId(result->GetLinkIdUnsafe(Link(destrack, flow->dest)));
-        MemoizedPaths *memoized_paths = result->GetMemoizedPaths(srcrack, destrack);
-        memoized_paths->GetAllPaths(&flow->paths);
+        result->GetAllPaths(&flow->paths, srcrack, destrack);
 
         /* Reverse flow path taken */
         if (flow_lines.fprt_c != NULL){

@@ -16,6 +16,8 @@ using google::dense_hash_map;
 using namespace std;
 
 inline constexpr bool PARALLEL_IO=false;
+// All trace files have hosts numbered as host + OFFSET_HOST
+const int OFFSET_HOST = 10000;
 
 struct MemoizedPaths{
     vector<Path*> paths;
@@ -67,7 +69,9 @@ struct FlowLines{
     }
 };
 class LogData;
-void GetLinkMappings(string topology_file, LogData* result);
+
+void GetAllPairShortestPaths(vector<int>& nodes, unordered_set<Link>& links, LogData* result);
+void GetLinkMappings(string topology_file, LogData* result, bool compute_paths=false);
 void GetDataFromLogFile(string filename, LogData* result);
 void ProcessFlowPathLines(vector<char*>& lines, vector<array<int, 10> >& path_nodes_list, int nopenmp_threads);
 void ProcessFlowLines(vector<FlowLines>& all_flow_lines, LogData* result, int nopenmp_threads);

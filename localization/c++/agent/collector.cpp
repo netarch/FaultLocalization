@@ -1,5 +1,6 @@
 #include <iostream>
 #include <stdio.h>
+#include <thread>
 #include <algorithm>
 #include <stdlib.h>
 #include <jsoncpp/json/json.h>
@@ -17,6 +18,7 @@
 /* Flock headers */
 #include <flow.h>
 #include <logdata.h>
+#include <bayesian_net.h>
 
 char collector_ip[] = "192.168.100.101";
 int collector_port = 6000;
@@ -24,10 +26,14 @@ int collector_port = 6000;
 using namespace std;
 
 uint32_t ConvertStringIpToInt(string& ip_addr){
+    //Take the last octet
     in_addr ip_address;
     if(inet_aton(ip_addr.c_str(), &ip_address) != 0){
-        //cout << "IP address " << ip_addr << " fixed32 " << ip_address.s_addr << endl;
-        return ip_address.s_addr;
+        size_t index = ip_addr.find_last_of(".");
+        //cout << "IP address " << ip_addr << " fixed32 " << ip_address.s_addr << " last_octet "
+        //     << atoi(ip_addr.c_str() + index + 1) + OFFSET_HOST << " index " << index << endl;
+        return atoi(ip_addr.c_str() + index + 1);
+        //return ip_address.s_addr;
     }
     else{
         cout << "Ip address " << ip_addr << " is not valid." << endl;
@@ -85,8 +91,16 @@ void recv_timeout(int conn_socket, string &result){
     }
 }
 
+struct SocketThreadArgs{
+    int socket;
+    LogData *log_data;
+};
+
+
 void* SocketThread(void *arg){
-    int socket = *((int *)arg);
+    SocketThreadArgs* args = (SocketThreadArgs*)arg;
+    int socket = args->socket;
+    LogData *log_data = args->log_data;
     string data = "";
     recv_timeout(socket, data);
     /* Sample JSON
@@ -128,12 +142,28 @@ void* SocketThread(void *arg){
             int src_port = root.get("L4_SRC_PORT", 0).asInt();
             int dest_port = root.get("L4_DST_PORT", 0).asInt();
             int nbytes = root.get("OUT_BYTES", 0).asInt();
-            int src_ip_int = ConvertStringIpToInt(src_ip), dest_ip_int = ConvertStringIpToInt(dest_ip);
-            if (src_ip_int > 0 and dest_ip_int > 0 and packets_sent > 0){
+            int src_host = ConvertStringIpToInt(src_ip), dest_host = ConvertStringIpToInt(dest_ip);
+            //cout << src_ip << " " << src_host << " " << dest_ip << " " << dest_host << endl;
+            if (src_host > 0 and dest_host > 0 and packets_sent > 0){
                 //cout << src_ip << " " << dest_ip << " " << packets_sent << " " << retransmissions
                 //     << " flow_queue size: " << flow_queue.size() << endl;
-                Flow *flow = new Flow(src_ip_int, src_ip, src_port, dest_ip_int, dest_ip, dest_port, nbytes, 0.0);
+                src_host += OFFSET_HOST;
+                dest_host += OFFSET_HOST;
+		assert(log_data->hosts_to_racks.find(src_host) != log_data->hosts_to_racks.end());
+                int src_rack = log_data->hosts_to_racks[src_host];
+		assert(log_data->hosts_to_racks.find(dest_host) != log_data->hosts_to_racks.end());
+                int dest_rack = log_data->hosts_to_racks[dest_host];
+		//cout << src_host << " " << src_rack << " " << dest_host << " " << dest_rack << endl;
+                Flow *flow = new Flow(src_host, src_port, dest_host, dest_port, nbytes, 0.0);
+		flow->SetFirstLinkId(log_data->GetLinkIdUnsafe(Link(flow->src, src_rack)));
+		flow->SetLastLinkId(log_data->GetLinkIdUnsafe(Link(dest_rack, flow->dest)));
                 flow->AddSnapshot(0.0, packets_sent, retransmissions, retransmissions);
+		log_data->GetAllPaths(&flow->paths, src_rack, dest_rack);
+		//!TODO: set path taken for all flows
+		assert(flow->paths!=NULL and flow->paths->size() == 1);
+		flow->SetPathTaken(flow->paths->at(0));
+		//cout << "first_link_id " << flow->first_link_id << " last_link_id " << flow->last_link_id
+	        //     << " flow->path_taken " << *flow->paths->at(0) << endl;
                 flow_queue.push(flow);
             }
         }
@@ -145,26 +175,39 @@ void* SocketThread(void *arg){
         c_end = data.find_first_of('}', c_begin);
     }
     close(socket);
+    delete args;
     pthread_exit(NULL);
 }
 
 void* RunAnalysisPeriodically(void* arg){
-    char *topology_filename = (char *)arg;
-    /* Get topology details from a file */
+    LogData* log_data = (LogData*) arg;
     //!TODO: vipul
+    BayesianNet estimator;
+    vector<double> params = {1.0-5.0e-3, 2.0e-4};
+    estimator.SetParams(params);
+    int nopenmp_threads = 1;
     while(true){
         auto start_time = chrono::high_resolution_clock::now();
-	log_data->flows.clear();
+	    log_data->flows.clear();
         int nflows = flow_queue.size();
         for(int ii=0; ii<nflows; ii++){
             log_data->flows.push_back(flow_queue.pop());
         }
         //!TODO: call LocalizeFailures
+	double max_finish_time_ms = 1000.0;
+	estimator.SetLogData(log_data, max_finish_time_ms, nopenmp_threads);
+	Hypothesis estimator_hypothesis;
+	estimator.LocalizeFailures(0.0, max_finish_time_ms,
+			           estimator_hypothesis, nopenmp_threads);
         double elapsed_time_ms = chrono::duration_cast<chrono::milliseconds>(
                               chrono::high_resolution_clock::now() - start_time).count();
-        cout << "Time taken for analysis on "<< nflows <<" nflows (ms) " <<  elapsed_time_ms << endl;
+	cout << "Output Hypothesis "  << log_data->IdsToLinks(estimator_hypothesis)
+             << " analysis time taken for "<< nflows <<" flows (ms) " <<  elapsed_time_ms << endl;
+	log_data->ResetForAnalysis();
         if (elapsed_time_ms < 1000.0){
-            sleep(1.0 - elapsed_time_ms*1.0e-3);
+	    cout << "Sleeping for time " << int(1000.0 - elapsed_time_ms)  << " ms" << endl;
+	    chrono::milliseconds timespan(int(1000.0 - elapsed_time_ms));
+	    std::this_thread::sleep_for(timespan);
         }
     }
     return NULL;
@@ -199,9 +242,14 @@ int main(int argc, char *argv[]){
         perror("Error while binding");
         exit(1);
     }
+
+    /* Get topology details from a file */
+    LogData* log_data = new LogData();
+    GetLinkMappings(topology_filename, log_data, true);
+
     /* Launch daemon thread that will periodically invoke the analysis */
     pthread_t tid;
-    if(pthread_create(&tid, NULL, RunAnalysisPeriodically, topology_filename) != 0 ){
+    if(pthread_create(&tid, NULL, RunAnalysisPeriodically, log_data) != 0 ){
         perror("Failed to create analysis thread");
         exit(1);
     }
@@ -219,7 +267,10 @@ int main(int argc, char *argv[]){
             continue;
         }
         else{
-            if(pthread_create(&tid, NULL, SocketThread, &new_socket) != 0)
+            SocketThreadArgs *args = new SocketThreadArgs();
+            args->socket = new_socket;
+            args->log_data = log_data;
+            if(pthread_create(&tid, NULL, SocketThread, args) != 0)
                 cout << "Failed to create thread" << endl;
         }
         /*

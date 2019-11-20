@@ -422,6 +422,15 @@ int LogData::GetLinkIdUnsafe(Link link){
     return it->second;
 }
 
+void LogData::ResetForAnalysis(){
+    flows.clear();
+    forward_flows_by_link_id = reverse_flows_by_link_id = flows_by_link_id = NULL;
+}
+
+void LogData::GetAllPaths(vector<Path*> **result, int src_rack, int dest_rack){
+    MemoizedPaths *memoized_paths = GetMemoizedPaths(src_rack, dest_rack);
+    memoized_paths->GetAllPaths(result);
+}
 
 int GetReducedLinkId(int link_id, unordered_map<Link, Link> &reduced_graph_map,
                                   LogData &data, LogData &reduced_data){

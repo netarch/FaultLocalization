@@ -119,7 +119,7 @@ void* SocketThread(void *arg){
     assert (ConvertStringIpToInt(null_ip) == 0);
     while (c_end != string::npos){
         //cout << "Parsing " << string(c_data+c_begin, c_end-c_begin+1) << endl;
-        if (c_end-c_begin > 1 and reader.parse(c_data + c_begin, c_data + c_end + 1, root)){
+        if (c_end-c_begin > 20 and reader.parse(c_data + c_begin, c_data + c_end + 1, root)){
             string src_ip = root.get("IPV4_SRC_ADDR", null_ip).asString();
             string dest_ip = root.get("IPV4_DST_ADDR", null_ip).asString();
             int packets_sent = root.get("OUT_PKTS", 0).asInt();
@@ -148,14 +148,18 @@ void* SocketThread(void *arg){
     pthread_exit(NULL);
 }
 
-void* RunPeriodicAnalysis(void* arg){
+void* RunAnalysisPeriodically(void* arg){
+    char *topology_filename = (char *)arg;
+    /* Get topology details from a file */
+    //!TODO: vipul
     while(true){
         auto start_time = chrono::high_resolution_clock::now();
-        LogData log_data;
+	log_data->flows.clear();
         int nflows = flow_queue.size();
         for(int ii=0; ii<nflows; ii++){
-            log_data.flows.push_back(flow_queue.pop());
+            log_data->flows.push_back(flow_queue.pop());
         }
+        //!TODO: call LocalizeFailures
         double elapsed_time_ms = chrono::duration_cast<chrono::milliseconds>(
                               chrono::high_resolution_clock::now() - start_time).count();
         cout << "Time taken for analysis on "<< nflows <<" nflows (ms) " <<  elapsed_time_ms << endl;
@@ -166,8 +170,10 @@ void* RunPeriodicAnalysis(void* arg){
     return NULL;
 }
 
-int main(){
+int main(int argc, char *argv[]){
     ios_base::sync_with_stdio(false);
+
+    char* topology_filename = argv[1];
 
     int collector_socket, sock_opt=1;
     // Create socket file descriptor 
@@ -195,9 +201,9 @@ int main(){
     }
     /* Launch daemon thread that will periodically invoke the analysis */
     pthread_t tid;
-    if(pthread_create(&tid, NULL, RunPeriodicAnalysis, NULL) != 0 ){
-        cout << "Failed to create analysis thread" << endl;
-        exit(0);
+    if(pthread_create(&tid, NULL, RunAnalysisPeriodically, topology_filename) != 0 ){
+        perror("Failed to create analysis thread");
+        exit(1);
     }
     while(true){
         int MAX_PENDING_CONNECTIONS = 128; 
@@ -213,7 +219,7 @@ int main(){
             continue;
         }
         else{
-            if(pthread_create(&tid, NULL, SocketThread, &new_socket) != 0 )
+            if(pthread_create(&tid, NULL, SocketThread, &new_socket) != 0)
                 cout << "Failed to create thread" << endl;
         }
         /*

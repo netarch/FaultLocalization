@@ -8,7 +8,7 @@
 #include <mutex>
 #include <utility>
 #include <shared_mutex>
-#include <charconv>
+//#include <charconv>
 #include <algorithm>
 #include <string>
 #include <sparsehash/dense_hash_map>
@@ -97,12 +97,12 @@ inline pair<char*, bool> to_int(char *s, int length, int &result){
 inline bool GetFirstInt(char* &str, int &result){
     while(*str==' ') str++; //Trim initial whitespace
     int token_length = GetTokenLength(str);
-    auto [p, ec] = from_chars(str, str + token_length, result);
-    //auto [p, success] = to_int(str, token_length, result);
+    //auto [p, ec] = from_chars(str, str + token_length, result);
+    auto [p, success] = to_int(str, token_length, result);
     //cout << "GetFirstInt " << string(str, token_length) << " : " << result << endl;
     str = const_cast<char*>(p);
-    //return success;
-    return (ec == errc());
+    return success;
+    //return (ec == errc());
 }
 
 inline bool GetFirstDouble(char* &str, double &result){

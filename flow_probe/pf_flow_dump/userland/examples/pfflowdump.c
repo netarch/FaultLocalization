@@ -93,6 +93,16 @@ u_int8_t use_extended_pkt_header = 0, touch_payload = 0, enable_hw_timestamp = 0
 volatile char memcpy_test_buffer[9216];
 
 struct Ipv4TcpFlowEntry* flow_hash_map[DEFAULT_HASH_SIZE];
+struct timeval recent_export_time;
+struct Ipv4TcpFlowEntry* flow_stats_list_front;
+struct Ipv4TcpFlowEntry* flow_stats_list_back;
+
+pthread_mutex_t export_mutex = PTHREAD_MUTEX_INITIALIZER;
+struct Ipv4TcpFlowEntry* flow_stats_list_pending_report;
+
+u_int32_t export_seq_no = 0;
+int export_socket = 0;
+u_int8_t remote_export = 0;
 
 static void openDump();
 static void dumpMatch(char *str);
@@ -435,7 +445,8 @@ static char *intoa(unsigned int addr) {
   return(_intoa(addr, buf, sizeof(buf)));
 }
 
-u_int32_t CalcDeltaTimeval(struct timeval ts_start, struct timeval ts_end) {
+u_int32_t CalcDeltaTimevalInMicrosecond(struct timeval ts_start,
+                                        struct timeval ts_end) {
   // Caller should guarantee ts_end is later than ts_start.
   if (ts_start.tv_sec == ts_end.tv_sec) {
     return ts_end.tv_usec - ts_start.tv_usec;
@@ -502,7 +513,7 @@ void process_packet(const struct pfring_pkthdr *h, const u_char *p, u_int8_t dum
     entry->next = NULL;
     entry->seq_no_in_flight_head = NULL;
     entry->seq_no_in_flight_tail = NULL;
-    
+
     if (prev != NULL) {
       prev->next = entry;
     } else {
@@ -546,10 +557,12 @@ void process_packet(const struct pfring_pkthdr *h, const u_char *p, u_int8_t dum
         entry->seq_no_in_flight_head = seq_no_in_flight;
         break;
       } else {
+        // TODO: check if ack_num is in range [starting_seq, ending_seq] to
+        // handle large MSS (e.g., for localhost flow).
         if (h->extended_hdr.parsed_pkt.tcp.ack_num ==
             seq_no_in_flight->pending_ack_no) {
           u_int32_t new_rtt =
-              CalcDeltaTimeval(seq_no_in_flight->ts_sent, h->ts);
+              CalcDeltaTimevalInMicrosecond(seq_no_in_flight->ts_sent, h->ts);
           if (new_rtt > entry->max_rtt_usec) {
             entry->max_rtt_usec = new_rtt;
           }
@@ -569,15 +582,6 @@ void process_packet(const struct pfring_pkthdr *h, const u_char *p, u_int8_t dum
   }
 
   if ((h->extended_hdr.parsed_pkt.tcp.flags & FLAG_FIN) != 0) {
-    printf("%s:%d %s:%d [%lld.%06u -> %lld.%06u] %lu/%u (%lu/%u) (%u/%u) [FIN]\n",
-        intoa(entry->src_ip), entry->src_port,
-        intoa(entry->dst_ip), entry->dst_port,
-        (long long)entry->ts_first.tv_sec, (u_int32_t)entry->ts_first.tv_usec,
-        (long long)entry->ts_last.tv_sec, (u_int32_t)entry->ts_last.tv_usec,
-        entry->out_bytes, entry->out_packets,
-        entry->retrans_bytes, entry->retrans_packets,
-        entry->max_rtt_usec, entry->min_rtt_usec);
-
     if (entry->prev != NULL) {
       entry->prev->next = entry->next;
     }
@@ -590,7 +594,17 @@ void process_packet(const struct pfring_pkthdr *h, const u_char *p, u_int8_t dum
       free(seq_no_left);
       seq_no_left = entry->seq_no_in_flight_head;
     }
-    free(entry);
+    entry->seq_no_in_flight_tail = NULL;
+
+    pthread_mutex_lock(&export_mutex);
+    if (flow_stats_list_front == NULL) {
+      flow_stats_list_front = entry;
+      flow_stats_list_back = entry;
+    } else {
+      flow_stats_list_back->next = entry;
+      flow_stats_list_back = entry;
+    }
+    pthread_mutex_unlock(&export_mutex);
   }
 
   /*snprintf(dump_str, sizeof(dump_str), "%lld.%06u ", (long long)h->ts.tv_sec, h->ts.tv_usec);
@@ -621,6 +635,217 @@ void process_packet(const struct pfring_pkthdr *h, const u_char *p, u_int8_t dum
   }
 
   if(verbose && h->len > min_len) printf("%s\n", dump_str);*/
+}
+
+/* ****************************************************** */
+
+void encapsulate_flow_record(char* buffer, struct Ipv4TcpFlowEntry* entry) {
+  /*printf("%s:%d %s:%d [%lld.%06u -> %lld.%06u] %u/%u (%u/%u) (%u/%u) [FIN]\n",
+      intoa(entry->src_ip), entry->src_port,
+      intoa(entry->dst_ip), entry->dst_port,
+      (long long)entry->ts_first.tv_sec, (u_int32_t)entry->ts_first.tv_usec,
+      (long long)entry->ts_last.tv_sec, (u_int32_t)entry->ts_last.tv_usec,
+      entry->out_bytes, entry->out_packets,
+      entry->retrans_bytes, entry->retrans_packets,
+      entry->min_rtt_usec, entry->max_rtt_usec);*/
+
+  // TODO: handle big endian guarantee.
+  memcpy(buffer, &entry->src_ip, sizeof(u_int32_t));
+  memcpy(buffer + 4, &entry->dst_ip, sizeof(u_int32_t));
+  memcpy(buffer + 8, &entry->src_port, sizeof(u_int16_t));
+  memcpy(buffer + 10, &entry->dst_port, sizeof(u_int16_t));
+  memcpy(buffer + 12, &entry->out_bytes, sizeof(u_int32_t));
+  memcpy(buffer + 16, &entry->out_packets, sizeof(u_int32_t));
+  memcpy(buffer + 20, &entry->retrans_bytes, sizeof(u_int32_t));
+  memcpy(buffer + 24, &entry->retrans_packets, sizeof(u_int32_t));
+  memcpy(buffer + 28, &entry->min_rtt_usec, sizeof(u_int32_t));
+  memcpy(buffer + 32, &entry->max_rtt_usec, sizeof(u_int32_t));
+
+  u_int32_t ts = (u_int32_t)entry->ts_first.tv_sec;
+  memcpy(buffer + 36, &ts, sizeof(u_int32_t));
+  ts = (u_int32_t)entry->ts_first.tv_usec;
+  memcpy(buffer + 40, &ts, sizeof(u_int32_t));
+  ts = (u_int32_t)entry->ts_last.tv_sec;
+  memcpy(buffer + 44, &ts, sizeof(u_int32_t));
+  ts = (u_int32_t)entry->ts_last.tv_usec;
+  memcpy(buffer + 48, &ts, sizeof(u_int32_t));
+}
+
+/* ****************************************************** */
+
+void decapsulate_flow_record(char* ipfix_message) {
+  u_int16_t message_length;
+  memcpy(&message_length, ipfix_message + 2, sizeof(u_int16_t));
+  int num_record = (message_length - 16 - 4) / SIZE_FLOW_DATA_RECORD;
+  int i, offset;
+  u_int16_t i16_tmp;
+  u_int32_t i32_tmp;
+  for (i = 0; i < num_record; ++i) {
+    offset = 20 + i * SIZE_FLOW_DATA_RECORD;
+    // IPV4_SRC_ADDR and L4_SRC_PORT.
+    memcpy(&i32_tmp, ipfix_message + offset, sizeof(u_int32_t));
+    memcpy(&i16_tmp, ipfix_message + offset + 8, sizeof(u_int16_t));
+    printf("%s:%d ", intoa(i32_tmp), (int)i16_tmp);
+    // IPV4_DST_ADDR and L4_DST_PORT.
+    memcpy(&i32_tmp, ipfix_message + offset + 4, sizeof(u_int32_t));
+    memcpy(&i16_tmp, ipfix_message + offset + 10, sizeof(u_int16_t));
+    printf("%s:%d ", intoa(i32_tmp), i16_tmp);
+    // FIRST_SWITCHED and FIRST_SWITCHED_USEC.
+    memcpy(&i32_tmp, ipfix_message + offset + 36, sizeof(u_int32_t));
+    printf("[%u.", i32_tmp);
+    memcpy(&i32_tmp, ipfix_message + offset + 40, sizeof(u_int32_t));
+    printf("%u -> ", i32_tmp);
+    // LAST_SWITCHED and LAST_SWITCHED_USEC.
+    memcpy(&i32_tmp, ipfix_message + offset + 44, sizeof(u_int32_t));
+    printf("%u.", i32_tmp);
+    memcpy(&i32_tmp, ipfix_message + offset + 48, sizeof(u_int32_t));
+    printf("%u] ", i32_tmp);
+    // OUT_BYTES and OUT_PKTS.
+    memcpy(&i32_tmp, ipfix_message + offset + 12, sizeof(u_int32_t));
+    printf("%u/", i32_tmp);
+    memcpy(&i32_tmp, ipfix_message + offset + 16, sizeof(u_int32_t));
+    printf("%u ", i32_tmp);
+    // RETRANSMITTED_OUT_BYTES and RETRANSMITTED_OUT_PKTS.
+    memcpy(&i32_tmp, ipfix_message + offset + 20, sizeof(u_int32_t));
+    printf("(%u/", i32_tmp);
+    memcpy(&i32_tmp, ipfix_message + offset + 24, sizeof(u_int32_t));
+    printf("%u) ", i32_tmp);
+    // MIN_DELAY_US and MAX_DELAY_US.
+    memcpy(&i32_tmp, ipfix_message + offset + 28, sizeof(u_int32_t));
+    printf("(%u/", i32_tmp);
+    memcpy(&i32_tmp, ipfix_message + offset + 32, sizeof(u_int32_t));
+    printf("%u)\n", i32_tmp);
+  }
+}
+
+/* ****************************************************** */
+
+int export_flow_record(char* ipfix_message, int message_length) {
+  int sent_bytes = 0;
+  while (sent_bytes < message_length) {
+    int tmp = send(export_socket, ipfix_message + sent_bytes,
+        message_length - sent_bytes, 0);
+    if (tmp < 0) {
+      fprintf(stderr, "Error when exporting to collector.\n");
+      remote_export = 0;
+      exit(-1);
+    }
+    sent_bytes += tmp;
+  }
+  return 0;
+}
+
+/* ****************************************************** */
+
+void export_flow(int sig) {
+  pthread_mutex_lock(&export_mutex);
+  flow_stats_list_pending_report = flow_stats_list_front;
+  flow_stats_list_front = NULL;
+  flow_stats_list_back = NULL;
+  pthread_mutex_unlock(&export_mutex);
+
+  struct Ipv4TcpFlowEntry* entry = flow_stats_list_pending_report;
+  int num_record = 0;
+  while (entry != NULL) {
+    num_record++;
+    entry = entry->next;
+  }
+
+  //printf("[%d records to export]\n", num_record);
+  if (num_record > 0) {
+    entry = flow_stats_list_pending_report;
+    int num_full_size_export = num_record / MAX_FLOW_PER_EXPORT;
+    int residual_record = num_record % MAX_FLOW_PER_EXPORT;
+
+    u_int16_t i16_tmp = 0;
+    u_int32_t i32_tmp = 0;
+    int full_size_message_length =
+        16 + 4 + SIZE_FLOW_DATA_RECORD * MAX_FLOW_PER_EXPORT;
+    char* ipfix_message =
+        (char *)malloc(full_size_message_length * sizeof(char));
+    // Version number (increased by 1 based on NetFlow version 9).
+    i16_tmp = 10;
+    memcpy(ipfix_message, &i16_tmp, sizeof(u_int16_t));
+    // Observation Domain ID (may use threadId in multi-thread mode).
+    i32_tmp = 0;
+    memcpy(ipfix_message + 12, &i32_tmp, sizeof(u_int32_t));
+    // Set ID (use 256 by default).
+    i16_tmp = 256;
+    memcpy(ipfix_message + 16, &i16_tmp, sizeof(u_int16_t));
+
+    // Export full-sized message first.
+    // Message length (in unit of bytes).
+    i16_tmp = (u_int16_t)full_size_message_length;
+    memcpy(ipfix_message + 2, &i16_tmp, sizeof(u_int16_t));
+    // Data set length.
+    i16_tmp = (u_int16_t)(full_size_message_length - 16);
+    memcpy(ipfix_message + 18, &i16_tmp, sizeof(u_int16_t));
+    // Full-sized flow records.
+    int i, j;
+    for (i = 0; i < num_full_size_export; ++i) {
+      // Unix seconds as export timestamp.
+      i32_tmp = (u_int32_t)time(NULL);
+      memcpy(ipfix_message + 4, &i32_tmp, sizeof(u_int32_t));
+      // Per-export message sequence number.
+      memcpy(ipfix_message + 8, &export_seq_no, sizeof(u_int32_t));
+      export_seq_no++;
+
+      for (j = 0; j < MAX_FLOW_PER_EXPORT; ++j) {
+        encapsulate_flow_record(ipfix_message + 20 + j * SIZE_FLOW_DATA_RECORD,
+                                entry);
+
+        flow_stats_list_pending_report = entry->next;
+        free(entry);
+        entry = flow_stats_list_pending_report;
+      }
+
+      decapsulate_flow_record(ipfix_message);
+      if (remote_export > 0) {
+        export_flow_record(ipfix_message, full_size_message_length);
+      }
+    }
+
+    // Export remaining flows (if there is any) in one message.
+    if (residual_record > 0) {
+      int residual_message_length =
+          16 + 4 + SIZE_FLOW_DATA_RECORD * residual_record;
+      // Message length (in unit of bytes).
+      i16_tmp = (u_int16_t)residual_message_length;
+      memcpy(ipfix_message + 2, &i16_tmp, sizeof(u_int16_t));
+      // Data set length.
+      i16_tmp = (u_int16_t)(residual_message_length - 16);
+      memcpy(ipfix_message + 18, &i16_tmp, sizeof(u_int16_t));
+      // Unix seconds as export timestamp.
+      i32_tmp = (u_int32_t)time(NULL);
+      memcpy(ipfix_message + 4, &i32_tmp, sizeof(u_int32_t));
+      // Per-export message sequence number.
+      memcpy(ipfix_message + 8, &export_seq_no, sizeof(u_int32_t));
+      export_seq_no++;
+
+      for (j = 0; j < residual_record; ++j) {
+        encapsulate_flow_record(ipfix_message + 20 + j * SIZE_FLOW_DATA_RECORD,
+                                entry);
+
+        flow_stats_list_pending_report = entry->next;
+        free(entry);
+        entry = flow_stats_list_pending_report;
+      }
+
+      decapsulate_flow_record(ipfix_message);
+      if (remote_export > 0) {
+        export_flow_record(ipfix_message, residual_message_length);
+      }
+    }
+
+    /*if (flow_stats_list_pending_report == NULL) {
+      printf(".................... export done\n");
+    }*/
+
+    free(ipfix_message);
+  }
+
+  ualarm(DEFAULT_EXPORT_INTERVAL_USEC, 0);
+  signal(SIGALRM, export_flow);
 }
 
 /* ****************************************************** */
@@ -735,6 +960,8 @@ void printHelp(void) {
   printf("-p <poll wait>    Poll wait (msec)\n");
   printf("-b <cpu %%>        CPU pergentage priority (0-99)\n");
   printf("-a                Active packet wait\n");
+  printf("-z                Collector IP address\n");
+  printf("-x                Collector port\n");
   printf("-N <num>          Read <num> packets and exit\n");
   printf("-m                Long packet header (with PF_RING extensions)\n");
   printf("-r                Rehash RSS packets\n");
@@ -936,6 +1163,9 @@ int main(int argc, char* argv[]) {
   char *bpfFilter = NULL;
   cluster_type cluster_hash_type = cluster_per_flow_5_tuple;
 
+  char* collector_addr = NULL;
+  int collector_port = 0;
+
   startTime.tv_sec = 0;
   thiszone = gmt_to_local(0);
 
@@ -949,6 +1179,14 @@ int main(int argc, char* argv[]) {
       break;
     case 'a':
       wait_for_packet = 0;
+      break;
+    case 'z':
+      collector_addr = (char*)malloc(strlen(optarg) * sizeof(char) + 1);
+      memcpy(collector_addr, optarg, strlen(optarg));
+      collector_addr[strlen(optarg)] = '\0';
+      break;
+    case 'x':
+      collector_port = atoi(optarg);
       break;
     case 'b':
       cpu_percentage = atoi(optarg);
@@ -1216,6 +1454,36 @@ int main(int argc, char* argv[]) {
   }
 
   sample_filtering_rules();
+
+  signal(SIGALRM, export_flow);
+  alarm(ALARM_SLEEP);
+
+  // TODO: access to export socket in multi-thread mode.
+  if (collector_addr != NULL && collector_port > 0) {
+    export_socket = socket(AF_INET, SOCK_STREAM, 0);
+    if (export_socket < 0) {
+      fprintf(stderr, "Export Socket creation error\n");
+    } else {
+      struct sockaddr_in collector_sock_addr;
+      collector_sock_addr.sin_family = AF_INET;
+      collector_sock_addr.sin_port = htons(collector_port);
+      // Convert Collector IPv4 addresse from text to binary form.
+      if (inet_pton(AF_INET, collector_addr, &collector_sock_addr.sin_addr) <=
+          0) {
+        fprintf(stderr, "Invalid collector address or address not supported\n");
+      } else {
+        if (connect(export_socket, (struct sockaddr *)&collector_sock_addr,
+                    sizeof(collector_sock_addr)) < 0) {
+          fprintf(stderr, "Fail to connect to collector at %s:%d\n",
+              collector_addr, collector_port);
+        } else {
+          fprintf(stderr, "Connected to collector at %s:%d\n",
+              collector_addr, collector_port);
+          remote_export = 1;
+        }
+      }
+    }
+  }
 
   if(num_threads <= 1) {
     if(bind_core >= 0)

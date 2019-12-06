@@ -8,14 +8,16 @@
 #include <mutex>
 #include <utility>
 #include <shared_mutex>
-#include <charconv>
+//#include <charconv>
 #include <algorithm>
 #include <string>
 #include <sparsehash/dense_hash_map>
 using google::dense_hash_map;
 using namespace std;
 
-constexpr bool PARALLEL_IO=false;
+inline constexpr bool PARALLEL_IO=false;
+// All trace files have hosts numbered as host + OFFSET_HOST
+const int OFFSET_HOST = 10000;
 
 struct MemoizedPaths{
     vector<Path*> paths;
@@ -67,7 +69,9 @@ struct FlowLines{
     }
 };
 class LogData;
-void GetLinkMappings(string topology_file, LogData* result);
+
+void GetAllPairShortestPaths(vector<int>& nodes, unordered_set<Link>& links, LogData* result);
+void GetLinkMappings(string topology_file, LogData* result, bool compute_paths=false);
 void GetDataFromLogFile(string filename, LogData* result);
 void ProcessFlowPathLines(vector<char*>& lines, vector<array<int, 10> >& path_nodes_list, int nopenmp_threads);
 void ProcessFlowLines(vector<FlowLines>& all_flow_lines, LogData* result, int nopenmp_threads);
@@ -114,12 +118,12 @@ inline pair<char*, bool> to_int(char *s, int length, int &result){
 inline bool GetFirstInt(char* &str, int &result){
     while(*str==' ') str++; //Trim initial whitespace
     int token_length = GetTokenLength(str);
-    auto [p, ec] = from_chars(str, str + token_length, result);
-    //auto [p, success] = to_int(str, token_length, result);
+    //auto [p, ec] = from_chars(str, str + token_length, result);
+    auto [p, success] = to_int(str, token_length, result);
     //cout << "GetFirstInt " << string(str, token_length) << " : " << result << endl;
     str = const_cast<char*>(p);
-    //return success;
-    return (ec == errc());
+    return success;
+    //return (ec == errc());
 }
 /*
 inline bool GetFirstInt(char* &str, int &result){

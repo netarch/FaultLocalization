@@ -426,12 +426,19 @@ int LogData::GetLinkIdUnsafe(Link link){
 
 void LogData::ResetForAnalysis(){
     flows.clear();
+    /*!TODO
     if(forward_flows_by_link_id!=NULL) delete forward_flows_by_link_id;
     if(reverse_flows_by_link_id!=NULL){
         delete reverse_flows_by_link_id;
         delete flows_by_link_id;
     }
+    */
     forward_flows_by_link_id = reverse_flows_by_link_id = flows_by_link_id = NULL;
+}
+
+void LogData::GetAllPaths(vector<Path*> **result, int src_rack, int dest_rack){
+    MemoizedPaths *memoized_paths = GetMemoizedPaths(src_rack, dest_rack);
+    memoized_paths->GetAllPaths(result);
 }
 
 int GetReducedLinkId(int link_id, unordered_map<Link, Link> &reduced_graph_map,

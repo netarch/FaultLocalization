@@ -8,6 +8,7 @@ LIBS = -lflock -ljsoncpp
 
 all: collector
 
+#!TODO: Fix dependencies
 collector: collector.cpp
 	$(MAKE) -C .. libflock.a
 	$(CC) $(LIBDIR) $(INCLUDE) $(CFLAGS) collector.cpp -o collector $(LIBS)

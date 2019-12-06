@@ -9,3 +9,8 @@ $ sudo pfflowdump -i eth1 -l 80 -m -v 1 -f "tcp port 5001"
 
 Note that, the pf_ring kernel module may need to be installed first:
 $ cd kernel & sudo insmod pf_ring.ko
+
+Besides, a simple collector implementation (collector.c) is provided as a sample
+to start with. It accepts exporter connection on a given port, and receives the
+exported flow messages. To build it, just run:
+$ gcc -o collector collector.c

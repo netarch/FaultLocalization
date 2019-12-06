@@ -6,6 +6,12 @@
 
 #define DEFAULT_HASH_SIZE 131072
 
+// Parameter passed to ualarm in unit of microseconds, should be less than 10^6.
+#define DEFAULT_EXPORT_INTERVAL_USEC 200000
+
+#define MAX_FLOW_PER_EXPORT 25
+#define SIZE_FLOW_DATA_RECORD 52
+
 struct SeqNoInFlight {
   u_int32_t pending_ack_no;
   struct timeval ts_sent;
@@ -20,10 +26,10 @@ struct Ipv4TcpFlowEntry {
   u_int16_t src_port;
   u_int16_t dst_port;
 
-  u_int64_t out_bytes;
+  u_int32_t out_bytes;
   u_int32_t out_packets;
 
-  u_int64_t retrans_bytes;
+  u_int32_t retrans_bytes;
   u_int32_t retrans_packets;
 
   u_int32_t max_rtt_usec;
@@ -40,5 +46,41 @@ struct Ipv4TcpFlowEntry {
   struct SeqNoInFlight* seq_no_in_flight_head;
   struct SeqNoInFlight* seq_no_in_flight_tail;
 };
+
+/* Export IPFIX message format
+    0               1               2               3
+    0 1 2 3 4 5 6 7 0 1 2 3 4 5 6 7 0 1 2 3 4 5 6 7 0 1 2 3 4 5 6 7
+   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+   |       FlowSet ID = 256        |      Length = 52 * N + 4      |
+   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+   |                       IPV4_SRC_ADDR (8)                       |
+   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+   |                       IPV4_DST_ADDR (8)                       |
+   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+   |        L4_SRC_PORT (7)        |        L4_DST_PORT (7)        |
+   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+   |                        OUT_BYTES (23)                         |
+   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+   |                         OUT_PKTS (24)                         |
+   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+   |                RETRANSMITTED_OUT_BYTES (57600)                |
+   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+   |                 RETRANSMITTED_OUT_PKTS (57582)                |
+   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+   |                       MIN_DELAY_US (??)                       |
+   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+   |                       MAX_DELAY_US (??)                       |
+   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+   |                      FIRST_SWITCHED (22)                      |
+   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+   |                    FIRST_SWITCHED_USEC (??)                   |
+   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+   |                       LAST_SWITCHED (21)                      |
+   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+   |                    LAST_SWITCHED_USEC (??)                    |
+   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+   |                              ...                              |
+   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+*/
 
 #endif

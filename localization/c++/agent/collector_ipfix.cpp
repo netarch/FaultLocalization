@@ -23,6 +23,8 @@
 char collector_ip[] = "192.168.100.101";
 int collector_port = 6000;
 
+#define SIZE_FLOW_DATA_RECORD 52
+
 using namespace std;
 
 uint32_t ConvertStringIpToInt(string& ip_addr){
@@ -103,6 +105,8 @@ void* SocketThread(void *arg){
     LogData *log_data = args->log_data;
     string data = "";
     recv_timeout(socket, data);
+
+#ifndef IPFIX_EXPORT_FORMAT
     /* Sample JSON
     {"IPV4_SRC_ADDR":"192.168.100.108",
      "IPV4_DST_ADDR":"192.168.100.101",
@@ -174,6 +178,82 @@ void* SocketThread(void *arg){
         c_begin = c_end+1;
         c_end = data.find_first_of('}', c_begin);
     }
+#else
+    const char *c_data = data.c_str();
+    size_t c_begin = 0;
+    size_t c_end = data.length();
+
+    while (c_begin < c_end) {
+        u_int16_t message_length;
+        memcpy(&message_length, c_data + c_begin + 2, sizeof(u_int16_t));
+        int num_record = (message_length - 16 - 4) / SIZE_FLOW_DATA_RECORD;
+        int i, offset;
+        u_int16_t i16_tmp;
+        u_int32_t i32_tmp;
+        for (i = 0; i < num_record; ++i) {
+            offset = 20 + i * SIZE_FLOW_DATA_RECORD;
+            // IPV4_SRC_ADDR and L4_SRC_PORT.
+            memcpy(&i32_tmp, c_data + c_begin + offset, sizeof(u_int32_t));
+            memcpy(&i16_tmp, c_data + c_begin + offset + 8, sizeof(u_int16_t));
+            string src_ip = intoa(i32_tmp);
+            int src_port = (int)i16_tmp;
+            // IPV4_DST_ADDR and L4_DST_PORT.
+            memcpy(&i32_tmp, c_data + c_begin + offset + 4, sizeof(u_int32_t));
+            memcpy(&i16_tmp, c_data + c_begin + offset + 10, sizeof(u_int16_t));
+            string dest_ip = intoa(i32_tmp);
+            int dest_port = (int)i16_tmp;
+            // FIRST_SWITCHED.
+            // memcpy(&i32_tmp, c_data + c_begin + offset + 36, sizeof(u_int32_t));
+            // FIRST_SWITCHED_USEC.
+            // memcpy(&i32_tmp, c_data + c_begin + offset + 40, sizeof(u_int32_t));
+            // LAST_SWITCHED.
+            // memcpy(&i32_tmp, c_data + c_begin + offset + 44, sizeof(u_int32_t));
+            // LAST_SWITCHED_USEC.
+            // memcpy(&i32_tmp, c_data + c_begin + offset + 48, sizeof(u_int32_t));
+            // OUT_BYTES.
+            memcpy(&i32_tmp, c_data + c_begin + offset + 12, sizeof(u_int32_t));
+            int nbytes = (int)i32_tmp;
+            // OUT_PKTS.
+            memcpy(&i32_tmp, c_data + c_begin + offset + 16, sizeof(u_int32_t));
+            int packets_sent = (int)i32_tmp;
+            // RETRANSMITTED_OUT_BYTES.
+            // memcpy(&i32_tmp, c_data + c_begin + offset + 20, sizeof(u_int32_t));
+            // RETRANSMITTED_OUT_PKTS.
+            // memcpy(&i32_tmp, c_data + c_begin + offset + 24, sizeof(u_int32_t));
+            // MIN_DELAY_US.
+            // memcpy(&i32_tmp, c_data + c_begin + offset + 28, sizeof(u_int32_t));
+            // MAX_DELAY_US.
+            // memcpy(&i32_tmp, c_data + c_begin + offset + 32, sizeof(u_int32_t));
+
+            int src_host = ConvertStringIpToInt(src_ip);
+            int dest_host = ConvertStringIpToInt(dest_ip);
+            if (src_host > 0 and dest_host > 0 and packets_sent > 0){
+                //cout << src_ip << " " << dest_ip << " " << packets_sent << " " << retransmissions
+                //     << " flow_queue size: " << flow_queue.size() << endl;
+                src_host += OFFSET_HOST;
+                dest_host += OFFSET_HOST;
+		assert(log_data->hosts_to_racks.find(src_host) != log_data->hosts_to_racks.end());
+                int src_rack = log_data->hosts_to_racks[src_host];
+		assert(log_data->hosts_to_racks.find(dest_host) != log_data->hosts_to_racks.end());
+                int dest_rack = log_data->hosts_to_racks[dest_host];
+		//cout << src_host << " " << src_rack << " " << dest_host << " " << dest_rack << endl;
+                Flow *flow = new Flow(src_host, src_port, dest_host, dest_port, nbytes, 0.0);
+		flow->SetFirstLinkId(log_data->GetLinkIdUnsafe(Link(flow->src, src_rack)));
+		flow->SetLastLinkId(log_data->GetLinkIdUnsafe(Link(dest_rack, flow->dest)));
+                flow->AddSnapshot(0.0, packets_sent, retransmissions, retransmissions);
+		log_data->GetAllPaths(&flow->paths, src_rack, dest_rack);
+		//!TODO: set path taken for all flows
+		assert(flow->paths!=NULL and flow->paths->size() == 1);
+		flow->SetPathTaken(flow->paths->at(0));
+		//cout << "first_link_id " << flow->first_link_id << " last_link_id " << flow->last_link_id
+	        //     << " flow->path_taken " << *flow->paths->at(0) << endl;
+                flow_queue.push(flow);
+            }
+        }
+
+        c_begin += message_length;
+    }
+#endif
     close(socket);
     delete args;
     pthread_exit(NULL);

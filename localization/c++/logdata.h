@@ -21,7 +21,7 @@ public:
     vector<Link> inverse_links;
     vector<vector<int> > *forward_flows_by_link_id, *reverse_flows_by_link_id, *flows_by_link_id;
     //dense_hash_map<PII, MemoizedPaths*, hash<PII> > memoized_paths;
-    map<PII, MemoizedPaths*> memoized_paths;
+    unordered_map<PII, MemoizedPaths*> memoized_paths;
     shared_mutex memoized_paths_lock;
     MemoizedPaths* GetMemoizedPaths(int src_rack, int dest_rack);
 
@@ -49,6 +49,8 @@ public:
 
     void GetReducedData(unordered_map<Link, Link>& reduced_graph_map, LogData& reduced_data,
                         int nopenmp_threads);
+
+    void ResetForAnalysis();
 
 };
 

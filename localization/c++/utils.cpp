@@ -41,8 +41,6 @@ void GetDataFromLogFileDistributed(string dirname, int nchunks, LogData *result,
 void GetLinkMappings(string topology_file, LogData* result){
     ifstream tfile(topology_file);
     string line;
-    // All trace files have hosts numbered as host + OFFSET_HOST
-    const int OFFSET_HOST = 10000;
     if constexpr (VERBOSE){
         cout << "Asuuming trace file has hosts numbered as host_id + " << OFFSET_HOST << " (OFFSET)" << endl;
     }
@@ -365,6 +363,7 @@ void ProcessFlowPathLines(vector<char*>& lines, LogData* result, int nopenmp_thr
         cout<< "Parsed flow path lines in "<<GetTimeSinceMilliSeconds(start_time)
             << " seconds, numlines " << lines.size() << endl;
     }
+    //!TODO: Save repeated memory allocation for memoized paths
     for(int ii=0; ii<lines.size(); ii++){
         MemoizedPaths *memoized_paths = result->GetMemoizedPaths(src_dest_rack[ii].first, src_dest_rack[ii].second);
         memoized_paths->AddPath(&path_arr[ii]);

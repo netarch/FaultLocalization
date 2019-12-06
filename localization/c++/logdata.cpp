@@ -87,7 +87,8 @@ void LogData::FilterFlowsBeforeTime(double finish_time_ms, int nopenmp_threads){
             filtered_flows[thread_num].push_back(f);
         }
         else{
-            delete(f);
+            //!TODO: improve memory management for flows
+            //delete(f);
         }
     }
     flows.clear();
@@ -112,7 +113,8 @@ void LogData::FilterFlowsForConditional(double max_finish_time_ms, int nopenmp_t
             f->ResetSnapshotCounter();
         }
         else{
-            delete(f);
+            //!TODO: improve memory management for flows
+            //delete(f);
         }
     }
     flows.clear();
@@ -422,6 +424,15 @@ int LogData::GetLinkIdUnsafe(Link link){
     return it->second;
 }
 
+void LogData::ResetForAnalysis(){
+    flows.clear();
+    if(forward_flows_by_link_id!=NULL) delete forward_flows_by_link_id;
+    if(reverse_flows_by_link_id!=NULL){
+        delete reverse_flows_by_link_id;
+        delete flows_by_link_id;
+    }
+    forward_flows_by_link_id = reverse_flows_by_link_id = flows_by_link_id = NULL;
+}
 
 int GetReducedLinkId(int link_id, unordered_map<Link, Link> &reduced_graph_map,
                                   LogData &data, LogData &reduced_data){

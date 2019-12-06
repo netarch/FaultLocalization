@@ -15,7 +15,7 @@
 using google::dense_hash_map;
 using namespace std;
 
-inline constexpr bool PARALLEL_IO=false;
+constexpr bool PARALLEL_IO=false;
 
 struct MemoizedPaths{
     vector<Path*> paths;

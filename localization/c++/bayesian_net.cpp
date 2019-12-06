@@ -32,9 +32,8 @@ void BayesianNet::CleanUpAfterLocalization(unordered_map<Hypothesis*, double> &a
     }
 }
 
-// Optimization legitimate only if USE_CONDITIONAL = false
+// Optimization legitimate for regular unconditional computation
 void BayesianNet::ComputeAndStoreIntermediateValues(int nopenmp_threads, double max_finish_time_ms){
-    assert(!USE_CONDITIONAL);
     #pragma omp parallel for num_threads(nopenmp_threads)
     for (int ii=0; ii<data->flows.size(); ii++){
         Flow* flow = data->flows[ii];
@@ -151,13 +150,12 @@ void BayesianNet::LocalizeFailures(double min_start_time_ms, double max_finish_t
     if constexpr (VERBOSE) cout << "Params: p1 " << 1.0 - p1 << " p2 " << p2 << " openmp threads " << nopenmp_threads << endl;
     assert(data != NULL);
     BinFlowsByLinkId(max_finish_time_ms, nopenmp_threads);
-    if (not USE_CONDITIONAL){
-        auto start_time = chrono::high_resolution_clock::now();
-        ComputeAndStoreIntermediateValues(nopenmp_threads, max_finish_time_ms);
-        if constexpr (VERBOSE){
-            cout << "Finished computing intermediate values in "
-                 << GetTimeSinceMilliSeconds(start_time) << " seconds" << endl;
-        }
+
+    auto start_time = chrono::high_resolution_clock::now();
+    ComputeAndStoreIntermediateValues(nopenmp_threads, max_finish_time_ms);
+    if constexpr (VERBOSE){
+        cout << "Finished computing intermediate values in "
+             << GetTimeSinceMilliSeconds(start_time) << " seconds" << endl;
     }
     if (VERBOSE and PRINT_SCORES){
         auto start_print_time = chrono::high_resolution_clock::now();
@@ -165,6 +163,7 @@ void BayesianNet::LocalizeFailures(double min_start_time_ms, double max_finish_t
         cout << "Finished printing scores in " << GetTimeSinceMilliSeconds(start_print_time)
              << " seconds" << endl;
     }
+
     unordered_map<Hypothesis*, double> all_hypothesis;
     auto start_search_time = chrono::high_resolution_clock::now();
     SearchHypotheses1(min_start_time_ms, max_finish_time_ms, all_hypothesis, nopenmp_threads);

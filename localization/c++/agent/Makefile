@@ -14,4 +14,4 @@ collector: collector.cpp
 	$(CC) $(LIBDIR) $(INCLUDE) $(CFLAGS) collector.cpp -o collector $(LIBS)
 
 clean:	
-	rm -f *.o collector
+	rm -f ../libflock.a *.o collector

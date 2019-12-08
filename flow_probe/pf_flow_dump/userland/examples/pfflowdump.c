@@ -584,6 +584,8 @@ void process_packet(const struct pfring_pkthdr *h, const u_char *p, u_int8_t dum
   if ((h->extended_hdr.parsed_pkt.tcp.flags & FLAG_FIN) != 0) {
     if (entry->prev != NULL) {
       entry->prev->next = entry->next;
+    } else {
+      flow_hash_map[hash_index] = entry->next;
     }
     if (entry->next != NULL) {
       entry->next->prev = entry->prev;

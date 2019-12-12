@@ -6,12 +6,17 @@ INCLUDE = -I../sparsehash/include -I../
 
 LIBS = -lflock -ljsoncpp
 
-all: collector
+all: collector collector_ipfix
 
 #!TODO: Fix dependencies
 collector: collector.cpp
 	$(MAKE) -C .. libflock.a
 	$(CC) $(LIBDIR) $(INCLUDE) $(CFLAGS) collector.cpp -o collector $(LIBS)
 
+#!TODO: Fix dependencies
+collector_ipfix: collector_ipfix.cpp
+	$(MAKE) -C .. libflock.a
+	$(CC) $(LIBDIR) $(INCLUDE) $(CFLAGS) collector_ipfix.cpp -o collector_ipfix $(LIBS)
+
 clean:	
-	rm -f ../libflock.a *.o collector
+	rm -f ../libflock.a *.o collector collector_ipfix

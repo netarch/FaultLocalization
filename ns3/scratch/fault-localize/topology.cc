@@ -188,6 +188,8 @@ pair<int, int> Topology::PenultimateHops(int src_node, int dest_node){
         vector<vector<int> > paths;
         GetPathsRack(src_rack, dest_rack, paths);
         // otherwise second hop is not well defined
+        if (!(paths.size() == 1 and paths[0].size() >= 2))
+          cout << "Penultimate hops " <<  src_node << " " << dest_node <<  " " << paths.size() << " " << paths[0].size() << endl;
         assert(paths.size() == 1 and paths[0].size() >= 2);
         if (!IsNodeHost(src_node)) second_hop = paths[0][1];
         if (!IsNodeHost(dest_node)) second_last_hop = paths[0][paths[0].size()-2];
@@ -536,7 +538,7 @@ int Topology::GetFirstUnusedPort(int src_node, int dest_node){
     node_first_unused_port[src_node] = max(node_first_unused_port[src_node], port+1);
     node_first_unused_port[dest_node] = max(node_first_unused_port[dest_node], port+1);
     endpoint_first_unused_port[endpoints] = port+1;
-    cout << src_node << " " << dest_node << " " << port << endl;
+    //cout << src_node << " " << dest_node << " " << port << endl;
     return port;
 }
 

@@ -193,7 +193,6 @@ int main(int argc, char *argv[]){
     long long total_bytes=0;
     for (int ff = 0; ff < nflows; ff++){
         Flow& flow = topology.flows[ff];
-        cout<<"bytes: "<<flow.nbytes<<endl;
         total_bytes += flow.nbytes;
         
         //!TODO: Get IPs correctly
@@ -208,7 +207,6 @@ int main(int argc, char *argv[]){
         //cout<<src_host<<"-->"<<dest_host<<endl;
         Address dest_ip_address(InetSocketAddress(Ipv4Address(dest_node_ip), port));
 
-        cout << "Dest address " << dest_node_ip << endl;
         // Initialize On/Off Application with ip addresss of server
         OnOffHelper oo = OnOffHelper("ns3::TcpSocketFactory", dest_ip_address);
         oo.SetAttribute("DataRate",StringValue (flow.data_rate));
@@ -217,7 +215,7 @@ int main(int argc, char *argv[]){
         oo.SetAttribute("OnTime", StringValue ("ns3::ConstantRandomVariable[Constant=10000000.0]"));
         oo.SetAttribute("OffTime", StringValue ("ns3::ConstantRandomVariable[Constant=0.0]"));
         oo.SetAttribute("MaxBytes",StringValue (bytes_c));
-        cout << "maxbytes " << bytes_c << " datarate "<< flow.data_rate <<endl;
+        //cout << "Dest address " << dest_node_ip << " maxbytes " << bytes_c << " datarate "<< flow.data_rate <<endl;
         NodeContainer on_off_container;
         Ptr<Node> src_node_ptr = GetNodePointer(flow.src_node);
         on_off_container.Add(src_node_ptr);

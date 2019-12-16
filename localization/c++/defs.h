@@ -13,7 +13,7 @@ using namespace std;
 
 const bool PATH_KNOWN=false;
 const bool CONSIDER_REVERSE_PATH=false;
-const bool VERBOSE=false;
+const bool VERBOSE=true;
 
 // All trace files have hosts numbered as host + OFFSET_HOST
 const int OFFSET_HOST = 10000;
@@ -110,6 +110,14 @@ struct SmallVector{
         os << "]"; 
         return os; 
     } 
+    iterator find(const T& val){
+        iterator first = begin(), last = end();
+        while (first != last){
+            if (*first == val) return first;
+            else ++first;
+        }
+        return first;
+    }
 };
 
 

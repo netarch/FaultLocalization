@@ -16,8 +16,6 @@ using google::dense_hash_map;
 using namespace std;
 
 inline constexpr bool PARALLEL_IO=false;
-// All trace files have hosts numbered as host + OFFSET_HOST
-const int OFFSET_HOST = 10000;
 
 struct MemoizedPaths{
     vector<Path*> paths;

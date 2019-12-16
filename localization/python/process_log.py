@@ -16,38 +16,15 @@ class Link:
         self.src = src
         self.dest = dest
 
-def offset_host(host):
-    host_offset = 0
-    return host + host_offset
-
-def offset_endhosts_in_path(path):
-    ret = path
-    ret[0] = offset_host(ret[0])
-    ret[-1] = offset_host(ret[-1])
-    return ret
-
-def convert_path(p, hostip_to_host, linkip_to_link, host_switch_ip, flow, reverse_path):
+def convert_path(p, linkip_to_link):
     assert (len(p) >= 1)
-    srchost = p[0]
-    destrack = p[-1]
-    if (not (srchost in hostip_to_host and destrack in host_switch_ip)):
-        print(p)
-        flow.print_flow_metrics(sys.stdout)
-        return False
-    assert (srchost in hostip_to_host and destrack in host_switch_ip)
     path = []
-    #path.append(hostip_to_host[srchost])
-    for i in range(1, len(p)-1):
+    # leave out the firt node, the last node is automatically left out by ns3
+    for i in range(1, len(p)):
         link = linkip_to_link[p[i]]
         assert (link.srcip == p[i])
         path.append(link.src)
-    path.append(host_switch_ip[destrack])
-    '''
-    if (not reverse_path):
-        path.append(flow.dest)
-    else:
-        path.append(flow.src)
-    '''
+    #print(p, path)
     return path
 
 
@@ -55,9 +32,7 @@ def process_logfile(filename, min_start_time_ms, max_start_time_ms, outfilename)
     flows = dict()
     start_simulation = False
     linkip_to_link = dict()
-    hostip_to_host = dict()
-    host_to_hostip = dict()
-    host_switch_ip = dict()
+    nodeip_to_node = dict()
     flow_route_taken = dict()
     curr_flow = None
     outfile = open(outfilename,"w+")
@@ -81,16 +56,19 @@ def process_logfile(filename, min_start_time_ms, max_start_time_ms, outfilename)
                 destip = tokens[2]
                 src = int(tokens[3])
                 dest = int(tokens[4])
+                nodeip_to_node[srcip] = src
+                nodeip_to_node[destip] = dest
                 linkip_to_link[srcip] = Link(srcip, destip, src, dest)
                 linkip_to_link[destip] = Link(destip, srcip, dest, src)
             elif "host_ip" in line:
-                host_ip1 = tokens[1] #switch
-                host_ip2 = tokens[2] #host
-                host = offset_host(int(tokens[3]))
+                rack_ip = tokens[1] #switch
+                host_ip = tokens[2] #host
+                host = int(tokens[3])
                 rack = int(tokens[4])
-                hostip_to_host[host_ip2] = host
-                host_to_hostip[host] = host_ip2
-                host_switch_ip[host_ip1] = rack
+                nodeip_to_node[rack_ip] = rack
+                nodeip_to_node[host_ip] = host
+                linkip_to_link[host_ip] = Link(host_ip, rack_ip, host, rack)
+                linkip_to_link[rack_ip] = Link(rack_ip, host_ip, rack, host)
             elif "hop_taken" in line:
                 srcip = tokens[1]
                 destip = tokens[2]
@@ -106,12 +84,12 @@ def process_logfile(filename, min_start_time_ms, max_start_time_ms, outfilename)
                 flow_route_taken[flow].append(hop_ip)
             elif "Flowid" in line:
                 #Flowid 0 2 10.0.0.2 10.0.1.2 100000000 +1039438292.0ns 74215 0 0 70011
-                src = offset_host(int(tokens[1]))
-                dest = offset_host(int(tokens[2]))
+                src = int(tokens[1])
+                dest = int(tokens[2])
                 srcip = tokens[3]
                 destip = tokens[4]
-                srcrack = int(tokens[5])
-                destrack = int(tokens[6])
+                srcrack = int(tokens[5]) #think of this as the second hop
+                destrack = int(tokens[6]) #think of this as the second last hop
                 srcport = int(tokens[7])
                 destport = int(tokens[8])
                 nbytes = int(tokens[9])
@@ -152,7 +130,6 @@ def process_logfile(filename, min_start_time_ms, max_start_time_ms, outfilename)
            #     for i in range(1, len(tokens)):
            #         path.append(int(tokens[i]))
            #     if(len(path) > 0):
-           #         path = offset_endhosts_in_path(path)
            #         curr_flow.add_reverse_path(path)
            # elif "flowpath" in line:
            #     #flowpath 0 2 1
@@ -160,7 +137,6 @@ def process_logfile(filename, min_start_time_ms, max_start_time_ms, outfilename)
            #     for i in range(1, len(tokens)):
            #         path.append(int(tokens[i]))
            #     if(len(path) > 0):
-           #         path = offset_endhosts_in_path(path)
            #         curr_flow.add_path(path)
         if curr_flow != None and len(curr_flow.paths)>=0: #log the previous flow
             flow_tuple = (curr_flow.srcip, curr_flow.destip, curr_flow.srcport, curr_flow.destport)
@@ -168,6 +144,7 @@ def process_logfile(filename, min_start_time_ms, max_start_time_ms, outfilename)
         nsetup_failed = 0
         for flow_tuple in flows:
             flow = flows[flow_tuple]
+            #flow.printinfo(sys.stdout)
             reverse_flow_tuple = (flow.destip, flow.srcip, flow.destport, flow.srcport)
             #if flow_tuple not in flow_route_taken or reverse_flow_tuple not in flow_route_taken or 
             #Less than 4 packets sent implies connection not been set up fully as first 3 are connection setup packets, ignore flow
@@ -178,8 +155,8 @@ def process_logfile(filename, min_start_time_ms, max_start_time_ms, outfilename)
                 continue
             flow.set_path_taken(flow_route_taken[flow_tuple])
             flow.set_reverse_path_taken(flow_route_taken[reverse_flow_tuple])
-            flow.set_path_taken(convert_path(flow.path_taken, hostip_to_host, linkip_to_link, host_switch_ip, flow, reverse_path=False))
-            reverse_path = convert_path(flow.reverse_path_taken, hostip_to_host, linkip_to_link, host_switch_ip, flow, reverse_path=True)
+            flow.set_path_taken(convert_path(flow.path_taken, linkip_to_link))
+            reverse_path = convert_path(flow.reverse_path_taken, linkip_to_link)
             if (reverse_path != False):
                 flow.set_reverse_path_taken(reverse_path)
                 flow.printinfo(outfile)

@@ -14,4 +14,5 @@ collector: collector.cpp
 	$(CC) $(LIBDIR) $(INCLUDE) $(CFLAGS) collector.cpp -o collector $(LIBS)
 
 clean:	
+	$(MAKE) -C .. clean
 	rm -f *.o collector

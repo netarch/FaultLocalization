@@ -199,7 +199,7 @@ void Flow::UpdateSnapshotPtr(double max_finish_time_ms){
     }
 }
 
-inline double Flow::GetDropRate(double max_finish_time_ms){
+double Flow::GetDropRate(double max_finish_time_ms){
     UpdateSnapshotPtr(max_finish_time_ms);
     if (curr_snapshot_ptr >= 0){
         return ((float)snapshots[curr_snapshot_ptr]->packets_lost)/snapshots[curr_snapshot_ptr]->packets_sent;

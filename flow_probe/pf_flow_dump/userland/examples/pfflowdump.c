@@ -102,7 +102,9 @@ struct Ipv4TcpFlowEntry* flow_stats_list_pending_report;
 
 u_int32_t export_seq_no = 0;
 int export_socket = 0;
-u_int8_t remote_export = 0;
+
+char* collector_addr = NULL;
+int collector_port = 0;
 
 static void openDump();
 static void dumpMatch(char *str);
@@ -584,6 +586,8 @@ void process_packet(const struct pfring_pkthdr *h, const u_char *p, u_int8_t dum
   if ((h->extended_hdr.parsed_pkt.tcp.flags & FLAG_FIN) != 0) {
     if (entry->prev != NULL) {
       entry->prev->next = entry->next;
+    } else {
+      flow_hash_map[hash_index] = entry->next;
     }
     if (entry->next != NULL) {
       entry->next->prev = entry->prev;
@@ -720,19 +724,48 @@ void decapsulate_flow_record(char* ipfix_message) {
 
 /* ****************************************************** */
 
-int export_flow_record(char* ipfix_message, int message_length) {
+void export_flow_record(char* ipfix_message, int message_length) {
+  // Create export socket first.
+  if (collector_addr != NULL && collector_port > 0) {
+    export_socket = socket(AF_INET, SOCK_STREAM, 0);
+    if (export_socket < 0) {
+      fprintf(stderr, "Export Socket creation error\n");
+    } else {
+      struct sockaddr_in collector_sock_addr;
+      collector_sock_addr.sin_family = AF_INET;
+      collector_sock_addr.sin_port = htons(collector_port);
+      // Convert Collector IPv4 addresse from text to binary form.
+      if (inet_pton(AF_INET, collector_addr, &collector_sock_addr.sin_addr) <=
+          0) {
+        fprintf(stderr, "Invalid collector address or address not supported\n");
+        return;
+      } else {
+        if (connect(export_socket, (struct sockaddr *)&collector_sock_addr,
+                    sizeof(collector_sock_addr)) < 0) {
+          fprintf(stderr, "Fail to connect to collector at %s:%d\n",
+              collector_addr, collector_port);
+          return;
+        } else {
+          fprintf(stderr, "Connected to collector at %s:%d\n",
+              collector_addr, collector_port);
+        }
+      }
+    }
+  }
+
   int sent_bytes = 0;
   while (sent_bytes < message_length) {
     int tmp = send(export_socket, ipfix_message + sent_bytes,
         message_length - sent_bytes, 0);
     if (tmp < 0) {
       fprintf(stderr, "Error when exporting to collector.\n");
-      remote_export = 0;
-      exit(-1);
+      break;
     }
     sent_bytes += tmp;
   }
-  return 0;
+
+  close(export_socket);
+  return;
 }
 
 /* ****************************************************** */
@@ -800,9 +833,7 @@ void export_flow(int sig) {
       }
 
       decapsulate_flow_record(ipfix_message);
-      if (remote_export > 0) {
-        export_flow_record(ipfix_message, full_size_message_length);
-      }
+      export_flow_record(ipfix_message, full_size_message_length);
     }
 
     // Export remaining flows (if there is any) in one message.
@@ -832,9 +863,7 @@ void export_flow(int sig) {
       }
 
       decapsulate_flow_record(ipfix_message);
-      if (remote_export > 0) {
-        export_flow_record(ipfix_message, residual_message_length);
-      }
+      export_flow_record(ipfix_message, residual_message_length);
     }
 
     /*if (flow_stats_list_pending_report == NULL) {
@@ -1163,9 +1192,6 @@ int main(int argc, char* argv[]) {
   char *bpfFilter = NULL;
   cluster_type cluster_hash_type = cluster_per_flow_5_tuple;
 
-  char* collector_addr = NULL;
-  int collector_port = 0;
-
   startTime.tv_sec = 0;
   thiszone = gmt_to_local(0);
 
@@ -1457,33 +1483,6 @@ int main(int argc, char* argv[]) {
 
   signal(SIGALRM, export_flow);
   alarm(ALARM_SLEEP);
-
-  // TODO: access to export socket in multi-thread mode.
-  if (collector_addr != NULL && collector_port > 0) {
-    export_socket = socket(AF_INET, SOCK_STREAM, 0);
-    if (export_socket < 0) {
-      fprintf(stderr, "Export Socket creation error\n");
-    } else {
-      struct sockaddr_in collector_sock_addr;
-      collector_sock_addr.sin_family = AF_INET;
-      collector_sock_addr.sin_port = htons(collector_port);
-      // Convert Collector IPv4 addresse from text to binary form.
-      if (inet_pton(AF_INET, collector_addr, &collector_sock_addr.sin_addr) <=
-          0) {
-        fprintf(stderr, "Invalid collector address or address not supported\n");
-      } else {
-        if (connect(export_socket, (struct sockaddr *)&collector_sock_addr,
-                    sizeof(collector_sock_addr)) < 0) {
-          fprintf(stderr, "Fail to connect to collector at %s:%d\n",
-              collector_addr, collector_port);
-        } else {
-          fprintf(stderr, "Connected to collector at %s:%d\n",
-              collector_addr, collector_port);
-          remote_export = 1;
-        }
-      }
-    }
-  }
 
   if(num_threads <= 1) {
     if(bind_core >= 0)

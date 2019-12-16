@@ -192,17 +192,18 @@ void BayesianNet::LocalizeFailures(double min_start_time_ms, double max_finish_t
         data->GetFailedLinkIds(correct_hypothesis);
         Hypothesis* no_failure_hypothesis = new Hypothesis();
         double likelihood_correct_hypothesis = ComputeLogLikelihood(&correct_hypothesis,
-                             no_failure_hypothesis, 0.0, min_start_time_ms, max_finish_time_ms);
+					     no_failure_hypothesis, 0.0, min_start_time_ms,
+					     max_finish_time_ms, nopenmp_threads);
         if (PRINT_SCORES){
             for (int link_id: localized_links){
                 Hypothesis single_link_hypothesis = {link_id}; 
                 double l = ComputeLogLikelihood(&single_link_hypothesis, no_failure_hypothesis, 0.0,
                                       min_start_time_ms, max_finish_time_ms, nopenmp_threads);
-                cout << "Score of predicted failed link " << data->inverse_links[link_id] << " score " << drops_per_link[link_id] << " E[nflows] " << flows_per_link[link_id] << " likelihood " << l << endl;
+                //cout << "Score of predicted failed link " << data->inverse_links[link_id] << " score " << drops_per_link[link_id] << " E[nflows] " << flows_per_link[link_id] << " likelihood " << l << endl;
             }
         }
-        cout << "Correct Hypothesis " << data->IdsToLinks(correct_hypothesis)
-             << " likelihood " << likelihood_correct_hypothesis << endl;
+        //cout << "Correct Hypothesis " << data->IdsToLinks(correct_hypothesis)
+        //     << " likelihood " << likelihood_correct_hypothesis << endl;
         //VerifyLikelihoodComputation(all_hypothesis, min_start_time_ms,
         //                            max_finish_time_ms, nopenmp_threads);
         delete(no_failure_hypothesis);

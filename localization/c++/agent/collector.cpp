@@ -149,21 +149,24 @@ void* SocketThread(void *arg){
                 //     << " flow_queue size: " << flow_queue.size() << endl;
                 src_host += OFFSET_HOST;
                 dest_host += OFFSET_HOST;
-		assert(log_data->hosts_to_racks.find(src_host) != log_data->hosts_to_racks.end());
+                assert(log_data->hosts_to_racks.find(src_host) != log_data->hosts_to_racks.end());
                 int src_rack = log_data->hosts_to_racks[src_host];
-		assert(log_data->hosts_to_racks.find(dest_host) != log_data->hosts_to_racks.end());
+                assert(log_data->hosts_to_racks.find(dest_host) != log_data->hosts_to_racks.end());
                 int dest_rack = log_data->hosts_to_racks[dest_host];
-		//cout << src_host << " " << src_rack << " " << dest_host << " " << dest_rack << endl;
+                //cout << src_host << " " << src_rack << " " << dest_host << " " << dest_rack << endl;
                 Flow *flow = new Flow(src_host, src_port, dest_host, dest_port, nbytes, 0.0);
-		flow->SetFirstLinkId(log_data->GetLinkIdUnsafe(Link(flow->src, src_rack)));
-		flow->SetLastLinkId(log_data->GetLinkIdUnsafe(Link(dest_rack, flow->dest)));
+                flow->SetFirstLinkId(log_data->GetLinkIdUnsafe(Link(flow->src, src_rack)));
+                flow->SetLastLinkId(log_data->GetLinkIdUnsafe(Link(dest_rack, flow->dest)));
                 flow->AddSnapshot(0.0, packets_sent, retransmissions, retransmissions);
-		log_data->GetAllPaths(&flow->paths, src_rack, dest_rack);
-		//!TODO: set path taken for all flows
-		assert(flow->paths!=NULL and flow->paths->size() == 1);
-		flow->SetPathTaken(flow->paths->at(0));
-		//cout << "first_link_id " << flow->first_link_id << " last_link_id " << flow->last_link_id
-	        //     << " flow->path_taken " << *flow->paths->at(0) << endl;
+                log_data->GetAllPaths(&flow->paths, src_rack, dest_rack);
+                if (retransmissions > 0){
+                    //cout << " Got a problematic flow " << retransmissions << "/" << packets_sent << endl;
+                }
+                //!TODO: set path taken for all flows
+                assert(flow->paths!=NULL and flow->paths->size() == 1);
+                flow->SetPathTaken(flow->paths->at(0));
+                //cout << "first_link_id " << flow->first_link_id << " last_link_id " << flow->last_link_id
+                //     << " flow->path_taken " << *flow->paths->at(0) << endl;
                 flow_queue.push(flow);
             }
         }
@@ -185,29 +188,34 @@ void* RunAnalysisPeriodically(void* arg){
     BayesianNet estimator;
     vector<double> params = {1.0-5.0e-3, 2.0e-4};
     estimator.SetParams(params);
+    estimator.PRIOR = -10.0;
     int nopenmp_threads = 1;
+    double period_ms = 3000;
     while(true){
         auto start_time = chrono::high_resolution_clock::now();
-	    log_data->flows.clear();
+        log_data->flows.clear();
         int nflows = flow_queue.size();
         for(int ii=0; ii<nflows; ii++){
             log_data->flows.push_back(flow_queue.pop());
         }
         //!TODO: call LocalizeFailures
-	double max_finish_time_ms = 1000.0;
-	estimator.SetLogData(log_data, max_finish_time_ms, nopenmp_threads);
-	Hypothesis estimator_hypothesis;
-	estimator.LocalizeFailures(0.0, max_finish_time_ms,
-			           estimator_hypothesis, nopenmp_threads);
+        double max_finish_time_ms = 1000.0;
+        estimator.SetLogData(log_data, max_finish_time_ms, nopenmp_threads);
+        Hypothesis estimator_hypothesis;
+        estimator.LocalizeFailures(0.0, max_finish_time_ms,
+                estimator_hypothesis, nopenmp_threads);
         double elapsed_time_ms = chrono::duration_cast<chrono::milliseconds>(
-                              chrono::high_resolution_clock::now() - start_time).count();
-	cout << "Output Hypothesis "  << log_data->IdsToLinks(estimator_hypothesis)
-             << " analysis time taken for "<< nflows <<" flows (ms) " <<  elapsed_time_ms << endl;
-	log_data->ResetForAnalysis();
-        if (elapsed_time_ms < 1000.0){
-	    cout << "Sleeping for time " << int(1000.0 - elapsed_time_ms)  << " ms" << endl;
-	    chrono::milliseconds timespan(int(1000.0 - elapsed_time_ms));
-	    std::this_thread::sleep_for(timespan);
+                chrono::high_resolution_clock::now() - start_time).count();
+        cout << "Output Hypothesis "  << log_data->IdsToLinks(estimator_hypothesis)
+            << " analysis time for "<< nflows <<" flows: " <<  elapsed_time_ms << " ms";
+        log_data->ResetForAnalysis();
+        if (elapsed_time_ms < period_ms){
+            cout << ", sleeping for " << int(period_ms - elapsed_time_ms)  << " ms" << endl;
+            chrono::milliseconds timespan(int(period_ms - elapsed_time_ms));
+            std::this_thread::sleep_for(timespan);
+        }
+        else{
+            cout<< endl;
         }
     }
     return NULL;
@@ -246,6 +254,7 @@ int main(int argc, char *argv[]){
     /* Get topology details from a file */
     LogData* log_data = new LogData();
     GetLinkMappings(topology_filename, log_data, true);
+    log_data->AddFailedLink(Link(1, 0), 0.01);
 
     /* Launch daemon thread that will periodically invoke the analysis */
     pthread_t tid;

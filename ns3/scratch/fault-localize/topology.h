@@ -50,9 +50,11 @@ class Topology{
     void ReadTopologyFromFile(string topology_filename);
     void ChooseFailedLinks(int nfails);
 
-    char* GetNodeIpAddress(int node);
+    char* GetFlowSrcIpAddress(Flow &flow);
+    char* GetFlowDestIpAddress(Flow &flow);
     char* GetSwitchIpAddress(int sw);
     char* GetHostIpAddress(int host);
+    char* GetHostRackIpAddressRackIface(int host);
 
     bool IsNodeHost(int node);
     int GetHostRack(int host);

@@ -243,6 +243,12 @@ char* Topology::GetHostIpAddress(int host){
     return IpOctectsToString(10, GetFirstOctetOfTor(rack), GetSecondOctetOfTor(rack), ind*2 + 2);
 }
 
+char* Topology::GetHostRackIpAddressRackIface(int host){
+    int rack = GetHostRack(host);
+    int ind = GetHostIndexInRack(host);
+    return IpOctectsToString(10, GetFirstOctetOfTor(rack), GetSecondOctetOfTor(rack), ind*2 + 1);
+}
+
 pair<char*, char*> Topology::GetHostBaseIpAddress(int sw, int h){
     char* subnet = IpOctectsToString(10, GetFirstOctetOfTor(sw), GetSecondOctetOfTor(sw), 0);
     char* base = IpOctectsToString(0, 0, 0, (h*2) + 1); 
@@ -258,9 +264,56 @@ pair<int, int> Topology::GetRackHostsLimit(int rack){ //rack contains hosts from
     return ret;
 }
 
-char* Topology::GetNodeIpAddress(int node){
-    if (IsNodeHost(node)) return GetHostIpAddress(node);
-    else return GetSwitchIpAddress(node);
+char* Topology::GetFlowSrcIpAddress(Flow &flow){
+    if (IsNodeHost(flow.src_node)) return GetHostIpAddress(flow.src_node);
+    // Switch node, need to chose the right interface: 2 cases
+
+    // Case1: next hop on the path is a host
+    if (IsNodeHost(flow.second_hop)) return GetHostRackIpAddressRackIface(flow.second_hop);
+
+    // Case2: next hop on the path is another switch
+    if (flow.src_node < flow.second_hop){
+        for (int h=0;h<network_links[flow.src_node].size();h++){
+            if (network_links[flow.src_node][h] == flow.second_hop){
+                return GetLinkIpAddressFirst(flow.src_node, h);
+            }
+        }
+        assert(false);
+    }
+    else{
+        for (int h=0;h<network_links[flow.second_hop].size();h++){
+            if (network_links[flow.second_hop][h] == flow.src_node){
+                return GetLinkIpAddressSecond(flow.second_hop, h);
+            }
+        }
+        assert(false);
+    }
+}
+
+char* Topology::GetFlowDestIpAddress(Flow &flow){
+    if (IsNodeHost(flow.dest_node)) return GetHostIpAddress(flow.dest_node);
+    // Switch node, need to chose the right interface: 2 cases
+
+    // Case1: previous hop on the path is a host
+    if (IsNodeHost(flow.second_last_hop)) return GetHostRackIpAddressRackIface(flow.second_last_hop);
+
+    // Case2: previous hop on the path is another switch
+    if (flow.dest_node < flow.second_last_hop){
+        for (int h=0;h<network_links[flow.dest_node].size();h++){
+            if (network_links[flow.dest_node][h] == flow.second_last_hop){
+                return GetLinkIpAddressFirst(flow.dest_node, h);
+            }
+        }
+        assert(false);
+    }
+    else{
+        for (int h=0;h<network_links[flow.second_last_hop].size();h++){
+            if (network_links[flow.second_last_hop][h] == flow.dest_node){
+                return GetLinkIpAddressSecond(flow.second_last_hop, h);
+            }
+        }
+        assert(false);
+    }
 }
 
 char* Topology::GetSwitchIpAddress(int sw){
@@ -481,8 +534,8 @@ void Topology::SnapshotFlow(Flow flow, ApplicationContainer& flow_app, Time star
     assert (flow_app.GetN() == 1);
     Ptr<Application> app = flow_app.Get(0);
     Ptr<TcpSocketBase> tcp_socket_base = GetSocketFromOnOffApp(app);
-    cout<<"Flowid "<<flow.src_node<<" "<<flow.dest_node<<" "<<GetNodeIpAddress(flow.src_node)
-        <<" "<<GetNodeIpAddress(flow.dest_node)<<" " << flow.second_hop
+    cout<<"Flowid "<<flow.src_node<<" "<<flow.dest_node<<" "<<GetFlowSrcIpAddress(flow)
+        <<" "<<GetFlowDestIpAddress(flow)<<" " << flow.second_hop
         << " " << flow.second_last_hop <<" "<<tcp_socket_base->GetLocalPort()
         <<" "<<tcp_socket_base->GetPeerPort()<<" "<<flow.nbytes<<" "
         <<start_time<<" "<<snapshot_time
@@ -517,8 +570,6 @@ void Topology::PrintIpAddresses(){
         Ipv4Address address1 = address.NewAddress();
         Ipv4Address address2 = address.NewAddress();
         cout<<"host_ip "<<address1<<" "<<address2<<" "<<host<<" "<<rack<<endl;
-        //char* address = GetHostIpAddress(host);
-        //cout<<"host_ip "<<address<<" "<<host<<endl;
     }
 }
 

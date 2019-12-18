@@ -197,7 +197,7 @@ int main(int argc, char *argv[]){
         
         //!TODO: Get IPs correctly
         //Get IP of node in the topology
-        char *dest_node_ip = topology.GetNodeIpAddress(flow.dest_node);
+        char *dest_node_ip = topology.GetFlowDestIpAddress(flow);
 
         char* bytes_c = new char[50];
         sprintf(bytes_c,"%d",flow.nbytes);

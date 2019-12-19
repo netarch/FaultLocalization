@@ -57,10 +57,15 @@ void create_export_socket() {
 }
 
 /* ******************************** */
+u_int32_t get_int_ip_from_octets(u_int32_t a, u_int32_t b, u_int32_t c, u_int32_t d){
+  return (a * 16777216 + b * 65536 + c * 256 + d);
+  //return (a<<24 + b<<16 + c<<8 + d);
+}
+
 
 void encapsulate_flow_record(char* buffer) {
-  u_int32_t src_ip = 10;
-  u_int32_t dst_ip = 1000;
+  u_int32_t src_ip = get_int_ip_from_octets(192,168,100,110);
+  u_int32_t dst_ip = get_int_ip_from_octets(192,168,100,116);
   u_int16_t src_port = 12345;
   u_int16_t dst_port = 5001;
   u_int32_t out_bytes = 150000;

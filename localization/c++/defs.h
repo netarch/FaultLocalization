@@ -110,6 +110,14 @@ struct SmallVector{
         os << "]"; 
         return os; 
     } 
+    iterator find(const T& val){
+        iterator first = begin(), last = end();
+        while (first != last){
+            if (*first == val) return first;
+            else ++first;
+        }
+        return first;
+    }
 };
 
 

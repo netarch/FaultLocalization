@@ -20,9 +20,7 @@
 using namespace ns3;
 using namespace std;
 
-
 // Function to create address string from numbers
-//
 char * IpOctectsToString(int first, int second, int third, int fourth){
     char *address =  new char[30];
     char firstOctet[30], secondOctet[30], thirdOctet[30], fourthOctet[30];  
@@ -46,23 +44,45 @@ char * IpOctectsToString(int first, int second, int third, int fourth){
     return address;
 }
 
+// Function to create address string from ns3::Ipv4Address
+char * IpvAddressToString(Ipv4Address& ip_address){
+    uint32_t address_int = ip_address.Get();
+    int fourth = address_int % 256;
+    address_int >>= 8;
+    int third = address_int % 256;
+    address_int >>= 8;
+    int second = address_int % 256;
+    address_int >>= 8;
+    int first = address_int % 256;
+    return IpOctectsToString(first, second, third, fourth);
+}
+
 void Topology::ReadFlowsFromFile(string tm_filename){
     //< read TM from the TM File
     flows.clear();
     ifstream myfile(tm_filename.c_str());
     string line;
     if (myfile.is_open()){
-        string delimiter = ",";
+        string delimiter = ",", flow_type;
         while(myfile.good()){
             line.clear();
             getline(myfile, line);
             std::replace(line.begin(), line.end(), ',', ' ');
             if (line.find_first_not_of (' ') == line.npos) continue;
             stringstream ss(line);
-            int src_host, dest_host, nbytes;
-            ss >> src_host >> dest_host >> nbytes;
-            //cout << "Flow " << src_host << " " <<dest_host << " " << nbytes  << endl;
-            flows.push_back(Flow(src_host, dest_host, nbytes));
+            int src_node, dest_node, nbytes;
+            string data_rate;
+            ss >> src_node >> dest_node >> nbytes >> data_rate;
+            uint64_t data_rate_int;
+            if (!DataRate::DoParse(data_rate, &data_rate_int)){
+                cout << "Could not data_rate " << data_rate << endl;
+                assert(false);
+            }
+            Flow flow(src_node, dest_node, nbytes, data_rate);
+            PII penultimate_hops = PenultimateHops(src_node, dest_node);
+            flow.second_hop = penultimate_hops.first;
+            flow.second_last_hop = penultimate_hops.second;
+            flows.push_back(flow);
         }
         myfile.close();
     }
@@ -83,16 +103,20 @@ void Topology::ReadTopologyFromFile(string topology_filename){
                 int sw2 = atoi(line.substr(line.find(" ") + 1).c_str());
                 num_tor = max(max(num_tor, sw1+1), sw2+1); 
                 network_edges.push_back(pair<int, int>(sw1, sw2));
+                nodes.insert(sw1);
+                nodes.insert(sw2);
                 //cout<<"(sw1, sw2, num_tor): "<<sw1<<", "<<sw2<<", "<<num_tor<<endl;
             }
             if(line.find("->") != string::npos){ //host --> rack link
                 assert(line.find(" ") == string::npos);
                 int host = atoi(line.substr(0, line.find("->")).c_str());
                 int rack = atoi(line.substr(line.find("->") + 2).c_str());
-                if(rack >= num_tor){
+                if(rack >= num_tor or !IsNodeHost(host)){
                     cout<<"Graph file has out of bounds nodes, "<<host<<"->"<<rack<<", NSW: "<<num_tor<<endl;
                     exit(0);
                 }
+                nodes.insert(host);
+                nodes.insert(rack);
                 host_edges.push_back(pair<int, int>(host, rack));
                 host_to_tor[host] = rack;
                 total_host++;
@@ -113,8 +137,7 @@ void Topology::ReadTopologyFromFile(string topology_filename){
         network_links[link.second].push_back(link.first);
     }
     for(int i=0; i<host_edges.size(); i++){
-        pair<int, int> hostlink = host_edges[i];
-        hosts_in_tor[hostlink.second].push_back(hostlink.first);
+        hosts_in_tor[host_edges[i].second].push_back(host_edges[i].first);
     }
     //sanity check
     for(int i=0; i<num_tor; i++){ 
@@ -139,9 +162,8 @@ void Topology::ChooseFailedLinks(int nfails){
     for(int t=0; t<num_tor; t++){ 
         for(int h=0; h<hosts_in_tor[t].size(); h++){
             int host = hosts_in_tor[t][h];
-            int offset_host = OffsetHost(host);
-            edges_list.push_back(pair<int, int>(t, offset_host));
-            edges_list.push_back(pair<int, int>(offset_host, t));
+            edges_list.push_back(pair<int, int>(t, host));
+            edges_list.push_back(pair<int, int>(host, t));
         }
     }
     failed_links.clear();
@@ -154,10 +176,25 @@ void Topology::ChooseFailedLinks(int nfails){
     }
 }
 
-void Topology::GetPathsHost(int src_host, int dest_host, vector<vector<int> >&result){
-    int src_rack = GetHostRack(src_host);
-    int dest_rack = GetHostRack(dest_host);
-    GetPathsRack(src_rack, dest_rack, result);
+pair<int, int> Topology::PenultimateHops(int src_node, int dest_node){
+    assert (src_node != dest_node);
+    int second_hop, second_last_hop;
+    if (IsNodeHost(src_node)) second_hop = GetHostRack(src_node);
+    if (IsNodeHost(dest_node)) second_last_hop = GetHostRack(dest_node);
+    
+    if (!IsNodeHost(src_node) or !IsNodeHost(dest_node)){
+        int src_rack = (IsNodeHost(src_node)? GetHostRack(src_node) : src_node);
+        int dest_rack = (IsNodeHost(dest_node)? GetHostRack(dest_node) : dest_node);
+        vector<vector<int> > paths;
+        GetPathsRack(src_rack, dest_rack, paths);
+        // otherwise second hop is not well defined
+        if (!(paths.size() == 1 and paths[0].size() >= 2))
+          cout << "Penultimate hops " <<  src_node << " " << dest_node <<  " " << paths.size() << " " << paths[0].size() << endl;
+        assert(paths.size() == 1 and paths[0].size() >= 2);
+        if (!IsNodeHost(src_node)) second_hop = paths[0][1];
+        if (!IsNodeHost(dest_node)) second_last_hop = paths[0][paths[0].size()-2];
+    }
+    return PII(second_hop, second_last_hop);
 }
 
 void Topology::GetPathsRack(int src_rack, int dest_rack, vector<vector<int> > &result){
@@ -180,11 +217,18 @@ void Topology::GetPathsRack(int src_rack, int dest_rack, vector<vector<int> > &r
                     vector<int> extended_path(path_till_now);
                     extended_path.push_back(nbr);
                     shortest_paths_till_now.push(extended_path);
-
                 }
             }
         }
     }
+}
+
+char* Topology::GetLinkIpAddressFirst(int sw, int h){
+    return IpOctectsToString(10, (GetFirstOctetOfTor(sw) | 128), GetSecondOctetOfTor(sw), 2 + GetNumHostsInRack(sw) + 2*h); 
+}
+
+char* Topology::GetLinkIpAddressSecond(int sw, int h){
+    return IpOctectsToString(10, (GetFirstOctetOfTor(sw) | 128), GetSecondOctetOfTor(sw), 2 + GetNumHostsInRack(sw) + 2*h + 1); 
 }
 
 pair<char*, char*> Topology::GetLinkBaseIpAddress(int sw, int h){
@@ -197,6 +241,12 @@ char* Topology::GetHostIpAddress(int host){
     int rack = GetHostRack(host);
     int ind = GetHostIndexInRack(host);
     return IpOctectsToString(10, GetFirstOctetOfTor(rack), GetSecondOctetOfTor(rack), ind*2 + 2);
+}
+
+char* Topology::GetHostRackIpAddressRackIface(int host){
+    int rack = GetHostRack(host);
+    int ind = GetHostIndexInRack(host);
+    return IpOctectsToString(10, GetFirstOctetOfTor(rack), GetSecondOctetOfTor(rack), ind*2 + 1);
 }
 
 pair<char*, char*> Topology::GetHostBaseIpAddress(int sw, int h){
@@ -214,18 +264,84 @@ pair<int, int> Topology::GetRackHostsLimit(int rack){ //rack contains hosts from
     return ret;
 }
 
-int Topology::OffsetHost(int host){
-    int offset= 10000;
-    return host + offset;
+char* Topology::GetFlowSrcIpAddress(Flow &flow){
+    if (IsNodeHost(flow.src_node)) return GetHostIpAddress(flow.src_node);
+    // Switch node, need to chose the right interface: 2 cases
+
+    // Case1: next hop on the path is a host
+    if (IsNodeHost(flow.second_hop)) return GetHostRackIpAddressRackIface(flow.second_hop);
+
+    // Case2: next hop on the path is another switch
+    if (flow.src_node < flow.second_hop){
+        for (int h=0;h<network_links[flow.src_node].size();h++){
+            if (network_links[flow.src_node][h] == flow.second_hop){
+                return GetLinkIpAddressFirst(flow.src_node, h);
+            }
+        }
+        assert(false);
+    }
+    else{
+        for (int h=0;h<network_links[flow.second_hop].size();h++){
+            if (network_links[flow.second_hop][h] == flow.src_node){
+                return GetLinkIpAddressSecond(flow.second_hop, h);
+            }
+        }
+        assert(false);
+    }
+}
+
+char* Topology::GetFlowDestIpAddress(Flow &flow){
+    if (IsNodeHost(flow.dest_node)) return GetHostIpAddress(flow.dest_node);
+    // Switch node, need to chose the right interface: 2 cases
+
+    // Case1: previous hop on the path is a host
+    if (IsNodeHost(flow.second_last_hop)) return GetHostRackIpAddressRackIface(flow.second_last_hop);
+
+    // Case2: previous hop on the path is another switch
+    if (flow.dest_node < flow.second_last_hop){
+        for (int h=0;h<network_links[flow.dest_node].size();h++){
+            if (network_links[flow.dest_node][h] == flow.second_last_hop){
+                return GetLinkIpAddressFirst(flow.dest_node, h);
+            }
+        }
+        assert(false);
+    }
+    else{
+        for (int h=0;h<network_links[flow.second_last_hop].size();h++){
+            if (network_links[flow.second_last_hop][h] == flow.dest_node){
+                return GetLinkIpAddressSecond(flow.second_last_hop, h);
+            }
+        }
+        assert(false);
+    }
+}
+
+char* Topology::GetSwitchIpAddress(int sw){
+    assert (network_links[sw].size() > 0);
+    // return ip address of any interface
+    int nbr = network_links[sw][0];
+    if (sw < nbr){
+        // link ip determined by sw
+        return GetLinkIpAddressFirst(sw, 0);
+    }
+    else{
+        // link ip determined by nbr
+        for (int ind=0; ind<network_links[nbr].size(); ind++){
+            if (network_links[nbr][ind] == sw){
+                return GetLinkIpAddressSecond(nbr, ind);
+            }
+        }
+        assert(false);
+    }
+}
+
+bool Topology::IsNodeHost(int node){
+    return (node >= HOST_OFFSET);
 }
 
 int Topology::GetHostRack(int host){
+    assert (IsNodeHost(host));
     return host_to_tor[host];
-}
-
-int Topology::GetHostNumber(int rack, int ind){
-    assert (ind < hosts_in_tor[rack].size());
-    return hosts_in_tor[rack][ind];
 }
 
 int Topology::GetNumHostsInRack(int rack){
@@ -334,11 +450,11 @@ void Topology::ConnectSwitchesAndHosts(PointToPointHelper &p2p, NodeContainer &t
         ip_container_sh[i].resize(GetNumHostsInRack(i));
     }
     for (int i=0;i<num_tor;i++){
-        for (int h=0; h<GetNumHostsInRack(i); h++){         
-
-            int offset_host = OffsetHost(GetHostNumber(i, h));
-            double silent_drop_rate1 = GetFailParam(pair<int, int>(i, offset_host), fail_param);
-            double silent_drop_rate2 = GetFailParam(pair<int, int>(offset_host, i), fail_param);
+        for (int h=0; h<hosts_in_tor[i].size(); h++){
+            int host = hosts_in_tor[i][h];
+            assert (GetHostIndexInRack(host) == h);
+            double silent_drop_rate1 = GetFailParam(pair<int, int>(i, host), fail_param);
+            double silent_drop_rate2 = GetFailParam(pair<int, int>(host, i), fail_param);
 
             Ptr<NetDevice> device;
             Ptr<PointToPointNetDevice> p2p_device;
@@ -372,6 +488,7 @@ void Topology::ConnectSwitchesAndHosts(PointToPointHelper &p2p, NodeContainer &t
     }
 }
 
+// Between all racks
 void Topology::ComputeAllPairShortestPathlens(){
     shortest_pathlens.resize(num_tor);
     for(int i = 0; i < num_tor; i++){
@@ -413,57 +530,19 @@ void Topology::PrintAllPairShortestPaths(){
     }
 }
 
-void Topology::PrintFlowPath(Flow flow){
-    int src_host = flow.src_host, dest_host = flow.dest_host;
-    vector<vector<int> > paths;
-    GetPathsHost(src_host, dest_host, paths);
-    for (vector<int>& p: paths){
-       cout<<"flowpath ";
-       for (int node: p){
-          cout<<node<<" ";
-       }
-       cout<<endl;
-    }
-    vector<vector<int> > reverse_paths;
-    GetPathsHost(dest_host, src_host, reverse_paths);
-    for (vector<int>& p: reverse_paths){
-       cout<<"flowpath_reverse ";
-       for (int node: p){
-          cout<<node<<" ";
-       }
-       cout<<endl;
-    }
-}
-
 void Topology::SnapshotFlow(Flow flow, ApplicationContainer& flow_app, Time start_time, Time snapshot_time){
     assert (flow_app.GetN() == 1);
     Ptr<Application> app = flow_app.Get(0);
     Ptr<TcpSocketBase> tcp_socket_base = GetSocketFromOnOffApp(app);
-    cout<<"Flowid "<<OffsetHost(flow.src_host)<<" "<<OffsetHost(flow.dest_host)<<" "<<GetHostIpAddress(flow.src_host)
-        <<" "<<GetHostIpAddress(flow.dest_host)<<" " <<host_to_tor[flow.src_host]
-        << " " << host_to_tor[flow.dest_host] <<" "<<tcp_socket_base->GetLocalPort()
+    cout<<"Flowid "<<flow.src_node<<" "<<flow.dest_node<<" "<<GetFlowSrcIpAddress(flow)
+        <<" "<<GetFlowDestIpAddress(flow)<<" " << flow.second_hop
+        << " " << flow.second_last_hop <<" "<<tcp_socket_base->GetLocalPort()
         <<" "<<tcp_socket_base->GetPeerPort()<<" "<<flow.nbytes<<" "
         <<start_time<<" "<<snapshot_time
         <<" "<<tcp_socket_base->GetSentPackets()<<" "
         <<tcp_socket_base->GetLostPackets()<<" "
         <<tcp_socket_base->GetRandomlyLostPackets()<<" "
         <<tcp_socket_base->GetAckedPackets()<<endl;
-}
-
-void Topology::PrintFlowInfo(Flow flow, ApplicationContainer& flow_app){
-    assert (flow_app.GetN() == 1);
-    Ptr<Application> app = flow_app.Get(0);
-    Ptr<TcpSocketBase> tcp_socket_base = GetSocketFromBulkSendApp(app);
-    cout<<"Flowid "<<OffsetHost(flow.src_host)<<" "<<OffsetHost(flow.dest_host)<<" "
-        <<GetHostIpAddress(flow.src_host)<<" "<<GetHostIpAddress(flow.dest_host)<<" "
-        <<host_to_tor[flow.src_host] << " " << host_to_tor[flow.dest_host] <<" "
-        <<tcp_socket_base->GetLocalPort()<<" "<<tcp_socket_base->GetPeerPort()<<" "
-        <<flow.nbytes<<" "<<app->GetStartTime()<<" "<<tcp_socket_base->GetFinishTime()
-        <<" "<<tcp_socket_base->GetSentPackets()<<" "
-        <<tcp_socket_base->GetLostPackets()<<" "
-        <<tcp_socket_base->GetRandomlyLostPackets()<<" "
-        <<tcp_socket_base->GetAckedPackets()<<endl;
-    PrintFlowPath(flow);
 }
 
 void Topology::PrintIpAddresses(){
@@ -490,17 +569,8 @@ void Topology::PrintIpAddresses(){
         address.SetBase (subnet, "255.255.255.0",base);
         Ipv4Address address1 = address.NewAddress();
         Ipv4Address address2 = address.NewAddress();
-        cout<<"host_ip "<<address1<<" "<<address2<<" "<<OffsetHost(host)<<" "<<rack<<endl;
-        //char* address = GetHostIpAddress(host);
-        //cout<<"host_ip "<<address<<" "<<host<<endl;
+        cout<<"host_ip "<<address1<<" "<<address2<<" "<<host<<" "<<rack<<endl;
     }
-}
-
-Ptr<TcpSocketBase> Topology::GetSocketFromBulkSendApp(Ptr<Application> app){
-    Ptr<BulkSendApplication> bulk_send_app = app->GetObject<BulkSendApplication> ();
-    Ptr<Socket> socket = bulk_send_app->GetSocket();
-    Ptr<TcpSocketBase> tcp_socket_base = socket->GetObject<TcpSocketBase>();
-    return tcp_socket_base;
 }
 
 Ptr<TcpSocketBase> Topology::GetSocketFromOnOffApp(Ptr<Application> app){
@@ -510,10 +580,19 @@ Ptr<TcpSocketBase> Topology::GetSocketFromOnOffApp(Ptr<Application> app){
     return tcp_socket_base;
 }
 
-void Topology::AdaptNetwork(){
-    //!TODO
+int Topology::GetFirstUnusedPort(int src_node, int dest_node){
+    PII endpoints(src_node, dest_node);
+    if (endpoint_first_unused_port.find(endpoints) == endpoint_first_unused_port.end()){
+        endpoint_first_unused_port[endpoints] = start_port;
+    }
+    int port = endpoint_first_unused_port[endpoints];
+    node_first_unused_port[src_node] = max(node_first_unused_port[src_node], port+1);
+    node_first_unused_port[dest_node] = max(node_first_unused_port[dest_node], port+1);
+    endpoint_first_unused_port[endpoints] = port+1;
+    //cout << src_node << " " << dest_node << " " << port << endl;
+    return port;
 }
 
-void AdaptNetwork(Topology& topology){
-    topology.AdaptNetwork();
+void Topology::AdaptNetwork(){
+    //!TODO
 }

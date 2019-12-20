@@ -196,8 +196,6 @@ public:
    */
   uint64_t GetBitRate () const;
 
-private:
-
   /**
    * \brief Parse a string representing a DataRate into an uint64_t
    *
@@ -213,6 +211,8 @@ private:
    * \return true if parsing was successful.
    */
   static bool DoParse (const std::string s, uint64_t *v);
+
+private:
 
   // Uses DoParse
   friend std::istream &operator >> (std::istream &is, DataRate &rate);

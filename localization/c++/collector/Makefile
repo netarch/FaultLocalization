@@ -19,4 +19,5 @@ collector_ipfix: collector_ipfix.cpp thread_pool.h
 	$(CC) -DNDEBUG $(LIBDIR) $(INCLUDE) $(CFLAGS) collector_ipfix.cpp -o collector_ipfix $(LIBS)
 
 clean:	
+	$(MAKE) -C .. clean
 	rm -f ../libflock.a *.o collector collector_ipfix

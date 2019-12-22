@@ -228,7 +228,7 @@ class SpinLock {
     }
 };
 
-static inline double GetTimeSinceMilliSeconds(chrono::time_point<chrono::system_clock> start_time){
+static inline double GetTimeSinceSeconds(chrono::time_point<chrono::system_clock> start_time){
     return chrono::duration_cast<chrono::milliseconds>(
            chrono::high_resolution_clock::now() - start_time).count()*1.0e-3;
 }

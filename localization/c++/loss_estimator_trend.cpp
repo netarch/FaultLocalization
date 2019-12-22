@@ -9,13 +9,14 @@
 
 using namespace std;
 
+
 vector<string> GetFilesMixed(){
-    string file_prefix = "/home/vharsh2/ns-allinone-3.24.1/ns-3.24.1/topology/ft_k10_os3/mixed_logs/plog_nb";
-    vector<PII> ignore_files = {{3,1}};
+    string file_prefix = "/home/vharsh2/ns-allinone-3.24.1/ns-3.24.1/ns3/topology/ft_k10_os3/traffic_files_nb/plog_nb";
+    vector<PII> ignore_files = {};
     vector<string> files;
     for(int f=1; f<=8; f++){
     //for (int f: vector<int>({8})){ // {1-8}
-        for(int s: vector<int>({1,4,5})){ // {1-4}
+        for(int s: vector<int>({1,2,4})){ // {1-4}
             if(find(ignore_files.begin(), ignore_files.end(),  PII(f, s)) == ignore_files.end()){
                 files.push_back(file_prefix + "_" + to_string(f) + "_0_" + to_string(s)); 
                 cout << "adding file for analaysis " <<files.back() << endl;
@@ -88,14 +89,14 @@ vector<string> GetFiles(){
     //return GetFilesSoftness();
 }
 
-void GetPrecisionRecallTrendScore(double min_start_time_ms, double max_finish_time_ms,
-                                double step_ms, int nopenmp_threads){
+void GetPrecisionRecallTrendScore(string topology_filename, double min_start_time_ms,
+                     double max_finish_time_ms, double step_ms, int nopenmp_threads){
     vector<PDD> result;
     Score estimator;
     vector<double> param = {1.0};
     estimator.SetParams(param);
-    GetPrecisionRecallTrendFiles(min_start_time_ms, max_finish_time_ms, step_ms,
-                                 result, &estimator, nopenmp_threads);
+    GetPrecisionRecallTrendFiles(topology_filename, min_start_time_ms, max_finish_time_ms, 
+                                 step_ms, result, &estimator, nopenmp_threads);
     int ctr = 0;
     for(double finish_time_ms=min_start_time_ms+step_ms;
             finish_time_ms<=max_finish_time_ms; finish_time_ms += step_ms){
@@ -103,14 +104,14 @@ void GetPrecisionRecallTrendScore(double min_start_time_ms, double max_finish_ti
     }
 }
 
-void GetPrecisionRecallTrend007(double min_start_time_ms, double max_finish_time_ms,
-                                double step_ms, int nopenmp_threads){
+void GetPrecisionRecallTrend007(string topology_filename, double min_start_time_ms,
+                    double max_finish_time_ms, double step_ms, int nopenmp_threads){
     vector<PDD> result;
     DoubleO7 estimator;
     vector<double> param = {0.003};
     estimator.SetParams(param);
-    GetPrecisionRecallTrendFiles(min_start_time_ms, max_finish_time_ms, step_ms,
-                                 result, &estimator, nopenmp_threads);
+    GetPrecisionRecallTrendFiles(topology_filename, min_start_time_ms, max_finish_time_ms, 
+                                 step_ms, result, &estimator, nopenmp_threads);
     int ctr = 0;
     for(double finish_time_ms=min_start_time_ms+step_ms;
             finish_time_ms<=max_finish_time_ms; finish_time_ms += step_ms){
@@ -118,8 +119,8 @@ void GetPrecisionRecallTrend007(double min_start_time_ms, double max_finish_time
     }
 }
 
-void GetPrecisionRecallTrendBayesianNet(double min_start_time_ms, double max_finish_time_ms,
-                                        double step_ms, int nopenmp_threads){
+void GetPrecisionRecallTrendBayesianNet(string topology_filename, double min_start_time_ms, 
+                           double max_finish_time_ms, double step_ms, int nopenmp_threads){
     vector<PDD> result;
     BayesianNet estimator;
     vector<double> param = {1.0-5.0e-3, 2.0e-4};
@@ -129,8 +130,8 @@ void GetPrecisionRecallTrendBayesianNet(double min_start_time_ms, double max_fin
         param = {1.0-5.0e-3, 4.0e-4};
     }
     estimator.SetParams(param);
-    GetPrecisionRecallTrendFiles(min_start_time_ms, max_finish_time_ms, step_ms,
-                                 result, &estimator, nopenmp_threads);
+    GetPrecisionRecallTrendFiles(topology_filename, min_start_time_ms, max_finish_time_ms, 
+                                 step_ms, result, &estimator, nopenmp_threads);
     int ctr = 0;
     for(double finish_time_ms=min_start_time_ms+step_ms;
             finish_time_ms<=max_finish_time_ms; finish_time_ms += step_ms){
@@ -138,7 +139,7 @@ void GetPrecisionRecallTrendBayesianNet(double min_start_time_ms, double max_fin
     }
 }
 
-void SweepParamsBayesianNet(double min_start_time_ms, double max_finish_time_ms, int nopenmp_threads){
+void SweepParamsBayesianNet(string topology_filename, double min_start_time_ms, double max_finish_time_ms, int nopenmp_threads){
     vector<vector<double> > params;
     for (double p1c = 1.0e-3; p1c <= 10.0e-3; p1c += 0.5e-3){
         for (double p2 = 1.0e-4; p2 <= 10.0e-4; p2 += 0.5e-4){
@@ -149,8 +150,8 @@ void SweepParamsBayesianNet(double min_start_time_ms, double max_finish_time_ms,
     //params = {{1.0 - 4.0e-3, 2.0e-4}};
     vector<PDD> result;
     BayesianNet estimator;
-    GetPrecisionRecallParamsFiles(min_start_time_ms, max_finish_time_ms, params,
-                                  result, &estimator, nopenmp_threads);
+    GetPrecisionRecallParamsFiles(topology_filename, min_start_time_ms, max_finish_time_ms,
+                                  params, result, &estimator, nopenmp_threads);
     int ctr = 0;
     for (auto &param: params){
         param[0] = 1.0 - param[0];
@@ -160,7 +161,7 @@ void SweepParamsBayesianNet(double min_start_time_ms, double max_finish_time_ms,
     }
 }
 
-void SweepParamsScore(double min_start_time_ms, double max_finish_time_ms, int nopenmp_threads){
+void SweepParamsScore(string topology_filename, double min_start_time_ms, double max_finish_time_ms, int nopenmp_threads){
     double min_fail_threshold = 1; //0.001;
     double max_fail_threshold = 16; //0.0025;
     double step = 0.1; //0.00005;
@@ -171,15 +172,15 @@ void SweepParamsScore(double min_start_time_ms, double max_finish_time_ms, int n
     }
     vector<PDD> result;
     Score estimator;
-    GetPrecisionRecallParamsFiles(min_start_time_ms, max_finish_time_ms, params,
-                                  result, &estimator, nopenmp_threads);
+    GetPrecisionRecallParamsFiles(topology_filename, min_start_time_ms, max_finish_time_ms,
+                                  params, result, &estimator, nopenmp_threads);
     int ctr = 0;
     for (auto &param: params){
         cout << param << " " << result[ctr++] << endl;
     }
 }
 
-void SweepParams007(double min_start_time_ms, double max_finish_time_ms, int nopenmp_threads){
+void SweepParams007(string topology_filename, double min_start_time_ms, double max_finish_time_ms, int nopenmp_threads){
     double min_fail_threshold = 0.0001; //0.00125; //1; //0.001;
     double max_fail_threshold = 0.05; //16; //0.0025;
     double step = 0.0001; //0.00005; //0.1; //0.00005;
@@ -190,8 +191,8 @@ void SweepParams007(double min_start_time_ms, double max_finish_time_ms, int nop
     }
     vector<PDD> result;
     DoubleO7 estimator;
-    GetPrecisionRecallParamsFiles(min_start_time_ms, max_finish_time_ms, params,
-                                  result, &estimator, nopenmp_threads);
+    GetPrecisionRecallParamsFiles(topology_filename, min_start_time_ms, max_finish_time_ms,
+                                  params, result, &estimator, nopenmp_threads);
     int ctr = 0;
     for (auto &param: params){
         auto p_r = result[ctr++];
@@ -201,15 +202,16 @@ void SweepParams007(double min_start_time_ms, double max_finish_time_ms, int nop
 }
 
 int main(int argc, char *argv[]){
-    assert (argc == 5);
-    double min_start_time_ms = atof(argv[1]) * 1000.0, max_finish_time_ms = atof(argv[2]) * 1000.0;
-    double step_ms = atof(argv[3]) * 1000.0;
-    int nopenmp_threads = atoi(argv[4]);
+    assert (argc == 6);
+    string topology_filename (argv[1]);
+    cout << "Reading topology from file " << topology_filename << endl;
+    double min_start_time_ms = atof(argv[2]) * 1000.0, max_finish_time_ms = atof(argv[3]) * 1000.0;
+    double step_ms = atof(argv[4]) * 1000.0;
+    int nopenmp_threads = atoi(argv[5]);
     cout << "Using " << nopenmp_threads << " openmp threads"<<endl;
-    GetPrecisionRecallTrendBayesianNet(min_start_time_ms, max_finish_time_ms,
-                                       step_ms, nopenmp_threads);
-    //GetPrecisionRecallTrend007(min_start_time_ms, max_finish_time_ms,
-    //                                   step_ms, nopenmp_threads);
-    //SweepParams007(min_start_time_ms, max_finish_time_ms, nopenmp_threads);
+    cout << "sizeof(Flow) " << sizeof(Flow) << " bytes" << endl;
+    GetPrecisionRecallTrendBayesianNet(topology_filename, min_start_time_ms, 
+                                       max_finish_time_ms, step_ms, nopenmp_threads);
+    //SweepParams007(topology_filename, min_start_time_ms, max_finish_time_ms, nopenmp_threads);
     return 0;
 }

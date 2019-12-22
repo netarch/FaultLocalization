@@ -87,7 +87,7 @@ inline bool HypothesisIntersectsPath(Hypothesis *hypothesis, Path *path){
 inline int GetTokenLength(char *str){
     int ind = 0;
     while(str[ind]==' ') ind++; //Trim initial whitespace
-    while (str[ind]!='\0' and str[ind]!=' ') ind++;
+    while (str[ind]!='\0' and str[ind]!=' ' and str[ind]!='\n') ind++;
     return ind;
 }
 
@@ -118,7 +118,7 @@ inline bool GetFirstInt(char* &str, int &result){
     int token_length = GetTokenLength(str);
     //auto [p, ec] = from_chars(str, str + token_length, result);
     auto [p, success] = to_int(str, token_length, result);
-    //cout << "GetFirstInt " << string(str, token_length) << " : " << result << endl;
+    //cout << "GetFirstInt " << string(str, token_length) << " : " << result << " : " << success << endl;
     str = const_cast<char*>(p);
     return success;
     //return (ec == errc());

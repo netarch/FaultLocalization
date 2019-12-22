@@ -79,7 +79,7 @@ int main(int argc, char *argv[]){
     GetNumReducedLinksMap(to_reduced_graph, data, reduced_data, num_reduced_links_map);
     estimator.SetNumReducedLinksMap(&num_reduced_links_map);
     cout << "Obtained reduced data for running analysis in "
-         << GetTimeSinceMilliSeconds(start_time) << " seconds" << endl;
+         << GetTimeSinceSeconds(start_time) << " seconds" << endl;
 
     Hypothesis estimator_hypothesis;
     estimator.LocalizeFailures(min_start_time_ms, max_finish_time_ms,

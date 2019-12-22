@@ -14,11 +14,13 @@ if not len(sys.argv) == nargs+1:
 	print("Arguments: <network_file> <outfile>")
 	sys.exit()
 
+HOST_OFFSET = 10000
+
 network_file = sys.argv[1]
 outfilename = sys.argv[2]
 G = nx.Graph()
 host_rack_map = dict()
-host_offset = 10000
+host_offset = 0
 racks = set()
 nservers = 0
 max_switch = 0
@@ -42,7 +44,7 @@ with open(network_file) as nf:
             max_switch = max(max_switch, rack2)
             G.add_edge(rack1, rack2)
 
-assert (host_offset > max_switch)
+assert (HOST_OFFSET > max_switch)
 nfailed_links = 10
 edges = [(u,v) for (u,v) in G.edges]
 edges += [(v,u) for (u,v) in edges]
@@ -52,7 +54,7 @@ fail_prob = dict()
 
 for edge in edges:
     if edge  in failed_links:
-        fail_prob[edge] = random.uniform(0.003, 0.030)
+        fail_prob[edge] = random.uniform(0.002, 0.020)
         #fail_prob[edge] = 0.004
     else:
         fail_prob[edge] = random.uniform(0.0000, 0.0001)
@@ -72,7 +74,7 @@ servers_per_rack = int(nservers/nracks)
 print("Num racks", nracks, "Servers per rack", servers_per_rack)
 
 #nflows = random.randint(200000, 400000)
-nflows = 400 * nservers
+nflows = 200 * nservers
 #nflows = 250
 servers_busy = []
 servers_idle = []
@@ -85,30 +87,36 @@ for rack in range(nracks):
     if rack in racks_busy:
         for i in range(servers_per_rack*rack, servers_per_rack*(rack+1)):
             if i < nservers:
-                servers_busy.append(i)
+                servers_busy.append(i + HOST_OFFSET)
     else:
         for i in range(servers_per_rack*rack, servers_per_rack*(rack+1)):
             if i < nservers:
-                servers_idle.append(i)
+                servers_idle.append(i+HOST_OFFSET)
 
 
-print("Using skewed_random TM: fraction_busy", fraction_busy, "nflows", nflows, "randint", random.randint(0,100000), "racks", nracks, "servers", nservers)
+#print("Using skewed_random TM: fraction_busy", fraction_busy, "nflows", nflows, "randint", random.randint(0,100000), "racks", nracks, "servers", nservers)
+print("Using uniform_random TM, nflows", nflows, "randint", random.randint(0,100000), "racks", nracks, "servers", nservers)
 
 #print("Servers busy", servers_busy, "Servers idle", servers_idle)
 
-def GetFlows(thread_num, nflows, G, fail_prob, servers_busy, servers_idle, host_rack_map, racks, outfile, response_queue):
+def GetFlows(thread_num, nflows, G, fail_prob, servers_busy, servers_idle, host_rack_map, racks, outfile):
     flows = []
     #nflows = 250
     mean_bytes = 200.0 * 1024 
     shape = 1.05
     scale = mean_bytes * (shape - 1)/shape;
     traffic_with_busy_servers = 0.50
+
     def skewed_random():
         if (random.random() <= traffic_with_busy_servers and len(servers_busy) > 0):
             return random.choice(servers_busy)
         else:
             return random.choice(servers_idle)
-    random_server_generator = skewed_random
+
+    def uniform_random():
+        return HOST_OFFSET + random.randint(0, nservers-1)
+
+    random_server_generator = uniform_random
     packetsize = 1500 #bytes
     sumflowsize = 0
     host_offset_copy = host_offset + 0
@@ -125,6 +133,7 @@ def GetFlows(thread_num, nflows, G, fail_prob, servers_busy, servers_idle, host_
                 for path in paths:
                     PrintPath("FP", path, out=outfile)
         all_rack_pair_paths[src_rack] = src_paths
+
     for i in range(nflows):
         if i%50000 == 0:
             print("Finished", i, "flows")
@@ -158,42 +167,13 @@ def GetFlows(thread_num, nflows, G, fail_prob, servers_busy, servers_idle, host_
         PrintPath("FPT", path_taken, out=outfile)
         print("SS ", 1000.0 * random.random(), packets_sent, packets_dropped, 0, file=outfile)
         sumflowsize += flowsize
-    response_queue.put(sumflowsize)
-    return
+    return sumflowsize
 
-nprocesses = 1
-outfiles = [open(outfilename + "/" + str(i),"w+") for i in range(nprocesses)]
+outfile = open(outfilename,"w+")
+
 for (u,v) in failed_links:
-    print("Failing_link", u, v, fail_prob[(u,v)], file=outfiles[0])
+    print("Failing_link", u, v, fail_prob[(u,v)], file=outfile)
 
-sumflowsize = 0
-response_queue = Queue()
-if nprocesses == 1:
-    GetFlows(0, int(nflows/nprocesses), G, fail_prob, servers_busy, servers_idle, host_rack_map, racks, outfiles[0], response_queue)
-    sumflowsize = response_queue.get()
-else:
-    procs = []
-    G_copies = []
-    servers_busy_copies = []
-    servers_idle_copies = []
-    fail_prob_copies = []
-    host_rack_map_copies = []
-    racks_copies = []
-    start_time = time.time()
-    for i in range(nprocesses):
-        G_copies.append(copy.deepcopy(G))
-        servers_busy_copies.append(list(servers_busy))
-        servers_idle_copies.append(list(servers_idle))
-        fail_prob_copies.append(copy.deepcopy(fail_prob))
-        host_rack_map_copies.append(copy.deepcopy(host_rack_map));
-        racks_copies.append(copy.deepcopy(racks))
-    print("Arrays copied for parallel execution in ", time.time() - start_time, " seconds")
-    for i in range(nprocesses):
-        proc = Process(target=GetFlows, args=(i, int(nflows/nprocesses), G_copies[i], fail_prob_copies[i], servers_busy_copies[i], servers_idle_copies[i], host_rack_map_copies[i], racks_copies[i], outfiles[i], response_queue))
-        procs.append(proc)
-    for proc in procs:
-        proc.start()
-    for i in range(nprocesses):
-        sumflowsize += response_queue.get()
+sumflowsize = GetFlows(0, nflows, G, fail_prob, servers_busy, servers_idle, host_rack_map, racks, outfile)
 
 print("Sum flow size: ", sumflowsize, "Numflow", nflows, "fraction_busy", fraction_busy)

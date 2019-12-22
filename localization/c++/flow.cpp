@@ -240,9 +240,9 @@ void Flow::SetReverseLastLinkId(int link_id){
 }
 
 bool Flow::IsFlowActive(){
-    return false;
+    //return false;
     //!MAJOR MAJOR HACK FOR A SPECIFIC TOPOLOGY
-    //return src >= OFFSET_HOST + 750;
+    return (src < OFFSET_HOST or dest < OFFSET_HOST);
     //return (paths.size() == 1);
 }
 
@@ -279,5 +279,6 @@ long double Flow::GetCachedIntermediateValue(){
 bool Flow::DiscardFlow(){
     //return (GetLatestPacketsSent() < 100);
     //return false;
-    return (src < 750 + OFFSET_HOST and  dest < 750 + OFFSET_HOST);
+    //return (src < OFFSET_HOST  or  dest < OFFSET_HOST or GetLatestPacketsSent() < 0);
+    return !IsFlowActive();
 }

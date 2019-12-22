@@ -97,7 +97,7 @@ void LogData::FilterFlowsBeforeTime(double finish_time_ms, int nopenmp_threads){
     }
     if constexpr (VERBOSE) {
         cout << "Filtered flows for analysis before " << finish_time_ms << " (ms) simtime in "
-             << GetTimeSinceMilliSeconds(start_filter_time) << " seconds" << endl;
+             << GetTimeSinceSeconds(start_filter_time) << " seconds" << endl;
     }
 }
 
@@ -123,7 +123,7 @@ void LogData::FilterFlowsForConditional(double max_finish_time_ms, int nopenmp_t
     }
     if constexpr (VERBOSE) {
         cout << "Filtered flows for conditional analysis in "
-             << GetTimeSinceMilliSeconds(start_filter_time) << " seconds" << endl;
+             << GetTimeSinceSeconds(start_filter_time) << " seconds" << endl;
     }
 }
 
@@ -172,7 +172,7 @@ vector<vector<int> >* LogData::GetForwardFlowsByLinkId(double max_finish_time_ms
         final_sizes[link_id] = sizes[nopenmp_threads-1][link_id] + curr_bin_size;
     }
     if constexpr (VERBOSE){
-        cout<<"Binning flows part 1 done in "<<GetTimeSinceMilliSeconds(start_time)<< " seconds"<<endl;
+        cout<<"Binning flows part 1 done in "<<GetTimeSinceSeconds(start_time)<< " seconds"<<endl;
     }
     start_time = chrono::high_resolution_clock::now();
     forward_flows_by_link_id = new vector<vector<int> >(nlinks);
@@ -184,7 +184,7 @@ vector<vector<int> >* LogData::GetForwardFlowsByLinkId(double max_finish_time_ms
         (*forward_flows_by_link_id)[link_id] = vector<int>(final_sizes[link_id]);
     }
     if constexpr (VERBOSE){
-        cout<<"Binning flows part 2 done in "<<GetTimeSinceMilliSeconds(start_time)<< " seconds"<<endl;
+        cout<<"Binning flows part 2 done in "<<GetTimeSinceSeconds(start_time)<< " seconds"<<endl;
     }
     start_time = chrono::high_resolution_clock::now();
     #pragma omp parallel num_threads(nopenmp_threads)
@@ -210,7 +210,7 @@ vector<vector<int> >* LogData::GetForwardFlowsByLinkId(double max_finish_time_ms
         }
     }
     if constexpr (VERBOSE){
-        cout<<"Binning flows part 3 done in "<<GetTimeSinceMilliSeconds(start_time)<< " seconds"<<endl;
+        cout<<"Binning flows part 3 done in "<<GetTimeSinceSeconds(start_time)<< " seconds"<<endl;
     }
     start_time = chrono::high_resolution_clock::now();
     return forward_flows_by_link_id;
@@ -285,7 +285,7 @@ vector<vector<int> >* LogData::GetForwardFlowsByLinkId1(double max_finish_time_m
     vector<int> sizes;
     GetSizesForForwardFlowsByLinkId(max_finish_time_ms, nopenmp_threads, sizes);
     if constexpr (VERBOSE){
-        cout<<"Binning flows part 1 done in "<<GetTimeSinceMilliSeconds(start_time)<< " seconds"<<endl;
+        cout<<"Binning flows part 1 done in "<<GetTimeSinceSeconds(start_time)<< " seconds"<<endl;
     }
     start_time = chrono::high_resolution_clock::now();
     int nthreads = min(3, nopenmp_threads);
@@ -294,7 +294,7 @@ vector<vector<int> >* LogData::GetForwardFlowsByLinkId1(double max_finish_time_m
         (*forward_flows_by_link_id)[link_id].reserve(sizes[link_id]);
     }
     if constexpr (VERBOSE){
-        cout<<"Binning flows part 2 done in "<<GetTimeSinceMilliSeconds(start_time)<< " seconds"<<endl;
+        cout<<"Binning flows part 2 done in "<<GetTimeSinceSeconds(start_time)<< " seconds"<<endl;
     }
     start_time = chrono::high_resolution_clock::now();
     //mutex link_locks[nlinks];
@@ -329,7 +329,7 @@ vector<vector<int> >* LogData::GetForwardFlowsByLinkId1(double max_finish_time_m
         }
     }
     if constexpr (VERBOSE){
-        cout<<"Binning flows part 3 done in "<<GetTimeSinceMilliSeconds(start_time)<< " seconds"<<endl;
+        cout<<"Binning flows part 3 done in "<<GetTimeSinceSeconds(start_time)<< " seconds"<<endl;
     }
     start_time = chrono::high_resolution_clock::now();
     return forward_flows_by_link_id;
@@ -434,6 +434,17 @@ void LogData::ResetForAnalysis(){
     }
     */
     forward_flows_by_link_id = reverse_flows_by_link_id = flows_by_link_id = NULL;
+}
+
+Path* LogData::GetPointerToPathTaken(vector<int>& path_nodes, vector<int>& temp_path, Flow *flow){
+    if (flow->IsFlowActive()){
+        return new Path(temp_path);
+    }
+    else{
+        assert(path_nodes.size()>0); // No direct link for src_host to dest_host or vice_versa
+        MemoizedPaths *memoized_paths = GetMemoizedPaths(path_nodes[0], *path_nodes.rbegin());
+        return memoized_paths->GetPath(temp_path);
+    }
 }
 
 void LogData::GetAllPaths(vector<Path*> **result, int src_rack, int dest_rack){

@@ -14,9 +14,9 @@ collector: collector.cpp
 	$(CC) $(LIBDIR) $(INCLUDE) $(CFLAGS) collector.cpp -o collector $(LIBS)
 
 #!TODO: Fix dependencies
-collector_ipfix: collector_ipfix.cpp
+collector_ipfix: collector_ipfix.cpp thread_pool.h
 	$(MAKE) -C .. libflock.a
-	$(CC) $(LIBDIR) $(INCLUDE) $(CFLAGS) collector_ipfix.cpp -o collector_ipfix $(LIBS)
+	$(CC) -DNDEBUG $(LIBDIR) $(INCLUDE) $(CFLAGS) collector_ipfix.cpp -o collector_ipfix $(LIBS)
 
 clean:	
 	$(MAKE) -C .. clean

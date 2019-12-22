@@ -49,7 +49,7 @@ RttEstimator::GetTypeId (void)
     .SetGroupName ("Internet")
     .AddAttribute ("InitialEstimation", 
                    "Initial RTT estimate",
-                   TimeValue (Seconds (1.0)),
+                   TimeValue (Seconds (0.1)),
                    MakeTimeAccessor (&RttEstimator::m_initialEstimatedRtt),
                    MakeTimeChecker ())
   ;

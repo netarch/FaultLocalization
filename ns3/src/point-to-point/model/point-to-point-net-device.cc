@@ -336,10 +336,9 @@ PointToPointNetDevice::Receive (Ptr<Packet> packet)
   NS_LOG_FUNCTION (this << packet);
   uint16_t protocol = 0;
 
-
-  //std::cout<<"PointToPointNetDevice::Receive"<<std::endl;
   if (m_receiveErrorModel && m_receiveErrorModel->IsCorrupt (packet) ) 
     {
+      //std::cout<<"PointToPointNetDevice::Receive "<< this << " size " << packet->GetSize() << " dropping " << std::endl;
       // 
       // If we have an error model and it indicates that it is time to lose a
       // corrupted packet, don't forward this packet up, let it go.
@@ -348,6 +347,7 @@ PointToPointNetDevice::Receive (Ptr<Packet> packet)
     }
   else 
     {
+      //std::cout<<"PointToPointNetDevice::Receive "<< this << " size " << packet->GetSize() << " not dropping " << std::endl;
       // 
       // Hit the trace hooks.  All of these hooks are in the same place in this 
       // device because it is so simple, but this is not usually the case in

@@ -24,10 +24,10 @@ int main(int argc, char *argv[]){
     auto start_localization_time = chrono::high_resolution_clock::now();
     Hypothesis failed_links_set;
     data.GetFailedLinkIds(failed_links_set);
-    //BayesianNet estimator;
-    //vector<double> params = {1.0-5.0e-3, 2.0e-4};
-    //estimator.SetParams(params);
-    NetBouncer estimator;
+    BayesianNet estimator;
+    vector<double> params = {1.0-5.0e-3, 2.0e-4};
+    estimator.SetParams(params);
+    //NetBouncer estimator;
     estimator.SetLogData(&data, max_finish_time_ms, nopenmp_threads);
     Hypothesis estimator_hypothesis;
     estimator.LocalizeFailures(min_start_time_ms, max_finish_time_ms,

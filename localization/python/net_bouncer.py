@@ -10,7 +10,6 @@ import utils
 from utils import *
 from plot_utils import *
 
-    
 def net_bouncer(flows, links, inverse_links, flows_by_link, forward_flows_by_link, reverse_flows_by_link, failed_links, link_statistics, min_start_time_ms, max_finish_time_ms, params, nprocesses):
     start_time = time.time()
     nlinks = len(inverse_links)

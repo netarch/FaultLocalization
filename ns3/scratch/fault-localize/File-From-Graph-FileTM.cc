@@ -229,11 +229,12 @@ int main(int argc, char *argv[]){
     for (int node: topology.nodes){
         int first_unused_port = topology.GetFirstUnusedPort(node);
         for (int port=topology.GetStartPort(); port <= first_unused_port; port++){
-            PacketSinkHelper sink ("ns3::TcpSocketFactory", InetSocketAddress (Ipv4Address::GetAny (), port));
             Ptr<Node> node_ptr = GetNodePointer(node);
-            ApplicationContainer sinkApps = sink.Install(node_ptr);
-            sinkApps.Start(Seconds(0.0));
-            sinkApps.Stop(Seconds(warmup_time_seconds + sim_time_seconds));
+            /* TCP sink */
+            PacketSinkHelper sink ("ns3::TcpSocketFactory", InetSocketAddress (Ipv4Address::GetAny (), port));
+            ApplicationContainer sink_apps = sink.Install(node_ptr);
+            sink_apps.Start(Seconds(0.0));
+            sink_apps.Stop(Seconds(warmup_time_seconds + sim_time_seconds));
         }
     }
     cout<<"Finished creating applications"<<endl;

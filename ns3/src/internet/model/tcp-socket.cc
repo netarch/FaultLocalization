@@ -79,7 +79,7 @@ TcpSocket::GetTypeId (void)
                    "TCP retransmission timeout when opening connection (seconds)",
                    //TimeValue (Seconds (3)),
                    //!TODO: vipul
-                   TimeValue (Seconds (0.05)),
+                   TimeValue (Seconds (0.1)),
                    MakeTimeAccessor (&TcpSocket::GetConnTimeout,
                                      &TcpSocket::SetConnTimeout),
                    MakeTimeChecker ())

@@ -724,7 +724,7 @@ void decapsulate_flow_record(char* ipfix_message) {
 
 /* ****************************************************** */
 
-void export_flow_record(char* ipfix_message, int message_length) {
+void create_export_socket() {
   // Create export socket first.
   if (collector_addr != NULL && collector_port > 0) {
     export_socket = socket(AF_INET, SOCK_STREAM, 0);
@@ -738,12 +738,16 @@ void export_flow_record(char* ipfix_message, int message_length) {
       if (inet_pton(AF_INET, collector_addr, &collector_sock_addr.sin_addr) <=
           0) {
         fprintf(stderr, "Invalid collector address or address not supported\n");
+        close(export_socket);
+        export_socket = 0;
         return;
       } else {
         if (connect(export_socket, (struct sockaddr *)&collector_sock_addr,
                     sizeof(collector_sock_addr)) < 0) {
           fprintf(stderr, "Fail to connect to collector at %s:%d\n",
               collector_addr, collector_port);
+          close(export_socket);
+          export_socket = 0;
           return;
         } else {
           fprintf(stderr, "Connected to collector at %s:%d\n",
@@ -752,7 +756,11 @@ void export_flow_record(char* ipfix_message, int message_length) {
       }
     }
   }
+}
 
+/* ****************************************************** */
+
+void export_flow_record(char* ipfix_message, int message_length) {
   int sent_bytes = 0;
   while (sent_bytes < message_length) {
     int tmp = send(export_socket, ipfix_message + sent_bytes,
@@ -763,9 +771,6 @@ void export_flow_record(char* ipfix_message, int message_length) {
     }
     sent_bytes += tmp;
   }
-
-  close(export_socket);
-  return;
 }
 
 /* ****************************************************** */
@@ -776,8 +781,21 @@ void export_flow(int sig) {
   flow_stats_list_front = NULL;
   flow_stats_list_back = NULL;
   pthread_mutex_unlock(&export_mutex);
-
   struct Ipv4TcpFlowEntry* entry = flow_stats_list_pending_report;
+
+  // Create export socket first.
+  create_export_socket();
+  if (export_socket <= 0) {
+    while (entry != NULL) {
+      flow_stats_list_pending_report = entry->next;
+      free(entry);
+      entry = flow_stats_list_pending_report;
+    }
+    ualarm(DEFAULT_EXPORT_INTERVAL_USEC, 0);
+    signal(SIGALRM, export_flow);
+    return;
+  }
+
   int num_record = 0;
   while (entry != NULL) {
     num_record++;
@@ -872,6 +890,8 @@ void export_flow(int sig) {
 
     free(ipfix_message);
   }
+
+  close(export_socket);
 
   ualarm(DEFAULT_EXPORT_INTERVAL_USEC, 0);
   signal(SIGALRM, export_flow);

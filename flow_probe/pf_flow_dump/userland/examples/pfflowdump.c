@@ -102,6 +102,7 @@ struct Ipv4TcpFlowEntry* flow_stats_list_pending_report;
 
 u_int32_t export_seq_no = 0;
 int export_socket = 0;
+struct timeval next_export_ts;
 
 char* collector_addr = NULL;
 int collector_port = 0;
@@ -200,6 +201,13 @@ void print_stats() {
   lastTime.tv_sec = endTime.tv_sec, lastTime.tv_usec = endTime.tv_usec;
 
   fprintf(stderr, "=========================\n\n");
+}
+
+/* ******************************** */
+
+void update_next_export_ts() {
+  gettimeofday(&next_export_ts, NULL);
+  next_export_ts.tv_sec += DEFAULT_EXPORT_INTERVAL_SEC;
 }
 
 /* ******************************** */
@@ -449,12 +457,16 @@ static char *intoa(unsigned int addr) {
 
 u_int32_t CalcDeltaTimevalInMicrosecond(struct timeval ts_start,
                                         struct timeval ts_end) {
-  // Caller should guarantee ts_end is later than ts_start.
+  // Return 0 if ts_end is before ts_start.
   if (ts_start.tv_sec == ts_end.tv_sec) {
-    return ts_end.tv_usec - ts_start.tv_usec;
-  } else {
+    return ts_start.tv_usec > ts_end.tv_usec
+        ? 0
+        : ts_end.tv_usec - ts_start.tv_usec;
+  } else if (ts_start.tv_sec < ts_end.tv_sec) {
     return (ts_end.tv_sec - ts_start.tv_sec - 1) * 1000000 +
         (ts_end.tv_usec + 1000000 - ts_start.tv_usec);
+  } else {
+    return 0;
   }
 }
 
@@ -515,6 +527,7 @@ void process_packet(const struct pfring_pkthdr *h, const u_char *p, u_int8_t dum
     entry->next = NULL;
     entry->seq_no_in_flight_head = NULL;
     entry->seq_no_in_flight_tail = NULL;
+    entry->pending_export_ts = h->ts;
 
     if (prev != NULL) {
       prev->next = entry;
@@ -600,6 +613,7 @@ void process_packet(const struct pfring_pkthdr *h, const u_char *p, u_int8_t dum
     }
     entry->seq_no_in_flight_tail = NULL;
 
+    entry->next = entry->prev = NULL;
     pthread_mutex_lock(&export_mutex);
     if (flow_stats_list_front == NULL) {
       flow_stats_list_front = entry;
@@ -609,6 +623,63 @@ void process_packet(const struct pfring_pkthdr *h, const u_char *p, u_int8_t dum
       flow_stats_list_back = entry;
     }
     pthread_mutex_unlock(&export_mutex);
+  } else {
+    struct timeval next_export_ts_snapshot = next_export_ts;
+    if (CalcDeltaTimevalInMicrosecond(entry->pending_export_ts,
+                                      next_export_ts_snapshot) == 0) {
+      // This flow has already triggered a pending export this cycle.
+      return;
+    }
+
+    u_int32_t time_to_next_export =
+        CalcDeltaTimevalInMicrosecond(h->ts, next_export_ts_snapshot);
+    if (time_to_next_export > 0 &&
+        time_to_next_export < FLOW_STATS_PUSH_INTERVAL_USEC) {
+      struct Ipv4TcpFlowEntry* pending_entry =
+          (struct Ipv4TcpFlowEntry*)malloc(sizeof(struct Ipv4TcpFlowEntry));
+      pending_entry->src_ip = entry->sec_ip;
+      pending_entry->dst_ip = entry->dst_ip;
+      pending_entry->src_port = entry->src_port;
+      pending_entry->dst_port = entry->dst_port;
+      pending_entry->out_bytes = entry->out_bytes;
+      pending_entry->out_packets = entry->out_packets;
+      pending_entry->retrans_bytes = entry->retrans_bytes;
+      pending_entry->retrans_packets = entry->retrans_packets;
+      pending_entry->max_rtt_usec = entry->max_rtt_usec;
+      pending_entry->min_rtt_usec = entry->min_rtt_usec;
+      pending_entry->ts_first = entry->ts_first;
+      pending_entry->ts_last = entry->ts_last;
+      pending_entry->max_seq_no = entry->max_seq_no;
+      pending_entry->prev = NULL;
+      pending_entry->next = NULL;
+      pending_entry->seq_no_in_flight_head = NULL;
+      pending_entry->seq_no_in_flight_tail = NULL;
+
+      // Clear existing flow stats, so each export is incremental.
+      entry->out_bytes = 0;
+      entry->out_packets = 0;
+      entry->retrans_bytes = 0;
+      entry->retrans_packets = 0;
+      entry->max_rtt_usec = 0;
+      entry->min_rtt_usec = 10000000;
+      entry->ts_first = h->ts;
+      entry->ts_last = h->ts;
+
+      // Advance pending export timestamp, so only one periodic export per flow
+      // per export cycle.
+      entry->pending_export_ts = h->ts;
+      entry->pending_export_ts.tv_sec += DEFAULT_EXPORT_INTERVAL_SEC;
+
+      pthread_mutex_lock(&export_mutex);
+      if (flow_stats_list_front == NULL) {
+        flow_stats_list_front = pending_entry;
+        flow_stats_list_back = pending_entry;
+      } else {
+        flow_stats_list_back->next = pending_entry;
+        flow_stats_list_back = pending_entry;
+      }
+      pthread_mutex_unlock(&export_mutex);
+    }
   }
 
   /*snprintf(dump_str, sizeof(dump_str), "%lld.%06u ", (long long)h->ts.tv_sec, h->ts.tv_usec);
@@ -791,7 +862,9 @@ void export_flow(int sig) {
       free(entry);
       entry = flow_stats_list_pending_report;
     }
-    ualarm(DEFAULT_EXPORT_INTERVAL_USEC, 0);
+
+    update_next_export_ts();
+    alarm(DEFAULT_EXPORT_INTERVAL_SEC);
     signal(SIGALRM, export_flow);
     return;
   }
@@ -893,7 +966,8 @@ void export_flow(int sig) {
 
   close(export_socket);
 
-  ualarm(DEFAULT_EXPORT_INTERVAL_USEC, 0);
+  update_next_export_ts();
+  alarm(DEFAULT_EXPORT_INTERVAL_SEC);
   signal(SIGALRM, export_flow);
 }
 
@@ -1501,8 +1575,9 @@ int main(int argc, char* argv[]) {
 
   sample_filtering_rules();
 
+  update_next_export_ts();
   signal(SIGALRM, export_flow);
-  alarm(ALARM_SLEEP);
+  alarm(DEFAULT_EXPORT_INTERVAL_SEC);
 
   if(num_threads <= 1) {
     if(bind_core >= 0)

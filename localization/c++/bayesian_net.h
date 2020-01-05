@@ -7,7 +7,7 @@ class BayesianNet : public Estimator{
     BayesianNet() : Estimator() {}
     void LocalizeFailures(double min_start_time_ms, double max_finish_time_ms,
                           Hypothesis &localized_links, int nopenmp_threads);
-    const bool PRINT_SCORES = true;
+    const bool PRINT_SCORES = false;
     const int MAX_FAILS = 20;
     const int NUM_CANDIDATES = max(15, 5 * MAX_FAILS);
     const int NUM_TOP_HYPOTHESIS_AT_EACH_STAGE = 5;

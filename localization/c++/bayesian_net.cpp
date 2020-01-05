@@ -46,14 +46,14 @@ void BayesianNet::ComputeAndStoreIntermediateValues(int nopenmp_threads, double 
 
 BayesianNet* BayesianNet::CreateObject(){
     BayesianNet* ret = new BayesianNet();
-    vector<double> param {p1, p2};
+    vector<double> param {p1, p2, PRIOR};
     ret->SetParams(param);
     return ret;
 }
 
 void BayesianNet::SetParams(vector<double>& param) {
-    assert(param.size() == 2);
-    tie(p1, p2) = {param[0], param[1]};
+    assert(param.size() == 3);
+    tie(p1, p2, PRIOR) = {param[0], param[1], param[2]};
 }
     
 void BayesianNet::SetLogData(LogData* data_, double max_finish_time_ms, int nopenmp_threads){
@@ -147,12 +147,14 @@ void BayesianNet::SearchHypotheses(double min_start_time_ms, double max_finish_t
 
 void BayesianNet::LocalizeFailures(double min_start_time_ms, double max_finish_time_ms,
                                    Hypothesis& localized_links, int nopenmp_threads){
-    if constexpr (VERBOSE) cout << "Params: p1 " << 1.0 - p1 << " p2 " << p2 << " openmp threads " << nopenmp_threads << endl;
+    if constexpr (VERBOSE) cout << "Params: p1 " << 1.0 - p1 << " p2 " << p2 << " Prior " << PRIOR << " openmp threads " << nopenmp_threads << endl;
     assert(data != NULL);
     BinFlowsByLinkId(max_finish_time_ms, nopenmp_threads);
 
     auto start_time = timer_checkpoint = chrono::high_resolution_clock::now();
-    ComputeAndStoreIntermediateValues(nopenmp_threads, max_finish_time_ms);
+    if (!USE_CONDITIONAL){
+        ComputeAndStoreIntermediateValues(nopenmp_threads, max_finish_time_ms);
+    }
     if constexpr (VERBOSE){
         cout << "Finished computing intermediate values in "
              << GetTimeSinceSeconds(start_time) << " seconds" << endl;
@@ -209,7 +211,9 @@ void BayesianNet::LocalizeFailures(double min_start_time_ms, double max_finish_t
         delete(no_failure_hypothesis);
     }
     CleanUpAfterLocalization(all_hypothesis);
-    cout << "Finished further search in " << GetTimeSinceSeconds(timer_checkpoint) << " seconds" << endl;
+    if constexpr (VERBOSE) {
+        cout << "Finished further search in " << GetTimeSinceSeconds(timer_checkpoint) << " seconds" << endl;
+    }
 }
 
 bool BayesianNet::VerifyLikelihoodComputation(unordered_map<Hypothesis*, double>& all_hypothesis,
@@ -287,7 +291,10 @@ int BayesianNet::UpdateScores(vector<double> &likelihood_scores, Hypothesis* hyp
         if (DiscardFlow(flow, min_start_time_ms, max_finish_time_ms)) continue;
         vector<Path*>* flow_paths = flow->GetPaths(max_finish_time_ms);
         int npaths = flow_paths->size();
-        if (REDUCED_ANALYSIS) npaths = flow->npaths_unreduced;
+        if (REDUCED_ANALYSIS){
+            assert (npaths == 1);
+            npaths = flow->npaths_unreduced;
+        }
         //!TODO: implement REVERSE_PATH case
         int npaths_r = 1, naffected_r = 0, naffected_r_base = 0;
         if constexpr (CONSIDER_REVERSE_PATH) {assert (false);}
@@ -308,6 +315,8 @@ int BayesianNet::UpdateScores(vector<double> &likelihood_scores, Hypothesis* hyp
                 link_ctrs_threads_base[thread_num][link_id] += (int) (!fail_path_base);
             }
         }
+        //!TODO: reduced analysis can be made cleaner and more robust
+        if (REDUCED_ANALYSIS and all_paths_failed) npaths_failed = npaths; 
         long double intermediate_val = flow->GetCachedIntermediateValue();
         double no_failure_score = BnfWeighted(npaths_failed, npaths, naffected_r, npaths_r,
                                             weight.first, weight.second, intermediate_val);
@@ -911,3 +920,4 @@ double BayesianNet::ComputeLogPrior(Hypothesis* hypothesis){
         return hypothesis->size() * PRIOR;
     }
 }
+

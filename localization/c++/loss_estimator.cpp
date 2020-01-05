@@ -2,6 +2,7 @@
 #include <assert.h>
 #include "utils.h"
 #include "bayesian_net.h"
+#include "doubleO7.h"
 #include "net_bouncer.h"
 #include "bayesian_net_continuous.h"
 #include <chrono>
@@ -25,9 +26,9 @@ int main(int argc, char *argv[]){
     Hypothesis failed_links_set;
     data.GetFailedLinkIds(failed_links_set);
     BayesianNet estimator;
-    vector<double> params = {1.0-5.0e-3, 2.0e-4};
+    vector<double> params = {1.0-5.0e-3, 2.0e-4, -25.0};
     estimator.SetParams(params);
-    //NetBouncer estimator;
+    //DoubleO7 estimator;
     estimator.SetLogData(&data, max_finish_time_ms, nopenmp_threads);
     Hypothesis estimator_hypothesis;
     estimator.LocalizeFailures(min_start_time_ms, max_finish_time_ms,

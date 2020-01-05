@@ -70,10 +70,10 @@ class LogData;
 
 void GetAllPairShortestPaths(vector<int>& nodes, unordered_set<Link>& links, LogData* result);
 void GetLinkMappings(string topology_file, LogData* result, bool compute_paths=false);
-void GetDataFromLogFile(string filename, LogData* result);
+void GetDataFromLogFile(string trace_file, LogData* result);
 void ProcessFlowPathLines(vector<char*>& lines, vector<array<int, 10> >& path_nodes_list, int nopenmp_threads);
 void ProcessFlowLines(vector<FlowLines>& all_flow_lines, LogData* result, int nopenmp_threads);
-void GetDataFromLogFileParallel(string filename, string topology_filename, LogData* result, int nopenmp_threads);
+void GetDataFromLogFileParallel(string trace_file, string topology_file, LogData* result, int nopenmp_threads);
 void GetDataFromLogFileDistributed(string dirname, int nchunks, LogData* result, int nopenmp_threads);
 
 inline bool HypothesisIntersectsPath(Hypothesis *hypothesis, Path *path){

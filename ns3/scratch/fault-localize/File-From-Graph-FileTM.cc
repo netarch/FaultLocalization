@@ -128,7 +128,7 @@ int main(int argc, char *argv[]){
     Config::SetDefault("ns3::DropTailQueue::MaxPackets", UintegerValue (drop_queue_limit));
 
     // Simulation parameters
-    double sim_time_seconds = 8.0;
+    double sim_time_seconds = 3.0;
     double warmup_time_seconds = 1.0;
 
     // Define topology

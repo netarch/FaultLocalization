@@ -2,6 +2,8 @@
 #define __FAULT_LOCALIZE_007__
 #include "estimator.h"
 
+const bool USE_BUGGY_007 = false; //to match matlab script
+
 class DoubleO7: public Estimator{
  public:
     DoubleO7(): Estimator() {}
@@ -20,8 +22,8 @@ private:
 
     // Noise parameters
     double fail_threshold = 0.0025;
-    const bool ADJUST_VOTES = true;
-    const bool FILTER_NOISY_DROPS = true;
+    const bool ADJUST_VOTES = false;
+    const bool FILTER_NOISY_DROPS = false;
 };
 
 #endif

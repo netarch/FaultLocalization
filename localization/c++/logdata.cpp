@@ -53,8 +53,10 @@ void LogData::GetReducedData(unordered_map<Link, Link>& reduced_graph_map,
             reduced_data.failed_links.insert(make_pair(rl, 0.0));
         }
     }
-    for (auto& it: reduced_data.failed_links){
-        cout << "Failed reduced link "<< it.first << endl;
+    if constexpr (VERBOSE) {
+        for (auto& it: reduced_data.failed_links){
+            cout << "Failed reduced link "<< it.first << endl;
+        }
     }
 
     for(auto &it: links_to_ids){
@@ -65,7 +67,9 @@ void LogData::GetReducedData(unordered_map<Link, Link>& reduced_graph_map,
             reduced_data.inverse_links.push_back(rl);
         }
     }
-    cout << "Finished assigning ids to reduced links, nlinks(reduced) " << reduced_data.inverse_links.size() << endl;
+    if constexpr (VERBOSE) {
+        cout << "Finished assigning ids to reduced links, nlinks(reduced) " << reduced_data.inverse_links.size() << endl;
+    }
 
     reduced_data.flows.resize(flows.size());
     atomic<int> flow_ctr = 0;
@@ -437,6 +441,7 @@ void LogData::ResetForAnalysis(){
 }
 
 Path* LogData::GetPointerToPathTaken(vector<int>& path_nodes, vector<int>& temp_path, Flow *flow){
+    //For 007 verification, make this if condition always true
     if (flow->IsFlowActive()){
         return new Path(temp_path);
     }
@@ -469,7 +474,7 @@ void GetNumReducedLinksMap(unordered_map<Link, Link> &reduced_graph_map,
 }
 
 Path* GetReducedPath(Path *path, unordered_map<Link, Link> &reduced_graph_map,
-                                            LogData &data, LogData &reduced_data){
+                     LogData &data, LogData &reduced_data){
     Path *reduced_path = new Path(path->size());
     // convert link_ids in path to reduced link_ids
     for (int link_id: *path){

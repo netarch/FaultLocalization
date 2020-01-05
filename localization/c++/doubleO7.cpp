@@ -38,16 +38,19 @@ PDD DoubleO7::ComputeVotes(vector<Flow*>& bad_flows, vector<double>& votes,
             (problematic_link_ids.count(flow->first_link_id) == 0) and
             (problematic_link_ids.count(flow->last_link_id) == 0)){
             int flow_vote = (int) (flow->LabelWeightsFunc(max_finish_time_ms).second > 0);
+            //cout << " path_taken " << *path_taken << " " << flow_vote << endl;
             if (FILTER_NOISY_DROPS){
                 flow_vote = (int) (flow->LabelWeightsFunc(max_finish_time_ms).second > 1);
             }
             else{
-                assert(flow_vote == 1);
+                assert(flow_vote == 1 or flow->IsFlowActive());
             }
             int total_path_length = path_taken->size() + 2;
             double vote = ((double)flow_vote) / total_path_length;
+            if constexpr(USE_BUGGY_007) vote = ((double)flow_vote) / (total_path_length - 1);
             votes[flow->first_link_id] += vote;
             votes[flow->last_link_id] += vote;
+            if constexpr (USE_BUGGY_007) votes[flow->last_link_id] -= vote;
             for (int link_id: *path_taken){
                 votes[link_id] += vote;
             }
@@ -65,7 +68,7 @@ void DoubleO7::LocalizeFailures(double min_start_time_ms, double max_finish_time
     localized_links.clear();
     vector<Flow*> bad_flows; 
     for(Flow* flow: data->flows){
-        if(flow->TracerouteFlow(max_finish_time_ms) > 0)
+        if(flow->TracerouteFlow(max_finish_time_ms))
             bad_flows.push_back(flow);
     }
     int nlinks = data->inverse_links.size();
@@ -79,6 +82,14 @@ void DoubleO7::LocalizeFailures(double min_start_time_ms, double max_finish_time
         cout << " sumvote " << sum_votes << " maxvote " << max_votes
              << " numflows " << bad_flows.size() << endl;
     }
+    /* print scores for verification
+    for (int link_id=0; link_id<nlinks; link_id++){
+        Link link = data->inverse_links[link_id];
+        cout << (link.first > 10000? link.first - 10000 : link.first) << " "
+             << (link.second > 10000? link.second - 10000: link.second) << " " << votes[link_id] << endl;
+    }
+    return;
+    */
     while (max_votes >= fail_threshold * sum_votes and max_votes > 0){
         int faulty_link_id = distance(votes.begin(), max_element(votes.begin(), votes.end()));
         localized_links.insert(faulty_link_id);

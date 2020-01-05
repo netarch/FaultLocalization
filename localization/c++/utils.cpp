@@ -140,7 +140,7 @@ void GetLinkMappings(string topology_file, LogData* result, bool compute_paths){
     }
 }
 
-void GetDataFromLogFile(string filename, LogData *result){ 
+void GetDataFromLogFile(string trace_file, LogData *result){ 
     auto start_time = chrono::high_resolution_clock::now();
     vector<Flow*> chunk_flows;
     dense_hash_map<Link, int, hash<Link> > links_to_ids_cache;
@@ -160,7 +160,7 @@ void GetDataFromLogFile(string filename, LogData *result){
         };
     vector<int> temp_path (10);
     vector<int> path_nodes (10);
-    ifstream infile(filename);
+    ifstream infile(trace_file);
     string line, op;
     Flow *flow = NULL;
     int nlines = 0;
@@ -381,6 +381,7 @@ void ProcessFlowLines(vector<FlowLines>& all_flow_lines, LogData* result, int no
     for(int ii=0; ii<all_flow_lines.size(); ii++){
         Flow *flow = &(flows_threads[ii]);
         nactive_flows += (int)(flow->IsFlowActive());
+        //For 007 verification, make the if condition always true
         if ((flow->IsFlowActive() or (flow->paths!=NULL and flow->paths->size() > 0))
              and flow->path_taken_vector.size() == 1){
             assert (flow->GetPathTaken());
@@ -448,11 +449,11 @@ inline char* strdup (char *str){
     return result;
 }
 
-void GetDataFromLogFileParallel(string filename, string topology_filename, LogData *result, int nopenmp_threads){ 
+void GetDataFromLogFileParallel(string trace_file, string topology_file, LogData *result, int nopenmp_threads){ 
     auto start_time = chrono::high_resolution_clock::now();
-    GetLinkMappings(topology_filename, result); 
+    GetLinkMappings(topology_file, result); 
 
-    FILE *infile = fopen(filename.c_str(), "r");
+    FILE *infile = fopen(trace_file.c_str(), "r");
     char *linec = new char[100];
     char *restore_c = linec;
     size_t max_line_size = 0;

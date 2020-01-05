@@ -8,16 +8,19 @@ import math
 import numpy as np
 import networkx as nx
 
-nargs = 2
+nargs = 3
 if not len(sys.argv) == nargs+1: 
 	print("Required number of arguments:", nargs, ".", len(sys.argv)-1, "provided")
-	print("Arguments: <network_file> <outfile>")
+	print("Arguments: <network_file> <nfailures> <outfile>")
 	sys.exit()
 
 HOST_OFFSET = 10000
 
+print("Random witness", random.randint(1, 100000))
+
 network_file = sys.argv[1]
-outfilename = sys.argv[2]
+nfailed_links = int(sys.argv[2])
+outfilename = sys.argv[3]
 G = nx.Graph()
 host_rack_map = dict()
 host_offset = 0
@@ -45,7 +48,6 @@ with open(network_file) as nf:
             G.add_edge(rack1, rack2)
 
 assert (HOST_OFFSET > max_switch)
-nfailed_links = 10
 edges = [(u,v) for (u,v) in G.edges]
 edges += [(v,u) for (u,v) in edges]
 random.shuffle(edges)
@@ -124,7 +126,8 @@ def GetFlows(thread_num, nflows, G, fail_prob, servers_busy, servers_idle, host_
 
     all_rack_pair_paths = dict()
     for src_rack in racks:
-        print ("printing paths", src_rack)
+        if src_rack % 10 == 0:
+            print ("printing paths", src_rack)
         src_paths = dict()
         for dst_rack in racks:
             paths = list(nx.all_shortest_paths(G, source=src_rack, target=dst_rack))

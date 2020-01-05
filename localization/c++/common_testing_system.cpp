@@ -2,7 +2,9 @@
 #include <assert.h>
 #include "utils.h"
 #include "logdata.h"
+#include "bayesian_net.h"
 #include "common_testing_system.h"
+#include "reduced_utils.h"
 #include <chrono>
 
 using namespace std;
@@ -10,6 +12,12 @@ using namespace std;
 vector<string> GetFiles();
 
 std::atomic<int> total_flows{0};
+
+string GetFileNameFromPath(string file_path){
+    int pos = file_path.find_last_of('/');
+    if (pos == string::npos) pos = -1;
+    return file_path.substr(pos+1);
+}
 
 void GetPrecisionRecallTrendFile(string topology_file, string trace_file, double min_start_time_ms,
                                 double max_finish_time_ms, double step_ms,
@@ -30,9 +38,7 @@ void GetPrecisionRecallTrendFile(string topology_file, string trace_file, double
         PDD precision_recall = GetPrecisionRecall(failed_links_set, estimator_hypothesis);
         result.push_back(precision_recall);
         total_flows += data->flows.size();
-        int pos = trace_file.find_last_of('/');
-        if (pos == string::npos) pos = -1;
-        cout << trace_file.substr(pos+1) << " Flows " << data->flows.size()
+        cout << GetFileNameFromPath(trace_file) << " Flows " << data->flows.size()
              << " Finish time " << finish_time_ms << " Output Hypothesis: "
              << data->IdsToLinks(estimator_hypothesis)<< " precsion_recall "
              << precision_recall.first << " " << precision_recall.second<<endl;
@@ -51,7 +57,7 @@ void GetPrecisionRecallTrendFiles(string topology_file, double min_start_time_ms
     }
     mutex lock;
     int nfiles = trace_files.size();
-    int nthreads1 = min({24, nfiles, nopenmp_threads});
+    int nthreads1 = min({32, nfiles, nopenmp_threads});
     int nthreads2 = 1;
     //int nthreads1 = 1;
     //int nthreads2 = nopenmp_threads;
@@ -80,11 +86,22 @@ void GetPrecisionRecallParamsFile(string topology_file, string trace_file, doubl
                                 Estimator* base_estimator, vector<PDD> &result,
                                 int nopenmp_threads){
     assert (result.size() == 0);
-    LogData* data = new LogData();
+    LogData *data = new LogData();
     GetDataFromLogFileParallel(trace_file, topology_file, data, nopenmp_threads);
+
+    Estimator* estimator = base_estimator->CreateObject();
+
+    const bool REDUCED_ANALYSIS  = false;
+    if constexpr (REDUCED_ANALYSIS) {
+        BayesianNet* b_estimator = static_cast<BayesianNet*>(estimator);
+        string reduced_map_file = "/home/vharsh2/ns-allinone-3.24.1/ns-3.24.1/ns3/topology/ft_k10_os3/ns3ft_deg10_sw125_svr250_os3_i1.reduced";
+        LogData *reduced_data = new LogData();
+        SetInputForReduced(*b_estimator, data, reduced_data, reduced_map_file, max_finish_time_ms, nopenmp_threads);
+        data = reduced_data;
+    }
+
     Hypothesis failed_links_set;
     data->GetFailedLinkIds(failed_links_set);
-    Estimator* estimator = base_estimator->CreateObject();
     estimator->SetLogData(data, max_finish_time_ms, nopenmp_threads);
     for(int ii=0; ii<params.size(); ii++){
         estimator->SetParams(params[ii]);
@@ -94,7 +111,8 @@ void GetPrecisionRecallParamsFile(string topology_file, string trace_file, doubl
         PDD precision_recall = GetPrecisionRecall(failed_links_set, estimator_hypothesis);
         result.push_back(precision_recall);
         if constexpr (VERBOSE or true) {
-            cout << trace_file << " " << params[ii] << " "
+            //cout << "Failed links " << failed_links_set << " predicted: " << estimator_hypothesis << " ";
+            cout << GetFileNameFromPath(trace_file) << " " << params[ii] << " "
                 << data->IdsToLinks(estimator_hypothesis)<< "  "
                 << precision_recall.first << " " << precision_recall.second<<endl;
         }
@@ -112,7 +130,7 @@ void GetPrecisionRecallParamsFiles(string topology_file, double min_start_time_m
     }
     mutex lock;
     int nfiles = trace_files.size();
-    int nthreads1 = min({16, nfiles, nopenmp_threads});
+    int nthreads1 = min({32, nfiles, nopenmp_threads});
     int nthreads2 = 1;
     //int nthreads1 = 1, nthreads2 = nopenmp_threads;
     cout << nthreads1 << " " << nthreads2 << endl;

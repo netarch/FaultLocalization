@@ -28,7 +28,7 @@ public:
 
     LogData (): forward_flows_by_link_id(NULL), reverse_flows_by_link_id(NULL), flows_by_link_id(NULL) {
         failed_links.set_empty_key(Link(-1, -1));
-	hosts_to_racks.set_empty_key(-1);
+    hosts_to_racks.set_empty_key(-1);
         //links_to_ids.set_empty_key(Link(-1, -1));
         //memoized_paths.set_empty_key(PII(-1, -1));
     }
@@ -47,6 +47,7 @@ public:
     void AddChunkFlows(vector<Flow*> &chunk_flows);
     void AddFailedLink(Link link, double failparam);
 
+    void GetRacksList(vector<int> &result);
     set<Link> IdsToLinks(Hypothesis &h);
 
     void GetReducedData(unordered_map<Link, Link>& reduced_graph_map, LogData& reduced_data,

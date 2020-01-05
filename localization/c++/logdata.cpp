@@ -457,6 +457,14 @@ void LogData::GetAllPaths(vector<Path*> **result, int src_rack, int dest_rack){
     memoized_paths->GetAllPaths(result);
 }
 
+void LogData::GetRacksList(vector<int> &result){
+    set<int> racks;
+    for (auto &[k,v]: hosts_to_racks){
+        racks.insert(v);
+    }
+    result.insert(result.begin(), racks.begin(), racks.end());
+}
+
 int GetReducedLinkId(int link_id, unordered_map<Link, Link> &reduced_graph_map,
                                   LogData &data, LogData &reduced_data){
     Link l = data.inverse_links[link_id];

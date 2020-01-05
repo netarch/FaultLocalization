@@ -47,10 +47,13 @@ char *_intoa(unsigned int addr, char* buf, u_short bufLen) {
     retStr = (char*)(cp+1);
     return (retStr);
 }
+
 static char *intoa(unsigned int addr) {
     static thread_local char buf[sizeof "ff:ff:ff:ff:ff:ff:255.255.255.255"];
     return(_intoa(addr, buf, sizeof(buf)));
 }
+
+
 
 
 uint32_t ConvertStringIpToInt(string& ip_addr){
@@ -138,18 +141,18 @@ void HandleIncomingConnection(int socket, LogData *log_data){
         u_int32_t i32_tmp;
         for (i = 0; i < num_record; ++i) {
             offset = 20 + i * SIZE_FLOW_DATA_RECORD;
-	    u_int32_t src_ip_int, dest_ip_int;
+            u_int32_t src_ip_int, dest_ip_int;
             // IPV4_SRC_ADDR and L4_SRC_PORT.
-	    //!TODO memcpy is not thread_safe
+            //!TODO memcpy is not thread_safe
             memcpy(&i32_tmp, c_data + c_begin + offset, sizeof(u_int32_t));
             memcpy(&i16_tmp, c_data + c_begin + offset + 8, sizeof(u_int16_t));
-	    src_ip_int = i32_tmp;
+            src_ip_int = i32_tmp;
             string src_ip = intoa(i32_tmp);
             int src_port = (int)i16_tmp;
             // IPV4_DST_ADDR and L4_DST_PORT.
             memcpy(&i32_tmp, c_data + c_begin + offset + 4, sizeof(u_int32_t));
             memcpy(&i16_tmp, c_data + c_begin + offset + 10, sizeof(u_int16_t));
-	    dest_ip_int = i32_tmp;
+            dest_ip_int = i32_tmp;
             string dest_ip = intoa(i32_tmp);
             int dest_port = (int)i16_tmp;
             // FIRST_SWITCHED.
@@ -201,10 +204,9 @@ void HandleIncomingConnection(int socket, LogData *log_data){
                 //    << " flow->path_taken " << *flow->paths->at(0) << endl;
                 flow_queue.push(flow);
             }
-	    else{
-		cout << "Violating " << src_ip << " " << dest_ip << " " << src_ip_int << " " << dest_ip_int << endl;
-
-	    }
+            else{
+                cout << "Violating " << src_ip << " " << dest_ip << " " << src_ip_int << " " << dest_ip_int << endl;
+            }
         }
         c_begin += message_length;
     }
@@ -251,22 +253,66 @@ void* RunAnalysisPeriodically(void* arg){
             chrono::milliseconds timespan(int(3000.0 - elapsed_time_ms));
             std::this_thread::sleep_for(timespan);
         }
-	else cout << endl;
+    else cout << endl;
     }
     return NULL;
+}
+
+Path* GetPathTaken(int src_rack, int dst_rack, int dstport){
+    //!TODO
+    return NULL;
+}
+
+void PreProcessPaths(string path_file, LogData* data){
+    ifstream pfile(path_file);
+    string line;
+    map<PII, map<int, int> > next_hops;
+    while (getline(pfile, line)){
+        char *linec = const_cast<char*>(line.c_str());
+        int sw, dst_host, tcp_dst_port, next_hop;
+        GetFirstInt(linec, sw);
+        GetFirstInt(linec, dst_host);
+        GetFirstInt(linec, tcp_dst_port);
+        GetFirstInt(linec, next_hop);
+        next_hops[PII(dst_host, tcp_dst_port)].insert(PII(sw, next_hop));
+    }
+    map<array<int, 3>, Path*> path_taken_reference;
+    vector<int> racks;
+    data->GetRacksList(racks);
+    vector<int> temp_path;
+    for (auto &[k, hop_map] in next_hops){
+        int dst_host = k.first;
+        int tcp_dst_port = k.second;
+        int dst_rack = log_data->hosts_to_racks[dst_host];
+        for(int src_rack: racks){
+            //Get path from src_rack to dst_host for tcp dst port
+            //!TODO src_rack == dest_rack
+            temp_path.clear();
+            int prev_hop = src_rack;
+            while(prev_hop != dst_rack){
+                int next_hop = hop_map[next_hop];
+                temp_path.push_back(GetLinkId(Link(prev_hop, next_hop)));
+                prev_hop = next_hop;
+            }
+            MemoizedPaths *memoized_paths = data->GetMemoizedPaths(src_rack, dst_rack);
+            Path *path = memoized_paths->GetPath(temp_path);
+            path_taken_reference[{src_rack, dst_host, tcp_dst_port}] = path;
+        }
+    }
 }
 
 int main(int argc, char *argv[]){
     ios_base::sync_with_stdio(false);
 
-    if (argc != 4){
+    if (argc != 5){
         cout << "Not enough arguments specified " << endl
-             << "Usage: ./collector <topology_filename> <collector_ip> <collector_port>" << endl;
+             << "Usage: ./collector <topology_file> <path_file> <collector_ip> <collector_port>" << endl;
         exit(1);
     }
-    char* topology_filename = argv[1];
-    char* collector_ip = argv[2];
-    int collector_port = atoi(argv[3]);
+    char* topology_file = argv[1];
+    char* path_file = argv[2];
+    char* collector_ip = argv[3];
+    int collector_port = atoi(argv[4]);
 
     int collector_socket, sock_opt=1;
     // Create socket file descriptor 
@@ -295,7 +341,7 @@ int main(int argc, char *argv[]){
 
     /* Get topology details from a file */
     LogData* log_data = new LogData();
-    GetLinkMappings(topology_filename, log_data, true);
+    GetLinkMappings(topology_file, log_data, true);
 
     /* Launch daemon thread that will periodically invoke the analysis */
     pthread_t tid;
@@ -333,15 +379,6 @@ int main(int argc, char *argv[]){
                 cout << "Failed to create thread" << endl;
 #endif
         }
-        /*
-        if(i >= 50){
-            i = 0;
-            while(i < 50) {
-                pthread_join(tid[i++],NULL);
-            }
-            i = 0;
-        }
-        */
     }
     return 0;
 }

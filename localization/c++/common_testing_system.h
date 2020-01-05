@@ -9,21 +9,20 @@
 
 using namespace std;
 
-void GetPrecisionRecallTrendFile(string filename, double min_start_time_ms,
-                                double max_finish_time_ms, double step_ms,
-                                Estimator* base_estimator, vector<PDD> &result,
-                                int nopenmp_threads);
+void GetPrecisionRecallTrendFile(string topology_file, string trace_file, double min_start_time_ms,
+                              double max_finish_time_ms, double step_ms, Estimator* base_estimator,
+                              vector<PDD> &result, int nopenmp_threads);
 
-void GetPrecisionRecallTrendFiles(double min_start_time_ms, double max_finish_time_ms, 
-                                  double step_ms, vector<PDD> &result,
-                                  Estimator* estimator, int nopenmp_threads);
+void GetPrecisionRecallTrendFiles(string topology_file, double min_start_time_ms,
+                              double max_finish_time_ms, double step_ms,
+                          vector<PDD> &result, Estimator* estimator, int nopenmp_threads);
 
-void GetPrecisionRecallParamsFile(string filename, double min_start_time_ms,
+void GetPrecisionRecallParamsFile(string topology_file, string trace_file, double min_start_time_ms,
                                 double max_finish_time_ms, vector<vector<double> > &params,
                                 Estimator* base_estimator, vector<PDD> &result,
                                 int nopenmp_threads);
 
-void GetPrecisionRecallParamsFiles(double min_start_time_ms, double max_finish_time_ms, 
+void GetPrecisionRecallParamsFiles(string topology_file, double min_start_time_ms, double max_finish_time_ms, 
                                   vector<vector<double> > &params, vector<PDD> &result,
                                   Estimator* estimator, int nopenmp_threads);
 #endif

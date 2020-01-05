@@ -31,7 +31,7 @@ class Estimator{
                                         return flow->AnySnapshotBefore(max_finish_time_ms);
                                       });
             cout << "Finished binning " << num_flows << " flows by links in "
-                 << GetTimeSinceMilliSeconds(start_bin_time) << " seconds" << endl;
+                 << GetTimeSinceSeconds(start_bin_time) << " seconds" << endl;
         }
     }
 

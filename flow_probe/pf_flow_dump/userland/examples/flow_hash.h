@@ -6,8 +6,12 @@
 
 #define DEFAULT_HASH_SIZE 131072
 
-// Parameter passed to ualarm in unit of microseconds, should be less than 10^6.
-#define DEFAULT_EXPORT_INTERVAL_USEC 200000
+// Parameter passed to alarm in unit of seconds.
+#define DEFAULT_EXPORT_INTERVAL_SEC 1
+// Long flow will push its stats for export when the next export time is within
+// this interval (should be smaller than 10^6).
+#define FLOW_STATS_PUSH_INTERVAL_USEC 100000
+
 
 #define MAX_FLOW_PER_EXPORT 25
 #define SIZE_FLOW_DATA_RECORD 52
@@ -45,6 +49,8 @@ struct Ipv4TcpFlowEntry {
 
   struct SeqNoInFlight* seq_no_in_flight_head;
   struct SeqNoInFlight* seq_no_in_flight_tail;
+
+  struct timeval pending_export_ts;
 };
 
 /* Export IPFIX message format

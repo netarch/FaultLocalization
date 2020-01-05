@@ -115,7 +115,7 @@ void BayesianNetContinuous::LocalizeFailures(double min_start_time_ms, double ma
             cout << "Iteration " << iter << " log likelihood " << log_likelihood 
                  << " delta " << delta << " learning rate " << decayed_learning_rate
                  << " hypothesis "<< data->IdsToLinks(localized_links) << " pr "
-                 << precision_recall << " in time " << GetTimeSinceMilliSeconds(start_iter_time) << endl;
+                 << precision_recall << " in time " << GetTimeSinceSeconds(start_iter_time) << endl;
         }
     }
     for (int link_id: localized_links){

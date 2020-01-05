@@ -54,8 +54,8 @@ public:
                         int nopenmp_threads);
 
     void ResetForAnalysis();
+    Path* GetPointerToPathTaken(vector<int>& path_nodes, vector<int>& temp_path, Flow* flow);
     void GetAllPaths(vector<Path*> **result, int src_rack, int dest_rack);
-
 };
 
 /* For reduced analysis */

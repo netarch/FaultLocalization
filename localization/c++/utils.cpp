@@ -34,7 +34,7 @@ void GetDataFromLogFileDistributed(string dirname, int nchunks, LogData *result,
         GetDataFromLogFile(dirname + "/" + to_string(i), result);
     }
     if constexpr (VERBOSE){
-        cout<<"Read log file chunks in "<<GetTimeSinceMilliSeconds(start_time) << " seconds"<<endl;
+        cout<<"Read log file chunks in "<<GetTimeSinceSeconds(start_time) << " seconds"<<endl;
     }
 }
 
@@ -127,12 +127,12 @@ void GetLinkMappings(string topology_file, LogData* result, bool compute_paths){
             line.replace(index, 2, " ");
             int svr, sw;
             GetFirstInt(linec, svr);
-            svr += OFFSET_HOST;
+            //svr += OFFSET_HOST;
             GetFirstInt(linec, sw);
             result->GetLinkId(Link(sw, svr));
             result->GetLinkId(Link(svr, sw));
             result->hosts_to_racks[svr] = sw;
-	    cout << svr << "-->" << sw << endl;
+	        //cout << svr << "-->" << sw << endl;
         }
     }
     if (compute_paths){
@@ -140,7 +140,7 @@ void GetLinkMappings(string topology_file, LogData* result, bool compute_paths){
     }
 }
 
-void GetDataFromLogFile(string filename, LogData *result){ 
+void GetDataFromLogFile(string trace_file, LogData *result){ 
     auto start_time = chrono::high_resolution_clock::now();
     vector<Flow*> chunk_flows;
     dense_hash_map<Link, int, hash<Link> > links_to_ids_cache;
@@ -160,7 +160,7 @@ void GetDataFromLogFile(string filename, LogData *result){
         };
     vector<int> temp_path (10);
     vector<int> path_nodes (10);
-    ifstream infile(filename);
+    ifstream infile(trace_file);
     string line, op;
     Flow *flow = NULL;
     int nlines = 0;
@@ -185,10 +185,7 @@ void GetDataFromLogFile(string filename, LogData *result){
                 }
                 path_nodes.push_back(node);
             }
-            assert(path_nodes.size()>0); // No direct link for src_host to dest_host or vice_versa
-            MemoizedPaths *memoized_paths = result->GetMemoizedPaths(path_nodes[0], *path_nodes.rbegin());;
-            Path* path = memoized_paths->GetPath(temp_path);
-            flow->SetReversePathTaken(path);
+            flow->SetReversePathTaken(result->GetPointerToPathTaken(path_nodes, temp_path, flow));
         }
         else if (StringStartsWith(op, "FPT")){
             assert (flow != NULL);
@@ -202,10 +199,7 @@ void GetDataFromLogFile(string filename, LogData *result){
                 }
                 path_nodes.push_back(node);
             }
-            assert(path_nodes.size()>0); // No direct link for src_host to dest_host or vice_versa
-            MemoizedPaths *memoized_paths = result->GetMemoizedPaths(path_nodes[0], *path_nodes.rbegin());
-            Path *path = memoized_paths->GetPath(temp_path);
-            flow->SetPathTaken(path);
+            flow->SetPathTaken(result->GetPointerToPathTaken(path_nodes, temp_path, flow));
         }
         else if (StringStartsWith(op, "FP")){
             assert (flow == NULL);
@@ -294,7 +288,7 @@ void GetDataFromLogFile(string filename, LogData *result){
     result->AddChunkFlows(chunk_flows);
     cout << "Num flows " << chunk_flows.size() << endl;
     if constexpr (VERBOSE){
-        cout<< "Read log file in "<<GetTimeSinceMilliSeconds(start_time)
+        cout<< "Read log file in "<<GetTimeSinceSeconds(start_time)
             << " seconds, numlines " << nlines << endl;
     }
 }
@@ -331,7 +325,9 @@ void ProcessFlowLines(vector<FlowLines>& all_flow_lines, LogData* result, int no
         // Set flow paths
         flow->SetFirstLinkId(result->GetLinkIdUnsafe(Link(flow->src, srcrack)));
         flow->SetLastLinkId(result->GetLinkIdUnsafe(Link(destrack, flow->dest)));
-        result->GetAllPaths(&flow->paths, srcrack, destrack);
+
+        // If flow active, then there is only one path
+        if(!flow->IsFlowActive()) result->GetAllPaths(&flow->paths, srcrack, destrack);
 
         /* Reverse flow path taken */
         if (flow_lines.fprt_c != NULL){
@@ -346,10 +342,8 @@ void ProcessFlowLines(vector<FlowLines>& all_flow_lines, LogData* result, int no
                 }
                 path_nodes[thread_num].push_back(node);
             }
-            assert(path_nodes[thread_num].size()>0); // No direct link for src_host to dest_host or vice_versa
-            MemoizedPaths *memoized_paths = result->GetMemoizedPaths(path_nodes[thread_num][0], *path_nodes[thread_num].rbegin());;
-            Path* path = memoized_paths->GetPath(temp_path[thread_num]);
-            flow->SetReversePathTaken(path);
+            flow->SetReversePathTaken(result->GetPointerToPathTaken(
+                               path_nodes[thread_num], temp_path[thread_num], flow));
             flow_lines.fprt_c = restore_c;
         }
         /* Flow path taken */
@@ -365,10 +359,8 @@ void ProcessFlowLines(vector<FlowLines>& all_flow_lines, LogData* result, int no
                 }
                 path_nodes[thread_num].push_back(node);
             }
-            assert(path_nodes[thread_num].size()>0); // No direct link for src_host to dest_host or vice_versa
-            MemoizedPaths *memoized_paths = result->GetMemoizedPaths(path_nodes[thread_num][0], *path_nodes[thread_num].rbegin());
-            Path *path = memoized_paths->GetPath(temp_path[thread_num]);
-            flow->SetPathTaken(path);
+            flow->SetPathTaken(result->GetPointerToPathTaken(
+                               path_nodes[thread_num], temp_path[thread_num], flow));
             flow_lines.fpt_c = restore_c;
         }
         /* Snapshots */
@@ -385,21 +377,26 @@ void ProcessFlowLines(vector<FlowLines>& all_flow_lines, LogData* result, int no
         }
         flow->DoneAddingPaths();
     }
+    int nactive_flows = 0;
     for(int ii=0; ii<all_flow_lines.size(); ii++){
         Flow *flow = &(flows_threads[ii]);
-        if (flow->paths!=NULL and flow->paths->size() > 0 and flow->path_taken_vector.size() == 1){
+        nactive_flows += (int)(flow->IsFlowActive());
+        //For 007 verification, make the if condition always true
+        if ((flow->IsFlowActive() or (flow->paths!=NULL and flow->paths->size() > 0))
+             and flow->path_taken_vector.size() == 1){
             assert (flow->GetPathTaken());
             if constexpr (CONSIDER_REVERSE_PATH){
                 assert (flow->GetReversePathTaken());
             }
-            if (flow->GetLatestPacketsSent() > 0 and !flow->DiscardFlow() and flow->paths->size() > 0){
+            if (flow->GetLatestPacketsSent() > 0 and !flow->DiscardFlow()){
                 //flow->PrintInfo();
                 result->flows.push_back(flow);
             }
         }
     }
     if constexpr (VERBOSE){
-        //cout<< "Processed flow lines in "<<GetTimeSinceMilliSeconds(start_time)
+        cout << "Active flows " << nactive_flows << endl;
+        //cout<< "Processed flow lines in "<<GetTimeSinceSeconds(start_time)
         //    << " seconds, numflows " << all_flow_lines.size() << endl;
     }
 }
@@ -416,13 +413,15 @@ void ProcessFlowPathLines(vector<char*>& lines, LogData* result, int nopenmp_thr
     for(int ii=0; ii<lines.size(); ii++){
         int thread_num = omp_get_thread_num();
         char *linec = lines[ii];
-        //cout << "line " << linec << endl;
+        char *restore_c = linec;
         path_nodes_t[thread_num].clear();
         int node;
         // This is only the portion from src_rack to dest_rack
         while (GetFirstInt(linec, node)){
             path_nodes_t[thread_num].push_back(node);
         }
+        if(path_nodes_t[thread_num].size() <= 0)
+            cout << "line " << restore_c << endl;
         assert(path_nodes_t[thread_num].size()>0); // No direct link for src_host to dest_host or vice_versa
 
         path_arr[ii] = Path(path_nodes_t[thread_num].size()-1);
@@ -433,7 +432,7 @@ void ProcessFlowPathLines(vector<char*>& lines, LogData* result, int nopenmp_thr
         src_dest_rack[ii] = PII(path_nodes_t[thread_num][0], path_nodes_t[thread_num].back());
     }
     if constexpr (VERBOSE){
-        cout<< "Parsed flow path lines in "<<GetTimeSinceMilliSeconds(start_time)
+        cout<< "Parsed flow path lines in "<<GetTimeSinceSeconds(start_time)
             << " seconds, numlines " << lines.size() << endl;
     }
     //!TODO: Save repeated memory allocation for memoized paths
@@ -450,11 +449,11 @@ inline char* strdup (char *str){
     return result;
 }
 
-void GetDataFromLogFileParallel(string filename, string topology_filename, LogData *result, int nopenmp_threads){ 
+void GetDataFromLogFileParallel(string trace_file, string topology_file, LogData *result, int nopenmp_threads){ 
     auto start_time = chrono::high_resolution_clock::now();
-    GetLinkMappings(topology_filename, result); 
+    GetLinkMappings(topology_file, result); 
 
-    FILE *infile = fopen(filename.c_str(), "r");
+    FILE *infile = fopen(trace_file.c_str(), "r");
     char *linec = new char[100];
     char *restore_c = linec;
     size_t max_line_size = 0;
@@ -487,27 +486,26 @@ void GetDataFromLogFileParallel(string filename, string topology_filename, LogDa
     vector<FlowLines> buffered_flows;
     buffered_flows.reserve(FLOW_LINE_BUFFER_SIZE);
     while(getline_result > 0 and StringEqualTo(op, "FP")){
-        nlines += 1;
         buffered_lines.push_back(strdup(linec));
+        nlines += 1;
         linec = restore_c;
         getline_result = getline(&linec, &max_line_size, infile);
         GetString(linec, op);
     }
     if constexpr (VERBOSE){
-        cout<< "Calling ProcessFlowPathLines after "<<GetTimeSinceMilliSeconds(start_time)
-            << " seconds" << endl;
+        cout<< "Calling ProcessFlowPathLines with " << buffered_lines.size() << " lines after "
+            << GetTimeSinceSeconds(start_time) << " seconds" << endl;
     }
     if (buffered_lines.size() > 0){
         ProcessFlowPathLines(buffered_lines, result, nopenmp_threads);
         //!TODO check where delete[] needs to be called instead of delete/free
         for (char* c: buffered_lines) delete[] c;
         if constexpr (VERBOSE){
-            cout<< "Processed flow paths after "<<GetTimeSinceMilliSeconds(start_time)
+            cout<< "Processed flow paths after "<<GetTimeSinceSeconds(start_time)
                 << " seconds, numlines " << buffered_lines.size() << endl;
         }
     }
 
-    cout << "sizeof(Flow) " << sizeof(Flow) << " bytes" << endl;
     while(getline_result > 0){
         nlines += 1;
         char *dup_linec = strdup(linec);
@@ -540,15 +538,16 @@ void GetDataFromLogFileParallel(string filename, string topology_filename, LogDa
     }
 
     if constexpr (VERBOSE){
-        cout<< "Calling ProcessFlowLines after "<<GetTimeSinceMilliSeconds(start_time)
+        cout<< "Calling ProcessFlowLines after "<<GetTimeSinceSeconds(start_time)
             << " seconds, numflows " << buffered_flows.size() << endl;
     }
     ProcessFlowLines(buffered_flows, result, nopenmp_threads);
     for_each(buffered_flows.begin(), buffered_flows.end(), [](FlowLines& fl){fl.FreeMemory();});
     buffered_flows.clear();
     if constexpr (VERBOSE){
-        cout<< "Read log file in "<<GetTimeSinceMilliSeconds(start_time)
-            << " seconds, numlines " << nlines << ", numflows " << result->flows.size() << endl;
+        cout<< "Read log file in "<<GetTimeSinceSeconds(start_time)
+            << " seconds, numlines " << nlines << ", numflows " << result->flows.size()
+            << " numlinks " << result->links_to_ids.size() << endl;
     }
 }
 

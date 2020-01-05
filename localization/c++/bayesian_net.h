@@ -7,10 +7,10 @@ class BayesianNet : public Estimator{
     BayesianNet() : Estimator() {}
     void LocalizeFailures(double min_start_time_ms, double max_finish_time_ms,
                           Hypothesis &localized_links, int nopenmp_threads);
-    const bool PRINT_SCORES = true;
+    const bool PRINT_SCORES = false;
     const int MAX_FAILS = 20;
     const int NUM_CANDIDATES = max(15, 5 * MAX_FAILS);
-    const int NUM_TOP_HYPOTHESIS_AT_EACH_STAGE = 10;
+    const int NUM_TOP_HYPOTHESIS_AT_EACH_STAGE = 5;
     // For printing purposes
     const int N_MAX_K_LIKELIHOODS = 20;
     const bool USE_CONDITIONAL = false;
@@ -121,6 +121,8 @@ private:
 
     // For printing scores
     vector<double> drops_per_link, flows_per_link;
+
+    chrono::time_point<chrono::high_resolution_clock> timer_checkpoint;
 };
 
 #endif

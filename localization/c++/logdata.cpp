@@ -53,8 +53,10 @@ void LogData::GetReducedData(unordered_map<Link, Link>& reduced_graph_map,
             reduced_data.failed_links.insert(make_pair(rl, 0.0));
         }
     }
-    for (auto& it: reduced_data.failed_links){
-        cout << "Failed reduced link "<< it.first << endl;
+    if constexpr (VERBOSE) {
+        for (auto& it: reduced_data.failed_links){
+            cout << "Failed reduced link "<< it.first << endl;
+        }
     }
 
     for(auto &it: links_to_ids){
@@ -65,7 +67,9 @@ void LogData::GetReducedData(unordered_map<Link, Link>& reduced_graph_map,
             reduced_data.inverse_links.push_back(rl);
         }
     }
-    cout << "Finished assigning ids to reduced links, nlinks(reduced) " << reduced_data.inverse_links.size() << endl;
+    if constexpr (VERBOSE) {
+        cout << "Finished assigning ids to reduced links, nlinks(reduced) " << reduced_data.inverse_links.size() << endl;
+    }
 
     reduced_data.flows.resize(flows.size());
     atomic<int> flow_ctr = 0;
@@ -97,7 +101,7 @@ void LogData::FilterFlowsBeforeTime(double finish_time_ms, int nopenmp_threads){
     }
     if constexpr (VERBOSE) {
         cout << "Filtered flows for analysis before " << finish_time_ms << " (ms) simtime in "
-             << GetTimeSinceMilliSeconds(start_filter_time) << " seconds" << endl;
+             << GetTimeSinceSeconds(start_filter_time) << " seconds" << endl;
     }
 }
 
@@ -123,7 +127,7 @@ void LogData::FilterFlowsForConditional(double max_finish_time_ms, int nopenmp_t
     }
     if constexpr (VERBOSE) {
         cout << "Filtered flows for conditional analysis in "
-             << GetTimeSinceMilliSeconds(start_filter_time) << " seconds" << endl;
+             << GetTimeSinceSeconds(start_filter_time) << " seconds" << endl;
     }
 }
 
@@ -172,7 +176,7 @@ vector<vector<int> >* LogData::GetForwardFlowsByLinkId(double max_finish_time_ms
         final_sizes[link_id] = sizes[nopenmp_threads-1][link_id] + curr_bin_size;
     }
     if constexpr (VERBOSE){
-        cout<<"Binning flows part 1 done in "<<GetTimeSinceMilliSeconds(start_time)<< " seconds"<<endl;
+        cout<<"Binning flows part 1 done in "<<GetTimeSinceSeconds(start_time)<< " seconds"<<endl;
     }
     start_time = chrono::high_resolution_clock::now();
     forward_flows_by_link_id = new vector<vector<int> >(nlinks);
@@ -184,7 +188,7 @@ vector<vector<int> >* LogData::GetForwardFlowsByLinkId(double max_finish_time_ms
         (*forward_flows_by_link_id)[link_id] = vector<int>(final_sizes[link_id]);
     }
     if constexpr (VERBOSE){
-        cout<<"Binning flows part 2 done in "<<GetTimeSinceMilliSeconds(start_time)<< " seconds"<<endl;
+        cout<<"Binning flows part 2 done in "<<GetTimeSinceSeconds(start_time)<< " seconds"<<endl;
     }
     start_time = chrono::high_resolution_clock::now();
     #pragma omp parallel num_threads(nopenmp_threads)
@@ -210,7 +214,7 @@ vector<vector<int> >* LogData::GetForwardFlowsByLinkId(double max_finish_time_ms
         }
     }
     if constexpr (VERBOSE){
-        cout<<"Binning flows part 3 done in "<<GetTimeSinceMilliSeconds(start_time)<< " seconds"<<endl;
+        cout<<"Binning flows part 3 done in "<<GetTimeSinceSeconds(start_time)<< " seconds"<<endl;
     }
     start_time = chrono::high_resolution_clock::now();
     return forward_flows_by_link_id;
@@ -285,7 +289,7 @@ vector<vector<int> >* LogData::GetForwardFlowsByLinkId1(double max_finish_time_m
     vector<int> sizes;
     GetSizesForForwardFlowsByLinkId(max_finish_time_ms, nopenmp_threads, sizes);
     if constexpr (VERBOSE){
-        cout<<"Binning flows part 1 done in "<<GetTimeSinceMilliSeconds(start_time)<< " seconds"<<endl;
+        cout<<"Binning flows part 1 done in "<<GetTimeSinceSeconds(start_time)<< " seconds"<<endl;
     }
     start_time = chrono::high_resolution_clock::now();
     int nthreads = min(3, nopenmp_threads);
@@ -294,7 +298,7 @@ vector<vector<int> >* LogData::GetForwardFlowsByLinkId1(double max_finish_time_m
         (*forward_flows_by_link_id)[link_id].reserve(sizes[link_id]);
     }
     if constexpr (VERBOSE){
-        cout<<"Binning flows part 2 done in "<<GetTimeSinceMilliSeconds(start_time)<< " seconds"<<endl;
+        cout<<"Binning flows part 2 done in "<<GetTimeSinceSeconds(start_time)<< " seconds"<<endl;
     }
     start_time = chrono::high_resolution_clock::now();
     //mutex link_locks[nlinks];
@@ -329,7 +333,7 @@ vector<vector<int> >* LogData::GetForwardFlowsByLinkId1(double max_finish_time_m
         }
     }
     if constexpr (VERBOSE){
-        cout<<"Binning flows part 3 done in "<<GetTimeSinceMilliSeconds(start_time)<< " seconds"<<endl;
+        cout<<"Binning flows part 3 done in "<<GetTimeSinceSeconds(start_time)<< " seconds"<<endl;
     }
     start_time = chrono::high_resolution_clock::now();
     return forward_flows_by_link_id;
@@ -436,6 +440,18 @@ void LogData::ResetForAnalysis(){
     forward_flows_by_link_id = reverse_flows_by_link_id = flows_by_link_id = NULL;
 }
 
+Path* LogData::GetPointerToPathTaken(vector<int>& path_nodes, vector<int>& temp_path, Flow *flow){
+    //For 007 verification, make this if condition always true
+    if (flow->IsFlowActive()){
+        return new Path(temp_path);
+    }
+    else{
+        assert(path_nodes.size()>0); // No direct link for src_host to dest_host or vice_versa
+        MemoizedPaths *memoized_paths = GetMemoizedPaths(path_nodes[0], *path_nodes.rbegin());
+        return memoized_paths->GetPath(temp_path);
+    }
+}
+
 void LogData::GetAllPaths(vector<Path*> **result, int src_rack, int dest_rack){
     MemoizedPaths *memoized_paths = GetMemoizedPaths(src_rack, dest_rack);
     memoized_paths->GetAllPaths(result);
@@ -466,7 +482,7 @@ void GetNumReducedLinksMap(unordered_map<Link, Link> &reduced_graph_map,
 }
 
 Path* GetReducedPath(Path *path, unordered_map<Link, Link> &reduced_graph_map,
-                                            LogData &data, LogData &reduced_data){
+                     LogData &data, LogData &reduced_data){
     Path *reduced_path = new Path(path->size());
     // convert link_ids in path to reduced link_ids
     for (int link_id: *path){

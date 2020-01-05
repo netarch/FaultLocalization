@@ -77,7 +77,9 @@ TcpSocket::GetTypeId (void)
                    MakeUintegerChecker<uint32_t> ())
     .AddAttribute ("ConnTimeout",
                    "TCP retransmission timeout when opening connection (seconds)",
-                   TimeValue (Seconds (3)),
+                   //TimeValue (Seconds (3)),
+                   //!TODO: vipul
+                   TimeValue (Seconds (0.1)),
                    MakeTimeAccessor (&TcpSocket::GetConnTimeout,
                                      &TcpSocket::SetConnTimeout),
                    MakeTimeChecker ())

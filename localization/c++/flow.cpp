@@ -11,13 +11,14 @@ int GetReducedLinkId(int link_id, unordered_map<Link, Link> &reduced_graph_map,
 
 Flow::Flow(int src_, int srcport_, int dest_, int destport_, int nbytes_, double start_time_ms_):
     src(src_), srcport(srcport_), dest(dest_), destport(destport_), nbytes(nbytes_),
-    start_time_ms(start_time_ms_), curr_snapshot_ptr(-1) , paths(NULL), reverse_paths(NULL){}
+    start_time_ms(start_time_ms_), curr_snapshot_ptr(-1) , paths(NULL), reverse_paths(NULL),
+    npaths_unreduced(1), npaths_reverse_unreduced(1) {}
 
-Flow::Flow(Flow &flow, unordered_map<Link, Link> &reduced_graph_map, LogData &data,
-                                                             LogData &reduced_data):
+Flow::Flow(Flow &flow, unordered_map<Link, Link> &reduced_graph_map,
+           LogData &data, LogData &reduced_data):
     src(flow.src), srcport(flow.srcport), dest(flow.dest), destport(flow.destport),
-                            nbytes(flow.nbytes), start_time_ms(flow.start_time_ms),
-                                  curr_snapshot_ptr(-1), snapshots(flow.snapshots){
+    nbytes(flow.nbytes), start_time_ms(flow.start_time_ms), curr_snapshot_ptr(-1),
+    snapshots(flow.snapshots), npaths_unreduced(1), npaths_reverse_unreduced(1){
 
     first_link_id = GetReducedLinkId(flow.first_link_id, reduced_graph_map, data, reduced_data);
     last_link_id = GetReducedLinkId(flow.last_link_id, reduced_graph_map, data, reduced_data);
@@ -26,37 +27,41 @@ Flow::Flow(Flow &flow, unordered_map<Link, Link> &reduced_graph_map, LogData &da
         reverse_last_link_id = GetReducedLinkId(flow.reverse_last_link_id, reduced_graph_map, data, reduced_data);
     }
 
-    paths = new vector<Path*>();
-    reverse_paths = new vector<Path*>();
-    // populate forward paths
-    for (Path *path: *flow.paths){
-        Path *reduced_path = GetReducedPath(path, reduced_graph_map, data, reduced_data);
-        bool new_path = true;
-        for (Path *path: *paths){
-            if (*path == *reduced_path){
-                new_path = false;
-                break;
+    if (flow.paths != NULL){
+        paths = new vector<Path*>();
+        // populate forward paths
+        for (Path *path: *flow.paths){
+            Path *reduced_path = GetReducedPath(path, reduced_graph_map, data, reduced_data);
+            bool new_path = true;
+            for (Path *path: *paths){
+                if (*path == *reduced_path){
+                    new_path = false;
+                    break;
+                }
             }
+            if (new_path) paths->push_back(reduced_path);
+            else delete(reduced_path);
+            npaths_unreduced = flow.paths->size();
         }
-        if (new_path) paths->push_back(reduced_path);
-        else delete(reduced_path);
     }
 
-    // populate reverse paths
-    for (Path *reverse_path: *flow.reverse_paths){
-        Path *reduced_reverse_path = GetReducedPath(reverse_path, reduced_graph_map, data, reduced_data);
-        bool new_path = true;
-        for (Path *reverse_path: *reverse_paths){
-            if (*reverse_path == *reduced_reverse_path){
-                new_path = false;
-                break;
+    if (flow.reverse_paths != NULL){
+        reverse_paths = new vector<Path*>();
+        // populate reverse paths
+        for (Path *reverse_path: *flow.reverse_paths){
+            Path *reduced_reverse_path = GetReducedPath(reverse_path, reduced_graph_map, data, reduced_data);
+            bool new_path = true;
+            for (Path *reverse_path: *reverse_paths){
+                if (*reverse_path == *reduced_reverse_path){
+                    new_path = false;
+                    break;
+                }
             }
+            if (new_path) reverse_paths->push_back(reduced_reverse_path);
+            else delete(reduced_reverse_path);
+            npaths_reverse_unreduced = flow.reverse_paths->size();
         }
-        if (new_path) reverse_paths->push_back(reduced_reverse_path);
-        else delete(reduced_reverse_path);
     }
-    npaths_unreduced = flow.paths->size();
-    npaths_reverse_unreduced = flow.reverse_paths->size();
 
     if (flow.path_taken_vector.size() > 0){
         Path *reduced_path_taken = GetReducedPath(flow.path_taken_vector[0], reduced_graph_map, data,
@@ -240,9 +245,9 @@ void Flow::SetReverseLastLinkId(int link_id){
 }
 
 bool Flow::IsFlowActive(){
-    return false;
+    //return false;
     //!MAJOR MAJOR HACK FOR A SPECIFIC TOPOLOGY
-    //return src >= OFFSET_HOST + 750;
+    return (src < OFFSET_HOST or dest < OFFSET_HOST);
     //return (paths.size() == 1);
 }
 
@@ -278,6 +283,8 @@ long double Flow::GetCachedIntermediateValue(){
 
 bool Flow::DiscardFlow(){
     //return (GetLatestPacketsSent() < 100);
-    //return false;
-    return (src < 750 + OFFSET_HOST and  dest < 750 + OFFSET_HOST);
+    return false;
+    //return (src < OFFSET_HOST  or  dest < OFFSET_HOST or GetLatestPacketsSent() < 0);
+    //return !IsFlowActive();
+    //return IsFlowActive();
 }

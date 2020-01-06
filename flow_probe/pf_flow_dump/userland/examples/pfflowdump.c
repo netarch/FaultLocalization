@@ -637,7 +637,7 @@ void process_packet(const struct pfring_pkthdr *h, const u_char *p, u_int8_t dum
         time_to_next_export < FLOW_STATS_PUSH_INTERVAL_USEC) {
       struct Ipv4TcpFlowEntry* pending_entry =
           (struct Ipv4TcpFlowEntry*)malloc(sizeof(struct Ipv4TcpFlowEntry));
-      pending_entry->src_ip = entry->sec_ip;
+      pending_entry->src_ip = entry->src_ip;
       pending_entry->dst_ip = entry->dst_ip;
       pending_entry->src_port = entry->src_port;
       pending_entry->dst_port = entry->dst_port;

@@ -22,7 +22,7 @@ private:
 
     // Noise parameters
     double fail_threshold = 0.0025;
-    const bool ADJUST_VOTES = false;
+    const bool ADJUST_VOTES = true;
     const bool FILTER_NOISY_DROPS = false;
 };
 

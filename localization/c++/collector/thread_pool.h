@@ -1,3 +1,6 @@
+#ifndef __THREAD_POOL__
+#define __THREAD_POOL__
+
 #include <iostream>
 #include <stdio.h>
 #include <queue>
@@ -50,8 +53,7 @@ private:
     pthread_cond_t wcond;
 };
 
-
-void* ThreadProcess(void* param){
+inline void* ThreadProcess(void* param){
     ConnectionQueue* cq = reinterpret_cast<ConnectionQueue*>(param);
     while (true){
         int conn_socket = cq->NextConnection();
@@ -59,6 +61,7 @@ void* ThreadProcess(void* param){
 	close(conn_socket);
     }
 }
+
 
 class ThreadPool {
 public:
@@ -76,3 +79,5 @@ private:
     std::vector<pthread_t> handles;
     ConnectionQueue conn_queue;
 };
+
+#endif

@@ -3,7 +3,6 @@
 #include <thread>
 #include <algorithm>
 #include <stdlib.h>
-#include <jsoncpp/json/json.h>
 #include <sys/socket.h>
 #include <chrono>
 #include <netinet/in.h>
@@ -155,8 +154,17 @@ void FlowParser::HandleIncomingConnection(int socket){
                 src_host += OFFSET_HOST;
                 dest_host += OFFSET_HOST;
                 //cout << "log_data " << src_host << endl;
+
+                if (log_data->hosts_to_racks.find(src_host) == log_data->hosts_to_racks.end()){
+                    cout << " Unknown host:" << src_host << " " << src_ip << endl;
+                    continue;
+                }
                 assert(log_data->hosts_to_racks.find(src_host) != log_data->hosts_to_racks.end());
                 int src_rack = log_data->hosts_to_racks[src_host];
+                if (log_data->hosts_to_racks.find(dest_host) == log_data->hosts_to_racks.end()){
+                    cout << " Unknown host: " << dest_host << " " << dest_ip << endl;
+                    continue;
+                }
                 assert(log_data->hosts_to_racks.find(dest_host) != log_data->hosts_to_racks.end());
                 int dest_rack = log_data->hosts_to_racks[dest_host];
                 //cout << src_host << " " << src_rack << " " << dest_host << " " << dest_rack << endl;
@@ -231,7 +239,7 @@ void FlowParser::PreProcessPaths(string path_file){
             Path *path = memoized_paths->GetPath(temp_path);
             vector<Link> links;
             for (int link_id: *path) links.push_back(log_data->inverse_links[link_id]);
-            cout << src_rack  << " " << dst_rack << " " << dst_host << " " << tcp_dst_port << " : " << links << endl;
+            //cout << src_rack  << " " << dst_rack << " " << dst_host << " " << tcp_dst_port << " : " << links << endl;
             path_taken_reference[{src_rack, dst_host, tcp_dst_port}] = path;
         }
     }
@@ -241,4 +249,5 @@ void FlowParser::PreProcessTopology(string topology_file){
     /* Get topology details from a file */
     log_data = new LogData();
     GetLinkMappings(topology_file, log_data, true);
+    log_data->AddFailedLink(Link(0, 3), 0.01); 
 }

@@ -3,7 +3,6 @@
 #include <thread>
 #include <algorithm>
 #include <stdlib.h>
-#include <jsoncpp/json/json.h>
 #include <sys/socket.h>
 #include <chrono>
 #include <netinet/in.h>
@@ -18,6 +17,7 @@
 #include <queue>
 #include "thread_pool.h"
 #include "flow_parser.h"
+#include "collector_utils.h"
 /* Flock headers */
 #include <flow.h>
 #include <logdata.h>
@@ -42,54 +42,19 @@ void* SocketThread(void *arg){
     pthread_exit(NULL);
 }
 
-void* RunAnalysisPeriodically(void* arg){
-    FlowParser* flow_parser = (FlowParser*) arg;
-    LogData* log_data = flow_parser->log_data;
-    FlowQueue* flow_queue = flow_parser->GetFlowQueue();
-    //!TODO: vipul
-    BayesianNet estimator;
-    vector<double> params = {1.0-5.0e-3, 2.0e-4, -25.0};
-    estimator.SetParams(params);
-    int nopenmp_threads = 1;
-    while(true){
-        auto start_time = chrono::high_resolution_clock::now();
-        log_data->flows.clear();
-        int nflows = flow_queue->size();
-        for(int ii=0; ii<nflows; ii++){
-            log_data->flows.push_back(flow_queue->pop());
-        }
-        double max_finish_time_ms = 1000.0;
-        estimator.SetLogData(log_data, max_finish_time_ms, nopenmp_threads);
-        Hypothesis estimator_hypothesis;
-        estimator.LocalizeFailures(0.0, max_finish_time_ms,
-                                  estimator_hypothesis, nopenmp_threads);
-        double elapsed_time_ms = chrono::duration_cast<chrono::milliseconds>(
-                chrono::high_resolution_clock::now() - start_time).count();
-        cout << "Output Hypothesis "  << log_data->IdsToLinks(estimator_hypothesis)
-             << " analysis time taken for "<< nflows <<" flows (ms) " <<  elapsed_time_ms;
-        log_data->ResetForAnalysis();
-        if (elapsed_time_ms < 1000.0){
-            cout << " sleeping for time " << int(3000.0 - elapsed_time_ms)  << " ms" << endl;
-            chrono::milliseconds timespan(int(3000.0 - elapsed_time_ms));
-            std::this_thread::sleep_for(timespan);
-        }
-    else cout << endl;
-    }
-    return NULL;
-}
-
 int main(int argc, char *argv[]){
     ios_base::sync_with_stdio(false);
 
-    if (argc != 5){
+    if (argc != 6){
         cout << "Not enough arguments specified " << endl
-             << "Usage: ./collector <topology_file> <path_file> <collector_ip> <collector_port>" << endl;
+             << "Usage: ./collector <topology_file> <path_file> <collector_ip> <collector_port> <nthreads>" << endl;
         exit(1);
     }
     char* topology_file = argv[1];
     char* path_file = argv[2];
     char* collector_ip = argv[3];
     int collector_port = atoi(argv[4]);
+    int num_threads = atoi(argv[5]);
 
     int collector_socket, sock_opt=1;
     // Create socket file descriptor 
@@ -122,13 +87,12 @@ int main(int argc, char *argv[]){
 
     /* Launch daemon thread that will periodically invoke the analysis */
     pthread_t tid;
-    if(pthread_create(&tid, NULL, RunAnalysisPeriodically, flow_parser) != 0 ){
+    if(pthread_create(&tid, NULL, RunPeriodicAnalysis, flow_parser) != 0 ){
         perror("Failed to create analysis thread");
         exit(1);
     }
 #define USE_THREAD_POOL
 #ifdef USE_THREAD_POOL
-    int num_threads = 20;
     ThreadPool thread_pool(num_threads);
     thread_pool.SetFlowParser(flow_parser);
 #endif

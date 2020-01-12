@@ -79,7 +79,8 @@ void ComputeAllPairShortestPaths(unordered_set<int>& nodes, unordered_set<Link>&
                                 for(int nn=1; nn<path_till_now.size(); nn++){
                                     path_link_ids->push_back(result->GetLinkIdUnsafe(Link(path_till_now[nn-1], path_till_now[nn])));
                                 }
-                                cout << "Found a shortest path " << path_till_now << " link_id_paths " << *path_link_ids << endl;
+                                if constexpr (VERBOSE)
+                                    cout << "Found a shortest path " << path_till_now << " link_id_paths " << *path_link_ids << endl;
                                 memoized_paths->AddPath(path_link_ids);
                             }
                             else if(shortest_path_len[last_vertex][dest_sw] == 1 + shortest_path_len[next_hop][dest_sw]){

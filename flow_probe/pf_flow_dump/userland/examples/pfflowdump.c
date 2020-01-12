@@ -106,6 +106,11 @@ struct timeval next_export_ts;
 
 char* collector_addr = NULL;
 int collector_port = 0;
+int export_interval_sec = DEFAULT_EXPORT_INTERVAL_SEC;
+int export_interval_usec = 0;
+
+void export_flow(int sig);
+void export_flow_pending(int sig);
 
 static void openDump();
 static void dumpMatch(char *str);
@@ -207,7 +212,14 @@ void print_stats() {
 
 void update_next_export_ts() {
   gettimeofday(&next_export_ts, NULL);
-  next_export_ts.tv_sec += DEFAULT_EXPORT_INTERVAL_SEC;
+  next_export_ts.tv_sec += export_interval_sec;
+  if (next_export_ts.tv_usec + export_interval_usec >= 1000000) {
+    next_export_ts.tv_usec =
+        (next_export_ts.tv_usec + export_interval_usec) % 1000000;
+    next_export_ts.tv_sec += 1;
+  } else {
+    next_export_ts.tv_usec += export_interval_usec;
+  }
 }
 
 /* ******************************** */
@@ -668,7 +680,14 @@ void process_packet(const struct pfring_pkthdr *h, const u_char *p, u_int8_t dum
       // Advance pending export timestamp, so only one periodic export per flow
       // per export cycle.
       entry->pending_export_ts = h->ts;
-      entry->pending_export_ts.tv_sec += DEFAULT_EXPORT_INTERVAL_SEC;
+      entry->pending_export_ts.tv_sec += export_interval_sec;
+      if (entry->pending_export_ts.tv_usec + export_interval_usec >= 1000000) {
+        entry->pending_export_ts.tv_usec =
+            (entry->pending_export_ts.tv_usec + export_interval_usec) % 1000000;
+        entry->pending_export_ts.tv_sec += 1;
+      } else {
+        entry->pending_export_ts.tv_usec += export_interval_usec;
+      }
 
       pthread_mutex_lock(&export_mutex);
       if (flow_stats_list_front == NULL) {
@@ -846,6 +865,13 @@ void export_flow_record(char* ipfix_message, int message_length) {
 
 /* ****************************************************** */
 
+void export_flow_pending(int sig) {
+  ualarm(export_interval_usec, 0);
+  signal(SIGALRM, export_flow);
+}
+
+/* ****************************************************** */
+
 void export_flow(int sig) {
   pthread_mutex_lock(&export_mutex);
   flow_stats_list_pending_report = flow_stats_list_front;
@@ -864,8 +890,12 @@ void export_flow(int sig) {
     }
 
     update_next_export_ts();
-    alarm(DEFAULT_EXPORT_INTERVAL_SEC);
-    signal(SIGALRM, export_flow);
+    alarm(export_interval_sec);
+    if (export_interval_usec == 0) {
+      signal(SIGALRM, export_flow);
+    } else {
+      signal(SIGALRM, export_flow_pending);
+    }
     return;
   }
 
@@ -967,8 +997,12 @@ void export_flow(int sig) {
   close(export_socket);
 
   update_next_export_ts();
-  alarm(DEFAULT_EXPORT_INTERVAL_SEC);
-  signal(SIGALRM, export_flow);
+  alarm(export_interval_sec);
+  if (export_interval_usec == 0) {
+    signal(SIGALRM, export_flow);
+  } else {
+    signal(SIGALRM, export_flow_pending);
+  }
 }
 
 /* ****************************************************** */
@@ -1085,6 +1119,7 @@ void printHelp(void) {
   printf("-a                Active packet wait\n");
   printf("-z                Collector IP address\n");
   printf("-x                Collector port\n");
+  printf("-j                Export Interval (in microseconds)\n");
   printf("-N <num>          Read <num> packets and exit\n");
   printf("-m                Long packet header (with PF_RING extensions)\n");
   printf("-r                Rehash RSS packets\n");
@@ -1284,12 +1319,13 @@ int main(int argc, char* argv[]) {
   u_int16_t watermark = 0, poll_duration = 0,
     cpu_percentage = 0, rehash_rss = 0;
   char *bpfFilter = NULL;
+  int export_interval = 0;
   cluster_type cluster_hash_type = cluster_per_flow_5_tuple;
 
   startTime.tv_sec = 0;
   thiszone = gmt_to_local(0);
 
-  while((c = getopt(argc,argv,"hi:c:C:d:H:Jl:Lv:ae:n:w:o:p:qb:rg:u:mtsSx:f:z:N:MRTUK:")) != '?') {
+  while((c = getopt(argc,argv,"hi:c:C:d:H:Jl:Lv:ae:n:w:o:p:qb:rg:u:mtsSx:f:z:j:N:MRTUK:")) != '?') {
     if((c == 255) || (c == -1)) break;
 
     switch(c) {
@@ -1307,6 +1343,13 @@ int main(int argc, char* argv[]) {
       break;
     case 'x':
       collector_port = atoi(optarg);
+      break;
+    case 'j':
+      export_interval = atoi(optarg);
+      export_interval_sec = export_interval / 1000000;
+      export_interval_usec = export_interval % 1000000;
+      fprintf(stderr, "Export interval set to %d(sec)+%d(usec)\n",
+          export_interval_sec, export_interval_usec);
       break;
     case 'b':
       cpu_percentage = atoi(optarg);
@@ -1576,8 +1619,12 @@ int main(int argc, char* argv[]) {
   sample_filtering_rules();
 
   update_next_export_ts();
-  signal(SIGALRM, export_flow);
-  alarm(DEFAULT_EXPORT_INTERVAL_SEC);
+  if (export_interval_usec == 0) {
+    signal(SIGALRM, export_flow);
+  } else {
+    signal(SIGALRM, export_flow_pending);
+  }
+  alarm(export_interval_sec);
 
   if(num_threads <= 1) {
     if(bind_core >= 0)

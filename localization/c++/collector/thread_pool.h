@@ -1,3 +1,6 @@
+#ifndef __THREAD_POOL__
+#define __THREAD_POOL__
+
 #include <iostream>
 #include <stdio.h>
 #include <queue>
@@ -8,12 +11,11 @@
 #include <assert.h>
 /* Flock headers */
 #include <flow.h>
-#include <logdata.h>
-#include <bayesian_net.h>
+#include "flow_parser.h"
 
 using namespace std;
 
-void HandleIncomingConnection(int socket, LogData *log_data);
+void HandleIncomingConnection(int socket, FlowParser* flow_parser);
 
 class ConnectionQueue{
 public:
@@ -41,25 +43,25 @@ public:
         pthread_mutex_unlock(&qmtx);
     }
 
-    void SetLogData(LogData* log_data_) { log_data = log_data_; }
-    LogData* GetLogData() { return log_data; }
+    void SetFlowParser(FlowParser* flow_parser_) { flow_parser = flow_parser_; }
+    FlowParser* GetFlowParser() { return flow_parser; }
 
 private:
     std::queue<int> connections;
-    LogData* log_data=NULL;
+    FlowParser* flow_parser=NULL;
     pthread_mutex_t qmtx;
     pthread_cond_t wcond;
 };
 
-
-void* ThreadProcess(void* param){
+inline void* ThreadProcess(void* param){
     ConnectionQueue* cq = reinterpret_cast<ConnectionQueue*>(param);
     while (true){
         int conn_socket = cq->NextConnection();
-        HandleIncomingConnection(conn_socket, cq->GetLogData());
+        HandleIncomingConnection(conn_socket, cq->GetFlowParser());
 	close(conn_socket);
     }
 }
+
 
 class ThreadPool {
 public:
@@ -71,9 +73,11 @@ public:
             if (pthread_create(&handles[i], NULL, ThreadProcess, &conn_queue)) exit(0);
         }
     }
-    void SetLogData(LogData* log_data) { conn_queue.SetLogData(log_data); }
+    void SetFlowParser(FlowParser* flow_parser) { conn_queue.SetFlowParser(flow_parser); }
     void AddConnection(int socket_conn) { conn_queue.AddConnection(socket_conn); }
 private:
     std::vector<pthread_t> handles;
     ConnectionQueue conn_queue;
 };
+
+#endif

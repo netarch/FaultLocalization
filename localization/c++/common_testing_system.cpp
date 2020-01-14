@@ -26,6 +26,7 @@ void GetPrecisionRecallTrendFile(string topology_file, string trace_file, double
     assert (result.size() == 0);
     LogData* data = new LogData();
     GetDataFromLogFileParallel(trace_file, topology_file, data, nopenmp_threads);
+    data->FilterFlowsBeforeTime(max_finish_time_ms, nopenmp_threads);
     Hypothesis failed_links_set;
     data->GetFailedLinkIds(failed_links_set);
     Estimator* estimator = base_estimator->CreateObject();

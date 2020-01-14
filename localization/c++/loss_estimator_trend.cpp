@@ -29,14 +29,16 @@ vector<string> GetFilesMixed(){
 }
 
 vector<string> GetFilesRRG(){
-    string file_prefix = "/home/vharsh2/ns-allinone-3.24.1/ns-3.24.1/flow_simulator/logs/irregular_topology/plog";
-    vector<PII> ignore_files = {};
+    //string file_prefix = "/home/vharsh2/ns-allinone-3.24.1/ns-3.24.1/flow_simulator/logs/irregular_topology/plog";
+    string file_prefix = "/home/vharsh2/ns-allinone-3.24.1/ns-3.24.1/ns3/topology/ft_k10_os3/ommitted/logs/plog";
+    int nlinks_ommitted = 40;
+    typedef array<int, 3> AI3;
+    vector<AI3> ignore_files = {{10, 8, 3}, {30, 7, 3}, {40, 7, 3}, {50, 7, 3}};
     vector<string> files;
-    for(int f=1; f<=8; f++){
-    //for (int f: vector<int>({8})){ // {1-8}
-        for(int s: vector<int>({1,2,3,4})){ // {1-2}
-            if(find(ignore_files.begin(), ignore_files.end(),  PII(f, s)) == ignore_files.end()){
-                files.push_back(file_prefix + "_s" + to_string(s) + "_f" + to_string(f)); 
+    for(int s: vector<int>({1,2,3,4})){ // {1-2}
+        for(int f=1; f<=8; f++){
+            if(find(ignore_files.begin(), ignore_files.end(),  AI3({nlinks_ommitted, f, s})) == ignore_files.end()){
+                files.push_back(file_prefix + "_o" + to_string(nlinks_ommitted) + "_" + to_string(f) + "_0_" + to_string(s)); 
                 cout << "adding file for analaysis " <<files.back() << endl;
             }
         }

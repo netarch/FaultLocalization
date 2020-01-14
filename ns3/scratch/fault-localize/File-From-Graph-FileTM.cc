@@ -128,7 +128,7 @@ int main(int argc, char *argv[]){
     Config::SetDefault("ns3::DropTailQueue::MaxPackets", UintegerValue (drop_queue_limit));
 
     // Simulation parameters
-    double sim_time_seconds = 3.0;
+    double sim_time_seconds = 8.0;
     double warmup_time_seconds = 1.0;
 
     // Define topology
@@ -139,12 +139,11 @@ int main(int argc, char *argv[]){
     // Initialize parameters for On/Off application
 
     int packet_size_bytes = 1500;
-    string data_rate_on_off = on_off_datarate + "Kbps"; 
-    string data_rate_on_off_inf = "5Gbps"; 
+    //string data_rate_on_off_inf = "5Gbps"; 
     //char maxBytes [] = "0" ; //"50000"; // "0"; // unlimited
 
     // Initialize parameters for PointToPoint protocol
-    char dataRate [] = "10Gbps";
+    char dataRate [] = "10Gbps"; //"10Gbps";
     uint64_t delay_us = 2.5; //microseconds
 
     // Fail some links, by setting loss rates
@@ -152,8 +151,6 @@ int main(int argc, char *argv[]){
     topology.ChooseFailedLinks(nfails);
 
     cout << "Total number of hosts =  "<< topology.total_host<<"\n";
-    cout << "On/Off flow data rate = "<< data_rate_on_off<<" Infinite data rate = "
-         << data_rate_on_off_inf<<endl;
 
     // Initialize Internet Stack and Routing Protocols
     InternetStackHelper internet;

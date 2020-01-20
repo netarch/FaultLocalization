@@ -92,6 +92,7 @@ uint32_t ConvertStringIpToInt(string& ip_addr){
 
 void FlowParser::HandleIncomingConnection(int socket){
     string data = "";
+    nreports++;
     recv_timeout(socket, data);
     //if (data.size() > 0) cout << " Finished received, size " << data.size() << endl;
 

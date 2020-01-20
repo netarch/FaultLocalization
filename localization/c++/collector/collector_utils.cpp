@@ -34,12 +34,14 @@ void RunPeriodicAnalysisParams(FlowParser* flow_parser, Estimator &estimator, ve
     Hypothesis failed_links_set;
     log_data->GetFailedLinkIds(failed_links_set);
     int nopenmp_threads = 1;
-    uint16_t K = 20;
+    uint16_t K = 100;
     vector<PDD> prec_recall_vec;
     for(int ii=0; ii<params.size(); ii++){
         estimator.SetParams(params[ii]);
         prec_recall_vec.clear();
         while(prec_recall_vec.size() < K){
+            int nreports = flow_parser->nreports;
+            flow_parser->nreports = 0;
             auto start_time = chrono::high_resolution_clock::now();
             log_data->flows.clear();
             int nflows = flow_queue->size();
@@ -59,8 +61,10 @@ void RunPeriodicAnalysisParams(FlowParser* flow_parser, Estimator &estimator, ve
             }
             double elapsed_time_ms = chrono::duration_cast<chrono::milliseconds>(
                     chrono::high_resolution_clock::now() - start_time).count();
-            cout << "Iteration: " << prec_recall_vec.size() << ", output Hypothesis "  << log_data->IdsToLinks(estimator_hypothesis)
-                 << ", analysis time: "<< elapsed_time_ms << " ms, flows: " << nflows << ", precision,recall " << prec_recall;
+            cout << "Iteration: " << prec_recall_vec.size() << ", output Hypothesis "
+		 << log_data->IdsToLinks(estimator_hypothesis) << ", analysis time: "
+		 << elapsed_time_ms << " ms, flows: " << nflows << ", precision,recall "
+		 << prec_recall << ", nreports: " << nreports;
             if (elapsed_time_ms < period_ms){
                 cout << ", sleeping for " << int(period_ms - elapsed_time_ms)  << " ms" << endl;
                 chrono::milliseconds timespan(int(period_ms - elapsed_time_ms));
@@ -117,6 +121,7 @@ void* RunPeriodicAnalysisBayesianNet(void* arg){
 	     ,{1.0 - 5.0e-3, 5.0e-4, -100.0}
 	     ,{1.0 - 6.0e-3, 5.0e-4, -100.0}
 	      };		
+    params = {{1.0 - 7.0e-3, 2.0e-4, -25.0}};
     BayesianNet estimator;
     vector<PDD> result;
     RunPeriodicAnalysisParams(flow_parser, estimator, params, result);
@@ -132,6 +137,6 @@ void* RunPeriodicAnalysisBayesianNet(void* arg){
 void* RunPeriodicAnalysis(void* arg){
     cout << "Periodic analysis for Bayesian net " << endl;
     RunPeriodicAnalysisBayesianNet(arg);
-    cout << "Periodic analysis for 007 " << endl;
-    RunPeriodicAnalysis007(arg);
+    //cout << "Periodic analysis for 007 " << endl;
+    //RunPeriodicAnalysis007(arg);
 }

@@ -18,6 +18,7 @@
 #include <pthread.h>
 #include <vector>
 #include <queue>
+#include <atomic>
 /* Flock headers */
 #include <flow.h>
 #include <logdata.h>
@@ -66,8 +67,9 @@ public:
     void HandleIncomingConnection(int socket);
     Path* GetPathTaken(int src_rack, int dst_rack, int dstport);
     FlowQueue* GetFlowQueue() { return &flow_queue; }
-	void PreProcessPaths(string path_file);
+    void PreProcessPaths(string path_file);
     void PreProcessTopology(string topology_file);
+    atomic<int> nreports = 0;
 };
 
 #endif

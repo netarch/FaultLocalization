@@ -177,16 +177,33 @@ void BayesianNet::LocalizeFailures(double min_start_time_ms, double max_finish_t
                                 greater<pair<double, Hypothesis*> >());
     localized_links.clear();
     double highest_likelihood = likelihood_hypothesis[0].first;
+    set<Hypothesis*> candidate_hypothesis;
+    set<int> candidate_link_ids;
     for (int i=min((int)likelihood_hypothesis.size(), N_MAX_K_LIKELIHOODS)-1; i>=0; i--){
         double likelihood = likelihood_hypothesis[i].first;
         Hypothesis *hypothesis = likelihood_hypothesis[i].second;
         if (highest_likelihood - likelihood <= 1.0e-3){
-            localized_links.insert(hypothesis->begin(), hypothesis->end());
+            candidate_hypothesis.insert(hypothesis);
+            candidate_link_ids.insert(hypothesis->begin(), hypothesis->end());
         }
         if constexpr (VERBOSE){
             cout << "Likely candidate "<<data->IdsToLinks(*hypothesis)<<" "<<likelihood << endl;
         }
     }
+
+    // If multiple hypothesis have highest likelihoods, then return common elements in all hypothesis
+    vector<int> erase_link_ids;
+    for(int link_id: candidate_link_ids){
+        for (auto& ch: candidate_hypothesis){
+            if (ch->find(link_id) == ch->end()){
+                erase_link_ids.push_back(link_id);
+                break;
+            }
+        }
+    }
+    for(int link_id: erase_link_ids) candidate_link_ids.erase(link_id);
+    localized_links.insert(candidate_link_ids.begin(), candidate_link_ids.end());
+    
     if constexpr (VERBOSE){
         cout << endl << "Searched hypothesis space in "
              << GetTimeSinceSeconds(start_search_time) << " seconds" << endl;

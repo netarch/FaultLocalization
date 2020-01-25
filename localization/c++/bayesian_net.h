@@ -13,7 +13,7 @@ class BayesianNet : public Estimator{
     const int NUM_TOP_HYPOTHESIS_AT_EACH_STAGE = 5;
     // For printing purposes
     const int N_MAX_K_LIKELIHOODS = 20;
-    const bool USE_CONDITIONAL = false;
+    const bool USE_CONDITIONAL = true;
     double PRIOR = -25.0;
     bool REDUCED_ANALYSIS = false;
     void SetReducedAnalysis(bool val) { REDUCED_ANALYSIS = val; }

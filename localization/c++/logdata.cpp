@@ -465,6 +465,60 @@ void LogData::GetRacksList(vector<int> &result){
     result.insert(result.begin(), racks.begin(), racks.end());
 }
 
+void LogData::OutputToTrace(ostream& out){
+    for (auto &it: failed_links){
+        out << "Failing_link " << it.first.first << " " << it.first.second << " " << it.second << endl;
+    } 
+    vector<Path*> *paths;
+    for (auto &[src_dest, m_paths]: memoized_paths){
+        assert (m_paths != NULL);
+        m_paths->GetAllPaths(&paths);
+        for (Path* path: *paths){
+            out << "FP " << src_dest.first;
+            for(int link_id: *path){
+                out << " " << inverse_links[link_id].second;
+            }
+            out << endl;
+        }
+    }
+    for (Flow* flow: flows){
+        Link first_link = inverse_links[flow->first_link_id];
+        Link last_link = inverse_links[flow->last_link_id];
+        assert (first_link.first == flow->src);
+        assert (last_link.second == flow->dest);
+        out << "FID " << flow->src << " " << flow->dest << " " << first_link.second
+            << " " << last_link.first << " " << flow->nbytes << " " << flow->start_time_ms << endl;
+        for (FlowSnapshot* ss: flow->snapshots){
+            out << "SS " << ss->snapshot_time_ms << " " << ss->packets_sent << " "
+                 << ss->packets_lost << " " << ss->packets_randomly_lost << endl;
+        }
+        if (flow->path_taken_vector.size() > 0 and flow->path_taken_vector[0]!=NULL){
+            Path *path_taken = flow->path_taken_vector[0];
+            out << "FPT"; 
+            if (path_taken->size() > 0){
+                Link first_link = inverse_links[(*path_taken)[0]];
+                out << " " << first_link;
+            }
+            for (int link_id: *path_taken){
+                out << " " << inverse_links[link_id].second;
+            }
+            out << endl;
+        }
+        if (flow->reverse_path_taken_vector.size() > 0 and flow->reverse_path_taken_vector[0]!=NULL){
+            Path* reverse_path_taken = flow->path_taken_vector[0];
+            out << "FPRT"; 
+            if (reverse_path_taken->size() > 0){
+                Link first_link = inverse_links[(*reverse_path_taken)[0]];
+                out << " " << first_link;
+            }
+            for (int link_id: *reverse_path_taken){
+                out << " " << inverse_links[link_id].second;
+            }
+            out << endl;
+        }
+    }
+}
+
 int GetReducedLinkId(int link_id, unordered_map<Link, Link> &reduced_graph_map,
                                   LogData &data, LogData &reduced_data){
     Link l = data.inverse_links[link_id];

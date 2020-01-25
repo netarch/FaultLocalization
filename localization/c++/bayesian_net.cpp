@@ -185,6 +185,7 @@ void BayesianNet::LocalizeFailures(double min_start_time_ms, double max_finish_t
         if (highest_likelihood - likelihood <= 1.0e-3){
             candidate_hypothesis.insert(hypothesis);
             candidate_link_ids.insert(hypothesis->begin(), hypothesis->end());
+	    break;
         }
         if constexpr (VERBOSE){
             cout << "Likely candidate "<<data->IdsToLinks(*hypothesis)<<" "<<likelihood << endl;

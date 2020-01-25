@@ -21,10 +21,50 @@
 /* Flock headers */
 #include <flow.h>
 #include <doubleO7.h>
+#include <fstream>
 #include <logdata.h>
 #include <bayesian_net.h>
 
 using namespace std;
+
+void* CaptureTracePeriodically(void* arg){
+    FlowParser* flow_parser = (FlowParser*) arg;
+    LogData* log_data = flow_parser->log_data;
+    FlowQueue* flow_queue = flow_parser->GetFlowQueue();
+    uint32_t period_ms = 10000;
+    string trace_prefix = "plog_testbed_1_0";
+    int ctr = 0;
+    while (ctr < 20){
+        int nreports = flow_parser->nreports;
+        flow_parser->nreports = 0;
+        auto start_time = chrono::high_resolution_clock::now();
+        log_data->flows.clear();
+        int nflows = flow_queue->size();
+        for(int ii=0; ii<nflows; ii++){
+            log_data->flows.push_back(flow_queue->pop());
+        }
+        double max_finish_time_ms = period_ms;
+        if (nflows >= 0){ //19000
+            string trace_file = trace_prefix + "_" + to_string(ctr);
+            ofstream outf(trace_file);
+            log_data->OutputToTrace(outf);
+            outf.close();
+            log_data->ResetForAnalysis();
+            ctr++;
+        }
+        double elapsed_time_ms = chrono::duration_cast<chrono::milliseconds>(
+                chrono::high_resolution_clock::now() - start_time).count();
+        cout << "Capture-Id: " << ctr << ", capture time: "
+             << elapsed_time_ms << " ms, flows: " << nflows << ", nreports: " << nreports;
+        if (elapsed_time_ms < period_ms){
+            cout << ", sleeping for " << int(period_ms - elapsed_time_ms)  << " ms" << endl;
+            chrono::milliseconds timespan(int(period_ms - elapsed_time_ms));
+            std::this_thread::sleep_for(timespan);
+        }
+        else cout << endl;
+    }
+    return NULL;
+}
 
 void RunPeriodicAnalysisParams(FlowParser* flow_parser, Estimator &estimator, vector<vector<double> > &params, vector<PDD> &result){
     result.clear();
@@ -34,7 +74,7 @@ void RunPeriodicAnalysisParams(FlowParser* flow_parser, Estimator &estimator, ve
     Hypothesis failed_links_set;
     log_data->GetFailedLinkIds(failed_links_set);
     int nopenmp_threads = 1;
-    uint16_t K = 100;
+    uint16_t K = 20;
     vector<PDD> prec_recall_vec;
     for(int ii=0; ii<params.size(); ii++){
         estimator.SetParams(params[ii]);
@@ -54,7 +94,7 @@ void RunPeriodicAnalysisParams(FlowParser* flow_parser, Estimator &estimator, ve
             estimator.LocalizeFailures(0.0, max_finish_time_ms,
                                       estimator_hypothesis, nopenmp_threads);
             PDD prec_recall = GetPrecisionRecall(failed_links_set, estimator_hypothesis);
-            if (nflows > 12000){
+            if (nflows >= 19000){
                 /* Update precision recall metrics */
                 prec_recall_vec.push_back(prec_recall);
                 log_data->ResetForAnalysis();
@@ -91,7 +131,8 @@ void* RunPeriodicAnalysis007(void* arg){
                 fail_threshold < max_fail_threshold; fail_threshold += step){
         params.push_back(vector<double> {fail_threshold});
     }
-    //params = {{0.1}, {0.2}};
+    params = {{0.07}};
+    params = {{0.2475}};
     DoubleO7 estimator;
     vector<PDD> result;
     RunPeriodicAnalysisParams(flow_parser, estimator, params, result);
@@ -121,7 +162,8 @@ void* RunPeriodicAnalysisBayesianNet(void* arg){
 	     ,{1.0 - 5.0e-3, 5.0e-4, -100.0}
 	     ,{1.0 - 6.0e-3, 5.0e-4, -100.0}
 	      };		
-    params = {{1.0 - 7.0e-3, 2.0e-4, -25.0}};
+    //params = {{1.0 - 4.0e-3, 2.0e-4, -500.0}};
+    params = {{1.0 - 7.0e-3, 2.0e-4, -250.0}};
     BayesianNet estimator;
     vector<PDD> result;
     RunPeriodicAnalysisParams(flow_parser, estimator, params, result);
@@ -135,8 +177,8 @@ void* RunPeriodicAnalysisBayesianNet(void* arg){
 }
 
 void* RunPeriodicAnalysis(void* arg){
-    cout << "Periodic analysis for Bayesian net " << endl;
-    RunPeriodicAnalysisBayesianNet(arg);
     //cout << "Periodic analysis for 007 " << endl;
     //RunPeriodicAnalysis007(arg);
+    cout << "Periodic analysis for Bayesian net " << endl;
+    RunPeriodicAnalysisBayesianNet(arg);
 }

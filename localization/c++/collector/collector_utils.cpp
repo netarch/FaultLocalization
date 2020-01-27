@@ -32,9 +32,9 @@ void* CaptureTracePeriodically(void* arg){
     LogData* log_data = flow_parser->log_data;
     FlowQueue* flow_queue = flow_parser->GetFlowQueue();
     uint32_t period_ms = 10000;
-    string trace_prefix = "plog_testbed_1_0";
-    int ctr = 0;
-    while (ctr < 20){
+    string trace_prefix = "logs/plog_testbed_2_0";
+    int ctr = 89;
+    while (ctr < 100){
         int nreports = flow_parser->nreports;
         flow_parser->nreports = 0;
         auto start_time = chrono::high_resolution_clock::now();
@@ -44,7 +44,7 @@ void* CaptureTracePeriodically(void* arg){
             log_data->flows.push_back(flow_queue->pop());
         }
         double max_finish_time_ms = period_ms;
-        if (nflows >= 0){ //19000
+        if (nreports==48){
             string trace_file = trace_prefix + "_" + to_string(ctr);
             ofstream outf(trace_file);
             log_data->OutputToTrace(outf);
@@ -163,7 +163,7 @@ void* RunPeriodicAnalysisBayesianNet(void* arg){
 	     ,{1.0 - 6.0e-3, 5.0e-4, -100.0}
 	      };		
     //params = {{1.0 - 4.0e-3, 2.0e-4, -500.0}};
-    params = {{1.0 - 7.0e-3, 2.0e-4, -250.0}};
+    params = {{1.0 - 4.0e-3, 2.0e-4, -250.0}};
     BayesianNet estimator;
     vector<PDD> result;
     RunPeriodicAnalysisParams(flow_parser, estimator, params, result);

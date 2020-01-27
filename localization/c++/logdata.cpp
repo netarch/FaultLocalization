@@ -497,7 +497,7 @@ void LogData::OutputToTrace(ostream& out){
             out << "FPT"; 
             if (path_taken->size() > 0){
                 Link first_link = inverse_links[(*path_taken)[0]];
-                out << " " << first_link;
+                out << " " << first_link.first;
             }
             for (int link_id: *path_taken){
                 out << " " << inverse_links[link_id].second;
@@ -509,7 +509,7 @@ void LogData::OutputToTrace(ostream& out){
             out << "FPRT"; 
             if (reverse_path_taken->size() > 0){
                 Link first_link = inverse_links[(*reverse_path_taken)[0]];
-                out << " " << first_link;
+                out << " " << first_link.first;
             }
             for (int link_id: *reverse_path_taken){
                 out << " " << inverse_links[link_id].second;

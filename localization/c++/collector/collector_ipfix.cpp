@@ -25,6 +25,8 @@
 
 using namespace std;
 
+char* collector_ip;
+
 void HandleIncomingConnection(int socket, FlowParser *flow_parser){
     flow_parser->HandleIncomingConnection(socket);
 }
@@ -52,7 +54,7 @@ int main(int argc, char *argv[]){
     }
     char* topology_file = argv[1];
     char* path_file = argv[2];
-    char* collector_ip = argv[3];
+    collector_ip = argv[3];
     int collector_port = atoi(argv[4]);
     int num_threads = atoi(argv[5]);
 

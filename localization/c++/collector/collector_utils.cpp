@@ -33,7 +33,7 @@ void* CaptureTracePeriodically(void* arg){
     FlowQueue* flow_queue = flow_parser->GetFlowQueue();
     uint32_t period_ms = 10000;
     string trace_prefix = "logs/plog_testbed_2_0";
-    int ctr = 89;
+    int ctr = 0;
     while (ctr < 100){
         int nreports = flow_parser->nreports;
         flow_parser->nreports = 0;
@@ -44,7 +44,7 @@ void* CaptureTracePeriodically(void* arg){
             log_data->flows.push_back(flow_queue->pop());
         }
         double max_finish_time_ms = period_ms;
-        if (nreports==48){
+        if (nreports==35){
             string trace_file = trace_prefix + "_" + to_string(ctr);
             ofstream outf(trace_file);
             log_data->OutputToTrace(outf);

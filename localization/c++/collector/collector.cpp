@@ -20,7 +20,7 @@
 #include <logdata.h>
 #include <bayesian_net.h>
 
-char collector_ip[] = "192.168.100.101";
+char collector_ip[] = "192.168.100.126";
 int collector_port = 6000;
 
 using namespace std;
@@ -186,9 +186,8 @@ void* RunAnalysisPeriodically(void* arg){
     LogData* log_data = (LogData*) arg;
     //!TODO: vipul
     BayesianNet estimator;
-    vector<double> params = {1.0-5.0e-3, 2.0e-4};
+    vector<double> params = {1.0-5.0e-3, 2.0e-4, -10.0};
     estimator.SetParams(params);
-    estimator.PRIOR = -10.0;
     int nopenmp_threads = 1;
     double period_ms = 3000;
     while(true){
@@ -246,6 +245,7 @@ int main(int argc, char *argv[]){
     collector_address.sin_addr.s_addr = inet_addr(collector_ip);
     collector_address.sin_port = htons(collector_port);
 
+    cout << " collector address " << collector_ip << endl;
     if (bind(collector_socket, (struct sockaddr *)&collector_address, sizeof(collector_address)) != 0){
         perror("Error while binding");
         exit(1);

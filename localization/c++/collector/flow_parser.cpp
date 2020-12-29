@@ -21,6 +21,7 @@
 #include <logdata.h>
 #include <bayesian_net.h>
 
+extern char* collector_ip;
 
 char *_intoa(unsigned int addr, char* buf, u_short bufLen) {
     char *cp, *retStr;
@@ -154,7 +155,7 @@ void FlowParser::HandleIncomingConnection(int socket){
             if (src_host > 0) nflows1++;
             if (dest_host > 0) nflows2++;
             if (packets_sent > 0) nflows3++;
-            if (src_host > 0 and dest_host > 0 and packets_sent > 0){
+            if (src_host > 0 and dest_host > 0 and packets_sent > 0 and dest_port>=5301 and dest_port<=5302){
                 //cout << src_ip << " " << dest_ip << " " << packets_sent << " " << retransmissions
                 //     << " " << dest_port << " flow_queue size: " << flow_queue.size() << endl;
                 src_host += OFFSET_HOST;
@@ -257,5 +258,5 @@ void FlowParser::PreProcessTopology(string topology_file){
     /* Get topology details from a file */
     log_data = new LogData();
     GetLinkMappings(topology_file, log_data, true);
-    log_data->AddFailedLink(Link(3, 5), 0.01); 
+    log_data->AddFailedLink(Link(4, 10007), 0.01); 
 }

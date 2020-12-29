@@ -10,11 +10,11 @@ class BayesianNet : public Estimator{
     const bool PRINT_SCORES = true;
     const int MAX_FAILS = 20;
     const int NUM_CANDIDATES = max(15, 5 * MAX_FAILS);
-    const int NUM_TOP_HYPOTHESIS_AT_EACH_STAGE = 5;
+    const int NUM_TOP_HYPOTHESIS_AT_EACH_STAGE = 10;
     // For printing purposes
     const int N_MAX_K_LIKELIHOODS = 20;
-    const bool USE_CONDITIONAL = true;
-    double PRIOR = -25.0;
+    const bool USE_CONDITIONAL = false;
+    double PRIOR = -1000.0;
     bool REDUCED_ANALYSIS = false;
     void SetReducedAnalysis(bool val) { REDUCED_ANALYSIS = val; }
     void SetNumReducedLinksMap(unordered_map<int, int>* num_reduced_links_map_) {

@@ -21,6 +21,7 @@
 #include <logdata.h>
 #include <bayesian_net.h>
 
+extern char* collector_ip;
 
 char *_intoa(unsigned int addr, char* buf, u_short bufLen) {
     char *cp, *retStr;
@@ -91,9 +92,11 @@ uint32_t ConvertStringIpToInt(string& ip_addr){
 }
 
 void FlowParser::HandleIncomingConnection(int socket){
+    //cout << " FlowParser::HandleIncomingConnection " << endl;
     string data = "";
+    nreports++;
     recv_timeout(socket, data);
-    //if (data.size() > 0) cout << " Finished received, size " << data.size() << endl;
+    int nflows1 = 0, nflows2 = 0, nflows3 = 0, nrecords = 0;
 
     const char *c_data = data.c_str();
     size_t c_begin = 0;
@@ -103,6 +106,7 @@ void FlowParser::HandleIncomingConnection(int socket){
         u_int16_t message_length;
         memcpy(&message_length, c_data + c_begin + 2, sizeof(u_int16_t));
         int num_record = (message_length - 16 - 4) / SIZE_FLOW_DATA_RECORD;
+        nrecords += num_record;
         int i, offset;
         u_int16_t i16_tmp;
         u_int32_t i32_tmp;
@@ -148,7 +152,10 @@ void FlowParser::HandleIncomingConnection(int socket){
 
             int src_host = ConvertStringIpToInt(src_ip);
             int dest_host = ConvertStringIpToInt(dest_ip);
-            if (src_host > 0 and dest_host > 0 and packets_sent > 0){
+            if (src_host > 0) nflows1++;
+            if (dest_host > 0) nflows2++;
+            if (packets_sent > 0) nflows3++;
+            if (src_host > 0 and dest_host > 0 and packets_sent > 0 and dest_port>=5301 and dest_port<=5302){
                 //cout << src_ip << " " << dest_ip << " " << packets_sent << " " << retransmissions
                 //     << " " << dest_port << " flow_queue size: " << flow_queue.size() << endl;
                 src_host += OFFSET_HOST;
@@ -198,6 +205,8 @@ void FlowParser::HandleIncomingConnection(int socket){
         }
         c_begin += message_length;
     }
+    //if (data.size() > 0) cout << " Finished received, size " << data.size() << " nrecords "
+	//                      << nrecords << " nflows " << nflows1 << " " << nflows2 << " " << nflows3 << endl;
 }
 
 Path* FlowParser::GetPathTaken(int src_rack, int dst_host, int dstport){
@@ -249,5 +258,5 @@ void FlowParser::PreProcessTopology(string topology_file){
     /* Get topology details from a file */
     log_data = new LogData();
     GetLinkMappings(topology_file, log_data, true);
-    log_data->AddFailedLink(Link(0, 3), 0.01); 
+    log_data->AddFailedLink(Link(4, 10007), 0.01); 
 }

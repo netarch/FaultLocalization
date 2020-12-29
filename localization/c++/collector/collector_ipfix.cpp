@@ -25,6 +25,8 @@
 
 using namespace std;
 
+char* collector_ip;
+
 void HandleIncomingConnection(int socket, FlowParser *flow_parser){
     flow_parser->HandleIncomingConnection(socket);
 }
@@ -52,7 +54,7 @@ int main(int argc, char *argv[]){
     }
     char* topology_file = argv[1];
     char* path_file = argv[2];
-    char* collector_ip = argv[3];
+    collector_ip = argv[3];
     int collector_port = atoi(argv[4]);
     int num_threads = atoi(argv[5]);
 
@@ -87,7 +89,8 @@ int main(int argc, char *argv[]){
 
     /* Launch daemon thread that will periodically invoke the analysis */
     pthread_t tid;
-    if(pthread_create(&tid, NULL, RunPeriodicAnalysis, flow_parser) != 0 ){
+    //if(pthread_create(&tid, NULL, RunPeriodicAnalysis, flow_parser) != 0 ){
+    if(pthread_create(&tid, NULL, CaptureTracePeriodically, flow_parser) != 0 ){
         perror("Failed to create analysis thread");
         exit(1);
     }
@@ -110,6 +113,13 @@ int main(int argc, char *argv[]){
             continue;
         }
         else{
+            /*
+            struct sockaddr_in* pV4Addr = (struct sockaddr_in*)&collector_address;
+            struct in_addr ipAddr = pV4Addr->sin_addr;
+            char str[64];
+            inet_ntop(AF_INET, &ipAddr, str, 64);
+            cout << "Received connection from " << str << endl;
+            */
 #ifdef USE_THREAD_POOL
             thread_pool.AddConnection(new_socket);
 #else

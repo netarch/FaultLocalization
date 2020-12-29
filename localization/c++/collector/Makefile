@@ -5,7 +5,7 @@ CFLAGS = -std=c++17 -O3 -fopenmp -ffast-math -w -Wall -Wno-deprecated -Wno-unuse
 LIBDIR = -L../sparsehash/libs -L../
 INCLUDE = -I../sparsehash/include -I../
 
-LIBS = -lflock #-ljsoncpp
+LIBS = -lflock -ljsoncpp
 
 all: collector collector_ipfix
 

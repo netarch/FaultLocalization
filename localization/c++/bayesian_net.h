@@ -28,7 +28,7 @@ class BayesianNet : public Estimator{
     void SetLogData(LogData *data, double max_finish_time_ms, int nopenmp_threads);
     void SetParams(vector<double>& param);
 
-private:
+protected:
     void SearchHypotheses(double min_start_time_ms, double max_finish_time_ms,
                           unordered_map<Hypothesis*, double> &all_hypothesis,
                           int nopenmp_threads);

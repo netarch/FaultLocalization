@@ -9,6 +9,7 @@
 #include <mutex>
 #include <shared_mutex>
 #include <sparsehash/dense_hash_map>
+#include <fstream>
 using google::dense_hash_map;
 using namespace std;
 
@@ -56,6 +57,8 @@ public:
     void ResetForAnalysis();
     Path* GetPointerToPathTaken(vector<int>& path_nodes, vector<int>& temp_path, Flow* flow);
     void GetAllPaths(vector<Path*> **result, int src_rack, int dest_rack);
+
+    void OutputToTrace(ostream &out);
 };
 
 /* For reduced analysis */

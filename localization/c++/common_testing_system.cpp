@@ -26,6 +26,7 @@ void GetPrecisionRecallTrendFile(string topology_file, string trace_file, double
     assert (result.size() == 0);
     LogData* data = new LogData();
     GetDataFromLogFileParallel(trace_file, topology_file, data, nopenmp_threads);
+    data->FilterFlowsBeforeTime(max_finish_time_ms, nopenmp_threads);
     Hypothesis failed_links_set;
     data->GetFailedLinkIds(failed_links_set);
     Estimator* estimator = base_estimator->CreateObject();
@@ -33,6 +34,7 @@ void GetPrecisionRecallTrendFile(string topology_file, string trace_file, double
     for(double finish_time_ms=min_start_time_ms+step_ms;
             finish_time_ms<=max_finish_time_ms; finish_time_ms += step_ms){
         Hypothesis estimator_hypothesis;
+        cout << "Flows " << data->flows.size() << " " << min_start_time_ms << " " << finish_time_ms << " " << topology_file << " " << nopenmp_threads << endl;
         estimator->LocalizeFailures(min_start_time_ms, finish_time_ms,
                                    estimator_hypothesis, nopenmp_threads);
         PDD precision_recall = GetPrecisionRecall(failed_links_set, estimator_hypothesis);
@@ -62,7 +64,7 @@ void GetPrecisionRecallTrendFiles(string topology_file, double min_start_time_ms
     //int nthreads1 = 1;
     //int nthreads2 = nopenmp_threads;
     cout << nthreads1 << " " << nthreads2 << endl;
-    #pragma omp parallel for num_threads(nthreads1)
+    #pragma omp parallel for num_threads(nthreads1) if (nthreads1 > 1)
     for (int ff=0; ff<trace_files.size(); ff++){
         string trace_file = trace_files[ff];
         vector<PDD> intermediate_result;

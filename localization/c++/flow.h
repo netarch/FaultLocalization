@@ -105,9 +105,9 @@ public:
     long double GetCachedIntermediateValue();
 
     int nbytes;
+    vector<FlowSnapshot*> snapshots;
 private:
     int srcport, destport;
-    vector<FlowSnapshot*> snapshots;
     int curr_snapshot_ptr;
 };
 

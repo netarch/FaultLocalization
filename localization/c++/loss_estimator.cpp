@@ -5,6 +5,7 @@
 #include "doubleO7.h"
 #include "net_bouncer.h"
 #include "bayesian_net_continuous.h"
+#include "bayesian_net_sherlock.h"
 #include <chrono>
 
 using namespace std;
@@ -25,7 +26,8 @@ int main(int argc, char *argv[]){
     auto start_localization_time = chrono::high_resolution_clock::now();
     Hypothesis failed_links_set;
     data.GetFailedLinkIds(failed_links_set);
-    BayesianNet estimator;
+    //BayesianNet estimator;
+    Sherlock estimator;
     vector<double> params = {1.0-5.0e-3, 2.0e-4, -25.0};
     estimator.SetParams(params);
     //DoubleO7 estimator;

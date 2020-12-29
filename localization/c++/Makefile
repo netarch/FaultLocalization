@@ -4,7 +4,7 @@ CFLAGS = -std=c++17 -O3 -fopenmp -ffast-math -w -Wall -Wno-deprecated -Wno-unuse
 LIBDIR = -Lsparsehash/libs
 INCLUDE = -Isparsehash/include
 
-ESTIMATOR_OBJS = bayesian_net.o bayesian_net_continuous.o doubleO7.o score.o net_bouncer.o
+ESTIMATOR_OBJS = bayesian_net.o bayesian_net_continuous.o doubleO7.o score.o net_bouncer.o bayesian_net_sherlock.o
 
 OBJS = flow.o logdata.o utils.o $(ESTIMATOR_OBJS)
 

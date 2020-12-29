@@ -10,7 +10,7 @@ class BayesianNet : public Estimator{
     const bool PRINT_SCORES = true;
     const int MAX_FAILS = 20;
     const int NUM_CANDIDATES = max(15, 5 * MAX_FAILS);
-    const int NUM_TOP_HYPOTHESIS_AT_EACH_STAGE = 5;
+    const int NUM_TOP_HYPOTHESIS_AT_EACH_STAGE = 50;
     // For printing purposes
     const int N_MAX_K_LIKELIHOODS = 20;
     const bool USE_CONDITIONAL = false;
@@ -28,7 +28,7 @@ class BayesianNet : public Estimator{
     void SetLogData(LogData *data, double max_finish_time_ms, int nopenmp_threads);
     void SetParams(vector<double>& param);
 
-private:
+protected:
     void SearchHypotheses(double min_start_time_ms, double max_finish_time_ms,
                           unordered_map<Hypothesis*, double> &all_hypothesis,
                           int nopenmp_threads);

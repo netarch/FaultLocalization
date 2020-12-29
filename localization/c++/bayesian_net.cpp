@@ -1,5 +1,6 @@
 #include "bayesian_net.h"
 #include "utils.h"
+#include <limits>
 #include <assert.h>
 #include <numeric>
 #include <algorithm>
@@ -177,16 +178,34 @@ void BayesianNet::LocalizeFailures(double min_start_time_ms, double max_finish_t
                                 greater<pair<double, Hypothesis*> >());
     localized_links.clear();
     double highest_likelihood = likelihood_hypothesis[0].first;
+    set<Hypothesis*> candidate_hypothesis;
+    set<int> candidate_link_ids;
     for (int i=min((int)likelihood_hypothesis.size(), N_MAX_K_LIKELIHOODS)-1; i>=0; i--){
         double likelihood = likelihood_hypothesis[i].first;
         Hypothesis *hypothesis = likelihood_hypothesis[i].second;
-        if (highest_likelihood - likelihood <= 1.0e-3){
-            localized_links.insert(hypothesis->begin(), hypothesis->end());
+        if (highest_likelihood - likelihood <= 1.0e-3 and candidate_hypothesis.size() == 0){
+            candidate_hypothesis.insert(hypothesis);
+            candidate_link_ids.insert(hypothesis->begin(), hypothesis->end());
+	    break;
         }
         if constexpr (VERBOSE){
             cout << "Likely candidate "<<data->IdsToLinks(*hypothesis)<<" "<<likelihood << endl;
         }
     }
+
+    // If multiple hypothesis have highest likelihoods, then return common elements in all hypothesis
+    vector<int> erase_link_ids;
+    for(int link_id: candidate_link_ids){
+        for (auto& ch: candidate_hypothesis){
+            if (ch->find(link_id) == ch->end()){
+                erase_link_ids.push_back(link_id);
+                break;
+            }
+        }
+    }
+    for(int link_id: erase_link_ids) candidate_link_ids.erase(link_id);
+    localized_links.insert(candidate_link_ids.begin(), candidate_link_ids.end());
+    
     if constexpr (VERBOSE){
         cout << endl << "Searched hypothesis space in "
              << GetTimeSinceSeconds(start_search_time) << " seconds" << endl;
@@ -355,6 +374,7 @@ int BayesianNet::UpdateScores(vector<double> &likelihood_scores, Hypothesis* hyp
     return relevant_flows.size();
 }
 
+
 void BayesianNet::SearchHypotheses1(double min_start_time_ms, double max_finish_time_ms,
                                     unordered_map<Hypothesis*, double> &all_hypothesis,
                                     int nopenmp_threads){
@@ -386,6 +406,7 @@ void BayesianNet::SearchHypotheses1(double min_start_time_ms, double max_finish_
     double max_likelihood_this_stage = 0; //empty hypothesis
     double max_likelihood_previous_stage = -1.0e10;
     while(max_likelihood_this_stage > max_likelihood_previous_stage){ // or nfails <= MAX_FAILS){
+    //while(nfails <= MAX_FAILS){
         max_likelihood_previous_stage = max_likelihood_this_stage;
         max_likelihood_this_stage = -1.0e10; //-inf
         auto start_stage_time = chrono::high_resolution_clock::now();
@@ -523,7 +544,7 @@ void BayesianNet::PrintScores(double min_start_time_ms, double max_finish_time_m
     vector<int> idx(drops_per_link.size());
     iota(idx.begin(), idx.end(), 0);
     sort(idx.begin(), idx.end(), [this](int i1, int i2) {return (abs(drops_per_link[i1] - drops_per_link[i2]) < 1.0e-6? false: (drops_per_link[i1] < drops_per_link[i2]));});
-    for (int ii = max(0, (int)idx.size()-50); ii<idx.size(); ii++){
+    for (int ii = max(0, (int)idx.size()-200); ii<idx.size(); ii++){
         int link_id = idx[ii];
         auto [score2, score1] = GetScore(link_id);
         cout << "Link " << data->inverse_links[link_id] << " " << score2 << " " << score1 << " " << drops_per_link[link_id] << " E[nflows] " << flows_per_link[link_id] << endl;
@@ -587,7 +608,8 @@ void BayesianNet::ComputeInitialLikelihoods(vector<double> &initial_likelihoods,
                                            weight.second, intermediate_val);
         if (log_likelihood > 1.0e6){
             cout << "Likelihood computation precision bug ";
-            cout << naffected << " " << npaths << " " << naffected_r << " " << npaths_r << " " << weight.first << " " << weight.second << " " << intermediate_val << endl;
+            cout << naffected << " " << npaths << " " << naffected_r << " " << npaths_r << " " << weight.first << " " << weight.second << " " << intermediate_val << " " << p1 << " " << p2 << " " << PRIOR << endl;
+            //!TODO; TODO: TODO
             assert(false);
         }
         likelihoods[thread_num][flow->first_link_id] += log_likelihood;
@@ -676,7 +698,10 @@ inline double BayesianNet::BnfWeightedConditional(int naffected, int npaths,
     assert(e2e_paths == 1);
     double a = ((double)(e2e_paths - e2e_failed_paths))/e2e_paths;
     double b = ((double)e2e_failed_paths)/e2e_paths;
-    long double val1 = a + b * pow((long double)((1.0 - p1)/p2), weight_bad) * pow((p1/(1.0-p2)), weight_good);
+    //!TODO TODO TODO: precision goes out of long double range
+    long double ival = pow((long double)((1.0 - p1)/p2), weight_bad) * pow(p1/(1.0-p2), weight_good);
+    //ival = min(ival,  std::numeric_limits<long double>::max());
+    long double val1 = a + b * ival;
     double total_weight = weight_good + weight_bad;
     double val2 = a + b * (1 - pow(p1, total_weight))/(1.0 - pow((1.0 - p2), total_weight));
     if (val1 >= 1.0e10000 or val2 <= 1.0e-10000){
@@ -708,7 +733,10 @@ inline long double BayesianNet::GetBnfWeightedUnconditionalIntermediateValue(Flo
     assert (!USE_CONDITIONAL);
     // return log((1.0 - a) + a * pow((1.0 - p1)/p2, weight_bad)*pow(p1/(1.0-p2), weight_good));
     //                            <------------------- intermediate_val ---------------------->
-    return pow((long double)((1.0 - p1)/p2), weight.second) * pow(p1/(1.0-p2), weight.first);
+    long double ret = pow((long double)((1.0 - p1)/p2), weight.second) * pow(p1/(1.0-p2), weight.first);
+    //!TODO TODO TODO: precision goes out of long double range
+    ret = min(ret,  std::numeric_limits<long double>::max());
+    return ret;
 }
 
 inline double BayesianNet::BnfWeightedUnconditionalIntermediate(int naffected, int npaths,

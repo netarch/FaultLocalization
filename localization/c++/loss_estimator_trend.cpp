@@ -4,18 +4,38 @@
 #include "common_testing_system.h"
 #include <chrono>
 #include "bayesian_net.h"
+#include "bayesian_net_sherlock.h"
 #include "doubleO7.h"
 #include "net_bouncer.h"
 #include "score.h"
 
 using namespace std;
 
+vector<string> GetFilesHw(){
+    string file_prefix = "/home/vharsh2/Flock/ns3/topology/hw_ls_6_2/optical_fault/plog_testbed";
+    vector<PII> ignore_files = {};
+    vector<string> files;
+    for(int f=2; f<=2; f++){
+    //for (int f: vector<int>({8})){ // {1-8}
+        //for(int s: vector<int>({1,2,3,4,5,6,7,8})){ // {1-2}
+        for (int s = 0; s < 7; s++){
+            if(find(ignore_files.begin(), ignore_files.end(),  PII(f, s)) == ignore_files.end()){
+                files.push_back(file_prefix + "_" + to_string(f) + "_0_" + to_string(s)); 
+                cout << "adding file for analaysis " <<files.back() << endl;
+            }
+        }
+    }
+    //files = {file_prefix + "_1_0_1"};
+    return files;
+}
+
 
 vector<string> GetFilesMixed(){
+    //string file_prefix = "/home/vharsh2/Flock/ns3/topology/hw_ls_6_2/traffic_files/plog";
     string file_prefix = "/home/vharsh2/ns-allinone-3.24.1/ns-3.24.1/ns3/topology/ft_k10_os3/traffic_files_nb/plog_nb";
     vector<PII> ignore_files = {};
     vector<string> files;
-    for(int f=1; f<=8; f++){
+    for(int f=1; f<=2; f++){
     //for (int f: vector<int>({8})){ // {1-8}
         for(int s: vector<int>({1,2,3,4,5,6,7,8})){ // {1-2}
             if(find(ignore_files.begin(), ignore_files.end(),  PII(f, s)) == ignore_files.end()){
@@ -29,14 +49,16 @@ vector<string> GetFilesMixed(){
 }
 
 vector<string> GetFilesRRG(){
-    string file_prefix = "/home/vharsh2/ns-allinone-3.24.1/ns-3.24.1/flow_simulator/logs/irregular_topology/plog";
-    vector<PII> ignore_files = {};
+    //string file_prefix = "/home/vharsh2/ns-allinone-3.24.1/ns-3.24.1/flow_simulator/logs/irregular_topology/plog";
+    string file_prefix = "/home/vharsh2/ns-allinone-3.24.1/ns-3.24.1/ns3/topology/ft_k10_os3/ommitted/logs/plog";
+    int nlinks_ommitted = 40;
+    typedef array<int, 3> AI3;
+    vector<AI3> ignore_files = {{10, 8, 3}, {30, 7, 3}, {40, 7, 3}, {50, 7, 3}};
     vector<string> files;
-    for(int f=1; f<=8; f++){
-    //for (int f: vector<int>({8})){ // {1-8}
-        for(int s: vector<int>({1,2,3,4})){ // {1-2}
-            if(find(ignore_files.begin(), ignore_files.end(),  PII(f, s)) == ignore_files.end()){
-                files.push_back(file_prefix + "_s" + to_string(s) + "_f" + to_string(f)); 
+    for(int s: vector<int>({1,2,3,4})){ // {1-2}
+        for(int f=1; f<=8; f++){
+            if(find(ignore_files.begin(), ignore_files.end(),  AI3({nlinks_ommitted, f, s})) == ignore_files.end()){
+                files.push_back(file_prefix + "_o" + to_string(nlinks_ommitted) + "_" + to_string(f) + "_0_" + to_string(s)); 
                 cout << "adding file for analaysis " <<files.back() << endl;
             }
         }
@@ -103,8 +125,9 @@ vector<string> GetFiles007Verification(){
 }
 
 vector<string> GetFiles(){
-    return GetFilesRRG();
-    //return GetFilesMixed();
+    //return GetFilesHw();
+    //return GetFilesRRG();
+    return GetFilesMixed();
     //return GetFiles007Verification();
     //return GetFilesFlowSimulator();
     //return GetFilesSoftness();
@@ -140,6 +163,21 @@ void GetPrecisionRecallTrend007(string topology_filename, double min_start_time_
     }
 }
 
+void GetPrecisionRecallTrendSherlock(string topology_filename, double min_start_time_ms, 
+                           double max_finish_time_ms, double step_ms, int nopenmp_threads){
+    vector<PDD> result;
+    Sherlock estimator;
+    vector<double> param = {1.0-5.0e-3, 2.0e-4, -25.0};
+    estimator.SetParams(param);
+    GetPrecisionRecallTrendFiles(topology_filename, min_start_time_ms, max_finish_time_ms, 
+                                 step_ms, result, &estimator, nopenmp_threads);
+    int ctr = 0;
+    for(double finish_time_ms=min_start_time_ms+step_ms;
+            finish_time_ms<=max_finish_time_ms; finish_time_ms += step_ms){
+        cout << "Finish time (ms) " << finish_time_ms << " " << result[ctr++] << endl;
+    }
+}
+
 void GetPrecisionRecallTrendBayesianNet(string topology_filename, double min_start_time_ms, 
                            double max_finish_time_ms, double step_ms, int nopenmp_threads){
     vector<PDD> result;
@@ -165,16 +203,19 @@ void GetPrecisionRecallTrendBayesianNet(string topology_filename, double min_sta
 void SweepParamsBayesianNet(string topology_filename, double min_start_time_ms, double max_finish_time_ms, int nopenmp_threads){
     vector<vector<double> > params;
     double eps = 1.0e-10;
-    for (double p1c = 1.0e-3; p1c <=5e-3+eps; p1c += 1.0e-3){
-        for (double p2 = 1.0e-4; p2 <= 4.0e-4+eps; p2 += 0.5e-4){
-            if (p2 >= p1c - 0.25e-4) continue;
-            double nprior = 25.0;
+    for (double p1c = 2.0e-3; p1c <=7.0e-3+eps; p1c += 1.0e-3){
+        //for (double p2 = 2.0e-4; p2 <=7.0e-4+eps; p2 += 0.5e-4){
+        for (double p2 = 2.0e-4; p2 <=7.0e-4+eps; p2 += 1.0e-4){
+            if (p2 >= p1c - 0.5e-4) continue;
+            //double nprior = 10.0;
             //for(double nprior=5.0; nprior<=35.0+eps; nprior+=10.0){
+            //for (double nprior: {10.0, 25.0, 50.0, 100.0, 250.0})
+            for(double nprior=500.0; nprior<=10000.0+eps; nprior+=500.0)
                 params.push_back(vector<double> {1.0 - p1c, p2, -nprior});
             //}
         }
     }
-    //params = {{1.0 - 5.0e-3, 2.0e-4, -25.0}};
+    //params = {{1.0 - 4.0e-3, 2.0e-4, -250.0}};
     vector<PDD> result;
     BayesianNet estimator;
     GetPrecisionRecallParamsFiles(topology_filename, min_start_time_ms, max_finish_time_ms,
@@ -183,7 +224,7 @@ void SweepParamsBayesianNet(string topology_filename, double min_start_time_ms, 
     for (auto &param: params){
         param[0] = 1.0 - param[0];
         auto p_r = result[ctr++];
-        if (p_r.first > 0.3 and p_r.second > 0.3)
+        //if (p_r.first > 0.0 and p_r.second > 0.0)
             cout << param << " " << p_r << endl;
     }
 }
@@ -209,8 +250,8 @@ void SweepParamsScore(string topology_filename, double min_start_time_ms, double
 
 void SweepParams007(string topology_filename, double min_start_time_ms, double max_finish_time_ms, int nopenmp_threads){
     double min_fail_threshold = 0.02; //0.00125; //1; //0.001;
-    double max_fail_threshold = 0.10; //16; //0.0025;
-    double step = 0.001; ///0.1; //0.00005;
+    double max_fail_threshold = 0.26; //16; //0.0025;
+    double step = 0.0025; ///0.1; //0.00005;
     vector<vector<double> > params;
     for (double fail_threshold=min_fail_threshold;
                 fail_threshold < max_fail_threshold; fail_threshold += step){
@@ -223,7 +264,7 @@ void SweepParams007(string topology_filename, double min_start_time_ms, double m
     int ctr = 0;
     for (auto &param: params){
         auto p_r = result[ctr++];
-        if (p_r.first > 0.1 or p_r.second > 0.1)
+        if (p_r.first > 0.0 or p_r.second > 0.0)
             cout << param << " " << p_r << endl;
     }
 }
@@ -255,8 +296,8 @@ int main(int argc, char *argv[]){
     int nopenmp_threads = atoi(argv[5]);
     cout << "Using " << nopenmp_threads << " openmp threads"<<endl;
     cout << "sizeof(Flow) " << sizeof(Flow) << " bytes" << endl;
-    GetPrecisionRecallTrendBayesianNet(topology_filename, min_start_time_ms, 
-                                       max_finish_time_ms, step_ms, nopenmp_threads);
-    //SweepParamsBayesianNet(topology_filename, min_start_time_ms, max_finish_time_ms, nopenmp_threads);
+    GetPrecisionRecallTrendSherlock(topology_filename, min_start_time_ms, 
+                                    max_finish_time_ms, step_ms, nopenmp_threads);
+    //SweepParams007(topology_filename, min_start_time_ms, max_finish_time_ms, nopenmp_threads);
     return 0;
 }

@@ -46,14 +46,11 @@ ifneq (1,$(test_no_fnopie))
   EXTRA_CFLAGS += -fno-pie
 endif
 
-EXTRA_CFLAGS += -Wno-implicit-fallthrough
-
 HERE=${PWD}
 
 # set the install path
 INSTDIR := $(DESTDIR)/lib/modules/$(BUILD_KERNEL)/kernel/net/pf_ring
 TARGETDIR := $(DESTDIR)/usr/src/$(BUILD_KERNEL)/include/linux/
-KERNEL_SRC := /lib/modules/$(BUILD_KERNEL)/build
 
 all: Makefile pf_ring.c linux/pf_ring.h
 #	@if test "$(USER)" = "root"; then \
@@ -64,7 +61,8 @@ all: Makefile pf_ring.c linux/pf_ring.h
 #		echo "*"; \
 #		echo "*********************************************"; \
 #	fi
-	make -C $(KERNEL_SRC) M=${HERE} EXTRA_CFLAGS='${EXTRA_CFLAGS}' modules
+#	#make -C /lib/modules/$(BUILD_KERNEL)/build SUBDIRS=${HERE} EXTRA_CFLAGS='${EXTRA_CFLAGS}' modules
+	make -C /lib/modules/$(BUILD_KERNEL)/build M=${HERE} EXTRA_CFLAGS='${EXTRA_CFLAGS}' modules
 
 dkms-deb:
 	sudo make -f Makefile.dkms deb
@@ -73,8 +71,8 @@ dkms-rpm:
 	sudo make -f Makefile.dkms rpm
 
 clean:
-	make -C $(KERNEL_SRC) SUBDIRS=$(HERE) clean || true
-	\rm -f *~ Module.symvers Module.markers modules.order *#
+	make -C /lib/modules/$(BUILD_KERNEL)/build SUBDIRS=$(HERE) clean
+	\rm -f *~ Module.markers  modules.order *#
 
 install:
 	mkdir -p $(INSTDIR)

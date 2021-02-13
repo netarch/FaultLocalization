@@ -183,13 +183,13 @@ void BayesianNet::LocalizeFailures(double min_start_time_ms, double max_finish_t
     for (int i=min((int)likelihood_hypothesis.size(), N_MAX_K_LIKELIHOODS)-1; i>=0; i--){
         double likelihood = likelihood_hypothesis[i].first;
         Hypothesis *hypothesis = likelihood_hypothesis[i].second;
+        if constexpr (VERBOSE){
+            cout << "Likely candidate "<<data->IdsToLinks(*hypothesis)<<" "<<likelihood << endl;
+        }
         if (highest_likelihood - likelihood <= 1.0e-3 and candidate_hypothesis.size() == 0){
             candidate_hypothesis.insert(hypothesis);
             candidate_link_ids.insert(hypothesis->begin(), hypothesis->end());
-	    break;
-        }
-        if constexpr (VERBOSE){
-            cout << "Likely candidate "<<data->IdsToLinks(*hypothesis)<<" "<<likelihood << endl;
+	        break;
         }
     }
 
@@ -378,7 +378,6 @@ int BayesianNet::UpdateScores(vector<double> &likelihood_scores, Hypothesis* hyp
 void BayesianNet::SearchHypotheses1(double min_start_time_ms, double max_finish_time_ms,
                                     unordered_map<Hypothesis*, double> &all_hypothesis,
                                     int nopenmp_threads){
-
     Hypothesis* no_failure_hypothesis = new Hypothesis();
     all_hypothesis[no_failure_hypothesis] = 0.0;
 
@@ -393,19 +392,18 @@ void BayesianNet::SearchHypotheses1(double min_start_time_ms, double max_finish_
 
     auto start_init_time = chrono::high_resolution_clock::now();
     ComputeInitialLikelihoods(likelihood_scores[0], min_start_time_ms,
-                                max_finish_time_ms, nopenmp_threads);
+                              max_finish_time_ms, nopenmp_threads);
     if constexpr (VERBOSE){
         cout << "Finished hypothesis search for 1 failure in "
              << GetTimeSinceSeconds(start_init_time) << " seconds" << endl;
         cout << "Finished linear stage in " << GetTimeSinceSeconds(timer_checkpoint) << " seconds" << endl;
         timer_checkpoint = chrono::high_resolution_clock::now();
     }
-
     int nlinks = data->inverse_links.size();
     int nfails=2; // single link failures already handled
     double max_likelihood_this_stage = 0; //empty hypothesis
     double max_likelihood_previous_stage = -1.0e10;
-    while(max_likelihood_this_stage > max_likelihood_previous_stage){ // or nfails <= MAX_FAILS){
+    while(max_likelihood_this_stage > max_likelihood_previous_stage){ // nfails <= MAX_FAILS){
     //while(nfails <= MAX_FAILS){
         max_likelihood_previous_stage = max_likelihood_this_stage;
         max_likelihood_this_stage = -1.0e10; //-inf
@@ -544,7 +542,7 @@ void BayesianNet::PrintScores(double min_start_time_ms, double max_finish_time_m
     vector<int> idx(drops_per_link.size());
     iota(idx.begin(), idx.end(), 0);
     sort(idx.begin(), idx.end(), [this](int i1, int i2) {return (abs(drops_per_link[i1] - drops_per_link[i2]) < 1.0e-6? false: (drops_per_link[i1] < drops_per_link[i2]));});
-    for (int ii = max(0, (int)idx.size()-200); ii<idx.size(); ii++){
+    for (int ii = max(0, (int)idx.size()-50); ii<idx.size(); ii++){
         int link_id = idx[ii];
         auto [score2, score1] = GetScore(link_id);
         cout << "Link " << data->inverse_links[link_id] << " " << score2 << " " << score1 << " " << drops_per_link[link_id] << " E[nflows] " << flows_per_link[link_id] << endl;
@@ -664,7 +662,7 @@ void BayesianNet::ComputeLogLikelihood(vector<Hypothesis*> &hypothesis_space,
         total_flows_analyzed += relevant_flows[i].size();
     }
     if constexpr (VERBOSE) {
-        cout << "Total flows analyzed "<< total_flows_analyzed << " ";
+        //cout << "Total flows analyzed "<< total_flows_analyzed << " ";
     }
 }
 
@@ -692,6 +690,8 @@ inline double BayesianNet::BnfWeighted(int naffected, int npaths, int naffected_
 inline double BayesianNet::BnfWeightedConditional(int naffected, int npaths,
                                                   int naffected_r, int npaths_r,
                                                   double weight_good, double weight_bad){
+    //!TODO: change temporary!
+    return BnfWeightedUnconditional(naffected, npaths, naffected_r, npaths_r, weight_good, weight_bad);
     // e2e: end-to-end
     int e2e_paths = npaths * npaths_r;
     int e2e_failed_paths = e2e_paths - (npaths - naffected) * (npaths_r - naffected_r);

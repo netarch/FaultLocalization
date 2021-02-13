@@ -13,6 +13,9 @@
 #include <sparsehash/dense_hash_map>
 using google::dense_hash_map;
 
+const bool LEAFSPINE_NET_BOUNCER = false; //!HACK
+
+
 inline bool StringStartsWith(const string &a, const string &b) {
     return (b.length() <= a.length() && equal(b.begin(), b.end(), a.begin()));
 }
@@ -228,6 +231,8 @@ void GetDataFromLogFile(string trace_file, LogData *result){
             GetFirstInt(linec, packets_lost);
             GetFirstInt(linec, packets_randomly_lost);
             assert (flow != NULL);
+            //!HACK- change! change! change!
+            //flow->AddSnapshot(snapshot_time_ms, 1, (packets_lost>0), (packets_randomly_lost>0));
             flow->AddSnapshot(snapshot_time_ms, packets_sent, packets_lost, packets_randomly_lost);
         }
         else if (op == "FID"){
@@ -298,6 +303,7 @@ void ProcessFlowLines(vector<FlowLines>& all_flow_lines, LogData* result, int no
     auto start_time = chrono::high_resolution_clock::now();
     //vector<Flow*> flows_threads[nopenmp_threads];
     Flow* flows_threads = new Flow[all_flow_lines.size()];
+    result->flow_pointers_to_delete.push_back(flows_threads);
     vector<int> temp_path[nopenmp_threads];
     vector<int> path_nodes[nopenmp_threads];
     for (int t=0; t<nopenmp_threads; t++){
@@ -324,45 +330,68 @@ void ProcessFlowLines(vector<FlowLines>& all_flow_lines, LogData* result, int no
         *flow = Flow(src, 0, dest, 0, nbytes, start_time_ms);
         //Flow *flow = new Flow(src, 0, dest, 0, nbytes, start_time_ms);
         // Set flow paths
-        flow->SetFirstLinkId(result->GetLinkIdUnsafe(Link(flow->src, srcrack)));
-        flow->SetLastLinkId(result->GetLinkIdUnsafe(Link(destrack, flow->dest)));
-
-        // If flow active, then there is only one path
-        if(!flow->IsFlowActive()) result->GetAllPaths(&flow->paths, srcrack, destrack);
-
-        /* Reverse flow path taken */
-        if (flow_lines.fprt_c != NULL){
+        
+        //!HACK for leaf spine
+        if (LEAFSPINE_NET_BOUNCER and (srcrack == src or destrack == dest)){
+            assert (flow->IsFlowActive());
+            if (src == srcrack){
+                assert (destrack != dest);
+                flow->SetFirstLinkId(result->GetLinkIdUnsafe(Link(srcrack, destrack)));
+                flow->SetLastLinkId(result->GetLinkIdUnsafe(Link(destrack, dest)));
+            }
+            else{
+                assert (srcrack != dest);
+                flow->SetFirstLinkId(result->GetLinkIdUnsafe(Link(flow->src, srcrack)));
+                flow->SetLastLinkId(result->GetLinkIdUnsafe(Link(srcrack, flow->dest)));
+            }
             temp_path[thread_num].clear();
             path_nodes[thread_num].clear();
-            restore_c = flow_lines.fprt_c;
-            int node;
-            // This is only the portion from dest_rack to src_rack
-            while (GetFirstInt(flow_lines.fprt_c, node)){
-                if (path_nodes[thread_num].size() > 0){
-                    temp_path[thread_num].push_back(result->GetLinkIdUnsafe(Link(path_nodes[thread_num].back(), node)));
-                }
-                path_nodes[thread_num].push_back(node);
-            }
-            flow->SetReversePathTaken(result->GetPointerToPathTaken(
-                               path_nodes[thread_num], temp_path[thread_num], flow));
-            flow_lines.fprt_c = restore_c;
+            flow->AddPath(result->GetPointerToPathTaken(
+                               path_nodes[thread_num], temp_path[thread_num], flow), true);
+            flow->AddReversePath(result->GetPointerToPathTaken(
+                               path_nodes[thread_num], temp_path[thread_num], flow), true);
+            //flow->PrintInfo();
         }
-        /* Flow path taken */
-        if(flow_lines.fpt_c != NULL){
-            temp_path[thread_num].clear();
-            path_nodes[thread_num].clear();
-            restore_c = flow_lines.fpt_c;
-            int node;
-            // This is only the portion from src_rack to dest_rack
-            while (GetFirstInt(flow_lines.fpt_c, node)){
-                if (path_nodes[thread_num].size() > 0){
-                    temp_path[thread_num].push_back(result->GetLinkIdUnsafe(Link(path_nodes[thread_num].back(), node)));
+        else{
+            flow->SetFirstLinkId(result->GetLinkIdUnsafe(Link(flow->src, srcrack)));
+            flow->SetLastLinkId(result->GetLinkIdUnsafe(Link(destrack, flow->dest)));
+            // If flow active, then there is only one path
+            if(!flow->IsFlowActive()) result->GetAllPaths(&flow->paths, srcrack, destrack);
+
+            /* Reverse flow path taken */
+            if (flow_lines.fprt_c != NULL){
+                temp_path[thread_num].clear();
+                path_nodes[thread_num].clear();
+                restore_c = flow_lines.fprt_c;
+                int node;
+                // This is only the portion from dest_rack to src_rack
+                while (GetFirstInt(flow_lines.fprt_c, node)){
+                    if (path_nodes[thread_num].size() > 0){
+                        temp_path[thread_num].push_back(result->GetLinkIdUnsafe(Link(path_nodes[thread_num].back(), node)));
+                    }
+                    path_nodes[thread_num].push_back(node);
                 }
-                path_nodes[thread_num].push_back(node);
+                flow->SetReversePathTaken(result->GetPointerToPathTaken(
+                                   path_nodes[thread_num], temp_path[thread_num], flow));
+                flow_lines.fprt_c = restore_c;
             }
-            flow->SetPathTaken(result->GetPointerToPathTaken(
-                               path_nodes[thread_num], temp_path[thread_num], flow));
-            flow_lines.fpt_c = restore_c;
+            /* Flow path taken */
+            if(flow_lines.fpt_c != NULL){
+                temp_path[thread_num].clear();
+                path_nodes[thread_num].clear();
+                restore_c = flow_lines.fpt_c;
+                int node;
+                // This is only the portion from src_rack to dest_rack
+                while (GetFirstInt(flow_lines.fpt_c, node)){
+                    if (path_nodes[thread_num].size() > 0){
+                        temp_path[thread_num].push_back(result->GetLinkIdUnsafe(Link(path_nodes[thread_num].back(), node)));
+                    }
+                    path_nodes[thread_num].push_back(node);
+                }
+                flow->SetPathTaken(result->GetPointerToPathTaken(
+                                   path_nodes[thread_num], temp_path[thread_num], flow));
+                flow_lines.fpt_c = restore_c;
+            }
         }
         /* Snapshots */
         for(int ss=0; ss<flow_lines.ss_c.size(); ss++){
@@ -374,6 +403,8 @@ void ProcessFlowLines(vector<FlowLines>& all_flow_lines, LogData* result, int no
             GetFirstInt(ss_c, packets_lost);
             GetFirstInt(ss_c, packets_randomly_lost);
             assert (flow != NULL);
+            //!HACK- change! change! change!
+            //flow->AddSnapshot(snapshot_time_ms, 1, (packets_lost>0), (packets_randomly_lost>0));
             flow->AddSnapshot(snapshot_time_ms, packets_sent, packets_lost, packets_randomly_lost);
         }
         flow->DoneAddingPaths();

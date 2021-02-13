@@ -128,7 +128,7 @@ int main(int argc, char *argv[]){
     Config::SetDefault("ns3::DropTailQueue::MaxPackets", UintegerValue (drop_queue_limit));
 
     // Simulation parameters
-    double sim_time_seconds = 3.0;
+    double sim_time_seconds = 20; //0.5;
     double warmup_time_seconds = 1.0;
 
     // Define topology
@@ -144,8 +144,8 @@ int main(int argc, char *argv[]){
     //char maxBytes [] = "0" ; //"50000"; // "0"; // unlimited
 
     // Initialize parameters for PointToPoint protocol
-    char dataRate [] = "10Gbps";
-    uint64_t delay_us = 2.5; //microseconds
+    char dataRate [] = "1Gbps"; //"40Gbps";
+    uint64_t delay_us = 10; //2.5; //microseconds
 
     // Fail some links, by setting loss rates
     double silent_drop_rate = fail_param;
@@ -254,7 +254,7 @@ int main(int argc, char *argv[]){
 
     // Set functions that need to be periodically invoked in the simulation
     Simulator::Schedule(Seconds(warmup_time_seconds), &EchoProgress, sim_time_seconds/100.0);
-    double snapshot_period_seconds = sim_time_seconds/16.0;
+    double snapshot_period_seconds = sim_time_seconds/8.0;
     Simulator::Schedule(Seconds(warmup_time_seconds + snapshot_period_seconds), &SnapshotFlows,
                         &topology, flow_app, snapshot_period_seconds);
 

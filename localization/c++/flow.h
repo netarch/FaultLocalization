@@ -106,6 +106,7 @@ public:
 
     int nbytes;
     vector<FlowSnapshot*> snapshots;
+    ~Flow();
 private:
     int srcport, destport;
     int curr_snapshot_ptr;

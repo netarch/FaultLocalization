@@ -424,6 +424,7 @@ int LogData::GetLinkId(Link link){
 
 int LogData::GetLinkIdUnsafe(Link link){
     auto it = links_to_ids.find(link);
+    //if (it == links_to_ids.end()) cout << "Link " << link << " not found in topology" << endl;
     assert(it != links_to_ids.end());
     return it->second;
 }
@@ -519,6 +520,17 @@ void LogData::OutputToTrace(ostream& out){
     }
 }
 
+
+LogData::~LogData(){
+   for (Flow *f: flows){   
+       for (auto s: f->snapshots) delete(s);
+   }
+   for (Flow *f: flow_pointers_to_delete) delete[] f; 
+   delete(forward_flows_by_link_id);
+   delete(reverse_flows_by_link_id);
+}
+
+
 int GetReducedLinkId(int link_id, unordered_map<Link, Link> &reduced_graph_map,
                                   LogData &data, LogData &reduced_data){
     Link l = data.inverse_links[link_id];
@@ -544,3 +556,4 @@ Path* GetReducedPath(Path *path, unordered_map<Link, Link> &reduced_graph_map,
     }
     return reduced_path;
 }
+

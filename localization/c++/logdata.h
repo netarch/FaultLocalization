@@ -59,6 +59,8 @@ public:
     void GetAllPaths(vector<Path*> **result, int src_rack, int dest_rack);
 
     void OutputToTrace(ostream &out);
+    vector<Flow*> flow_pointers_to_delete;
+    ~LogData();
 };
 
 /* For reduced analysis */

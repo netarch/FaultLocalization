@@ -19,7 +19,7 @@ string GetFileNameFromPath(string file_path){
     return file_path.substr(pos+1);
 }
 
-void GetPrecisionRecallTrendFile(string topology_file, string trace_file, double min_start_time_ms,
+double GetPrecisionRecallTrendFile(string topology_file, string trace_file, double min_start_time_ms,
                                 double max_finish_time_ms, double step_ms,
                                 Estimator* base_estimator, vector<PDD> &result,
                                 int nopenmp_threads){
@@ -27,6 +27,7 @@ void GetPrecisionRecallTrendFile(string topology_file, string trace_file, double
     LogData* data = new LogData();
     GetDataFromLogFileParallel(trace_file, topology_file, data, nopenmp_threads);
     data->FilterFlowsBeforeTime(max_finish_time_ms, nopenmp_threads);
+    auto start_analysis_time = chrono::high_resolution_clock::now();
     Hypothesis failed_links_set;
     data->GetFailedLinkIds(failed_links_set);
     Estimator* estimator = base_estimator->CreateObject();
@@ -46,6 +47,7 @@ void GetPrecisionRecallTrendFile(string topology_file, string trace_file, double
              << precision_recall.first << " " << precision_recall.second<<endl;
     }
     delete(estimator);
+    return GetTimeSinceSeconds(start_analysis_time);
 }
 
 void GetPrecisionRecallTrendFiles(string topology_file, double min_start_time_ms, double max_finish_time_ms, 
@@ -64,14 +66,16 @@ void GetPrecisionRecallTrendFiles(string topology_file, double min_start_time_ms
     //int nthreads1 = 1;
     //int nthreads2 = nopenmp_threads;
     cout << nthreads1 << " " << nthreads2 << endl;
+    double avg_analysis_time_sec = 0.0;
     #pragma omp parallel for num_threads(nthreads1) if (nthreads1 > 1)
     for (int ff=0; ff<trace_files.size(); ff++){
         string trace_file = trace_files[ff];
         vector<PDD> intermediate_result;
-        GetPrecisionRecallTrendFile(topology_file, trace_file, min_start_time_ms, max_finish_time_ms, step_ms,
-                                    estimator, intermediate_result, nthreads2);
+        double analysis_time_sec = GetPrecisionRecallTrendFile(topology_file, trace_file, min_start_time_ms,
+                                     max_finish_time_ms, step_ms, estimator, intermediate_result, nthreads2);
         assert(intermediate_result.size() == result.size()); 
         lock.lock();
+        avg_analysis_time_sec += analysis_time_sec;
         for (int i=0; i<intermediate_result.size(); i++)
             result[i] = result[i] + intermediate_result[i];
         lock.unlock();
@@ -80,7 +84,8 @@ void GetPrecisionRecallTrendFiles(string topology_file, double min_start_time_ms
         auto [p, r] = result[i];
         result[i] = PDD(p/nfiles, r/nfiles);
     }
-    cout << "Average flows "<< total_flows/trace_files.size() << endl;
+    avg_analysis_time_sec /= trace_files.size();
+    cout << "Average flows "<< total_flows/trace_files.size() << " avg-time-for-analysis "<< avg_analysis_time_sec << " seconds" << endl;
 }
 
 void GetPrecisionRecallParamsFile(string topology_file, string trace_file, double min_start_time_ms,
@@ -119,6 +124,7 @@ void GetPrecisionRecallParamsFile(string topology_file, string trace_file, doubl
                 << precision_recall.first << " " << precision_recall.second<<endl;
         }
     }
+    delete(data);
     delete(estimator);
 }
 

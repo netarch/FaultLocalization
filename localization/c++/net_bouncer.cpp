@@ -85,12 +85,16 @@ void NetBouncer::LocalizeFailures(double min_start_time_ms, double max_finish_ti
     vector<double> success_prob(nlinks, 0.0);
     vector<double> num_flows_through_link(nlinks, 0.0);
 
+    //cout << "numflows " << active_flows.size() << " max_finish_time_ms " << max_finish_time_ms << endl;
+
     for(int ff=0; ff < active_flows.size(); ff++){
         Flow *flow = active_flows[ff];
         assert(flow->TracerouteFlow(max_finish_time_ms));
         Path *path_taken = flow->GetPathTaken();
         double flow_success_rate = 1.0 - flow->GetDropRate(max_finish_time_ms);
         double flow_drop_rate = flow->GetDropRate(max_finish_time_ms);
+        //cout << ff << " " << flow->GetPacketsSent(max_finish_time_ms) << " " << flow_drop_rate << endl;
+        if (flow->GetPacketsSent(max_finish_time_ms) == 0) continue;
         assert(flow->GetPacketsSent(max_finish_time_ms) > 0);
         success_prob[flow->first_link_id] += flow_success_rate; 
         success_prob[flow->last_link_id] += flow_success_rate; 
@@ -105,7 +109,6 @@ void NetBouncer::LocalizeFailures(double min_start_time_ms, double max_finish_ti
         assert(num_flows_through_link[link_id] > 0);
         success_prob[link_id] /= num_flows_through_link[link_id];
     }
-    const int MAX_ITERATIONS = 200;
     double error = ComputeError(active_flows, success_prob, min_start_time_ms, max_finish_time_ms);
     for (int it=0; it<MAX_ITERATIONS; it++){
         auto start_iter_time = chrono::high_resolution_clock::now();

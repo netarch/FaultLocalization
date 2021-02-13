@@ -23,16 +23,19 @@ int main(int argc, char *argv[]){
     LogData data;
     //GetDataFromLogFile(trace_file, &data);
     GetDataFromLogFileParallel(trace_file, topology_file, &data, nopenmp_threads);
-    auto start_localization_time = chrono::high_resolution_clock::now();
     Hypothesis failed_links_set;
     data.GetFailedLinkIds(failed_links_set);
-    //BayesianNet estimator;
-    Sherlock estimator;
-    vector<double> params = {1.0-5.0e-3, 2.0e-4, -25.0};
-    estimator.SetParams(params);
+    //NetBouncer estimator; vector<double> params = {0.016, 0.0113};
+    //Sherlock estimator;
+    BayesianNet estimator;
+    vector<double> params = {1.0 - 0.01, 0.00055, -5};
+    //vector<double> params = {1.0-3.0e-3, 2.0e-4, -20.0};
     //DoubleO7 estimator;
+    //vector<double> params = {0.0025};
+    estimator.SetParams(params);
     estimator.SetLogData(&data, max_finish_time_ms, nopenmp_threads);
     Hypothesis estimator_hypothesis;
+    auto start_localization_time = chrono::high_resolution_clock::now();
     estimator.LocalizeFailures(min_start_time_ms, max_finish_time_ms,
                                estimator_hypothesis, nopenmp_threads);
     PDD precision_recall = GetPrecisionRecall(failed_links_set, estimator_hypothesis);

@@ -282,9 +282,15 @@ long double Flow::GetCachedIntermediateValue(){
 }
 
 bool Flow::DiscardFlow(){
+    //double drop_rate = GetLatestPacketsLost() / GetLatestPacketsSent();
+    //return (drop_rate > 0.3);
     //return (GetLatestPacketsSent() < 100);
     return false;
     //return (src < OFFSET_HOST  or  dest < OFFSET_HOST or GetLatestPacketsSent() < 0);
     //return !IsFlowActive();
     //return IsFlowActive();
+}
+
+Flow::~Flow(){
+    //for (FlowSnapshot* s: snapshots) delete(s);
 }

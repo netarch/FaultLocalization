@@ -1,6 +1,7 @@
 #ifndef __FAULT_LOCALIZE_SHERLOCK__
 #define __FAULT_LOCALIZE_SHERLOCK__
 #include "bayesian_net.h"
+#include <stack>
 
 class Sherlock : public BayesianNet{
  public:
@@ -12,6 +13,11 @@ class Sherlock : public BayesianNet{
     Sherlock* CreateObject();
 
 private:
+    //Pair< Hypothesis, Scores>
+    typedef pair<Hypothesis*, vector<double>*> PHS;
+    void ExploreTopNode(double min_start_time_ms, double max_finish_time_ms,
+                          unordered_map<Hypothesis*, double> &all_hypothesis,
+                          int nopenmp_threads, stack<PHS> &hstack);
     void SearchHypothesesFlock(double min_start_time_ms, double max_finish_time_ms,
                           unordered_map<Hypothesis*, double> &all_hypothesis,
                           int nopenmp_threads);

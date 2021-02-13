@@ -366,8 +366,8 @@ double Topology::GetDropRateLinkUniform(double min_drop_rate, double max_drop_ra
 
 double Topology::GetDropRateFailedLink(){
     //if (drand48() <= 0.5){
-        double min_drop_rate_failed_link = 0.002;
-        double max_drop_rate_failed_link = 0.02;
+        double min_drop_rate_failed_link = 0.001;
+        double max_drop_rate_failed_link = 0.01;
         return GetDropRateLinkUniform(min_drop_rate_failed_link, max_drop_rate_failed_link);
     //}
     //else{
@@ -390,8 +390,7 @@ double Topology::GetFailParam(pair<int, int> link, double fail_param){
         std::cout<<"Failing_link "<<link.first<<" "<<link.second<<" "<<silent_drop_rate<<endl;
     }
     else{
-        silent_drop_rate = 0;
-        //silent_drop_rate = GetDropRateLinkUniform(min_drop_rate_correct_link, max_drop_rate_correct_link);
+        silent_drop_rate = GetDropRateLinkUniform(min_drop_rate_correct_link, max_drop_rate_correct_link);
     }
     return silent_drop_rate;
 }

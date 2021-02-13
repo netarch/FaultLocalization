@@ -9,7 +9,7 @@
 
 using namespace std;
 
-void GetPrecisionRecallTrendFile(string topology_file, string trace_file, double min_start_time_ms,
+double GetPrecisionRecallTrendFile(string topology_file, string trace_file, double min_start_time_ms,
                               double max_finish_time_ms, double step_ms, Estimator* base_estimator,
                               vector<PDD> &result, int nopenmp_threads);
 

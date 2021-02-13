@@ -24,6 +24,6 @@ private:
 
     double regularize_const = 0.01;
     double fail_threshold = 0.001;
-    const int MAX_ITERATIONS = 100;
+    const int MAX_ITERATIONS = 200;
 };
 #endif

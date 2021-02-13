@@ -8,9 +8,9 @@ class BayesianNet : public Estimator{
     void LocalizeFailures(double min_start_time_ms, double max_finish_time_ms,
                           Hypothesis &localized_links, int nopenmp_threads);
     const bool PRINT_SCORES = true;
-    const int MAX_FAILS = 20;
+    const int MAX_FAILS = 10;
     const int NUM_CANDIDATES = max(15, 5 * MAX_FAILS);
-    const int NUM_TOP_HYPOTHESIS_AT_EACH_STAGE = 50;
+    const int NUM_TOP_HYPOTHESIS_AT_EACH_STAGE = 4;
     // For printing purposes
     const int N_MAX_K_LIKELIHOODS = 20;
     const bool USE_CONDITIONAL = false;

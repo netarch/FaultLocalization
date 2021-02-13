@@ -139,21 +139,18 @@ int main(int argc, char *argv[]){
     // Initialize parameters for On/Off application
 
     int packet_size_bytes = 1500;
-    string data_rate_on_off = on_off_datarate + "Kbps"; 
-    string data_rate_on_off_inf = "5Gbps"; 
+    //string data_rate_on_off_inf = "5Gbps"; 
     //char maxBytes [] = "0" ; //"50000"; // "0"; // unlimited
 
     // Initialize parameters for PointToPoint protocol
-    char dataRate [] = "1Gbps"; //"40Gbps";
-    uint64_t delay_us = 10; //2.5; //microseconds
+    char dataRate [] = "10Gbps"; //"10Gbps";
+    uint64_t delay_us = 2.5; //microseconds
 
     // Fail some links, by setting loss rates
     double silent_drop_rate = fail_param;
     topology.ChooseFailedLinks(nfails);
 
     cout << "Total number of hosts =  "<< topology.total_host<<"\n";
-    cout << "On/Off flow data rate = "<< data_rate_on_off<<" Infinite data rate = "
-         << data_rate_on_off_inf<<endl;
 
     // Initialize Internet Stack and Routing Protocols
     InternetStackHelper internet;

@@ -36,4 +36,6 @@ void* RunPeriodicAnalysis007(void* arg);
 
 void* RunPeriodicAnalysis(void* arg);
 
+void* CaptureTracePeriodically(void* arg);
+
 #endif

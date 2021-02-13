@@ -2,7 +2,7 @@
  *
  * Definitions for packet ring
  *
- * 2004-2019 - ntop.org
+ * 2004-2021 - ntop.org
  *
  */
 
@@ -22,12 +22,18 @@
 #include <netinet/in.h>
 #endif /* __KERNEL__ */
 
+/* Versioning */
+#define RING_VERSION                "7.9.0"
+#define RING_VERSION_NUM           0x070900
+
+/* Increment whenever we change slot or packet header layout (e.g. we add/move a field) */
+#define RING_FLOWSLOT_VERSION          18
+
 #define RING_MAGIC
 #define RING_MAGIC_VALUE             0x88
 
-/* Increment whenever we change slot or packet header layout (e.g. we add/move a field) */
-#define RING_FLOWSLOT_VERSION          17
-
+#define MIN_NUM_SLOTS                 512
+#define DEFAULT_NUM_SLOTS            4096
 #define DEFAULT_BUCKET_LEN            128
 #define MAX_NUM_DEVICES               256
 
@@ -38,10 +44,6 @@
 #define DEFAULT_POLL_WATERMARK_TIMEOUT  0
 
 #define FILTERING_SAMPLING_RATIO       10
-
-/* Versioning */
-#define RING_VERSION                "7.5.0"
-#define RING_VERSION_NUM           0x070500
 
 /* Set */
 #define SO_ADD_TO_CLUSTER                 99
@@ -60,6 +62,7 @@
 #define SO_SET_MASTER_RING               112
 #define SO_ADD_HW_FILTERING_RULE         113
 #define SO_DEL_HW_FILTERING_RULE         114
+#define SO_DISCARD_INJECTED_PKTS         115 /* discard stack injected packets */
 #define SO_DEACTIVATE_RING               116
 #define SO_SET_POLL_WATERMARK            117
 #define SO_SET_VIRTUAL_FILTERING_DEVICE  118
@@ -125,6 +128,32 @@
 #endif
 
 /* *********************************** */
+
+#ifdef __KERNEL__
+
+#if(LINUX_VERSION_CODE >= KERNEL_VERSION(5,6,0))
+
+/* From linux 5.4.34 */
+typedef long __kernel_time_t;
+
+struct timeval {
+	__kernel_time_t		tv_sec;		/* seconds */
+	__kernel_suseconds_t	tv_usec;	/* microseconds */
+};
+
+struct timespec {
+	__kernel_time_t	tv_sec;			/* seconds */
+	long		tv_nsec;		/* nanoseconds */
+};
+
+struct timespec ns_to_timespec(const s64 nsec);
+struct timeval ns_to_timeval(const s64 nsec);
+
+#define ktime_to_timeval(kt)		ns_to_timeval((kt))
+
+#endif
+
+#endif
 
 /*
   Note that as offsets *can* be negative,
@@ -310,18 +339,23 @@ struct pfring_extended_pkthdr {
 #define PKT_FLAGS_FLOW_OFFLOAD_UPDATE 1 << 6 /* Flow update metadata, see generic_flow_update struct (keep flag compatible with ZC) */
 #define PKT_FLAGS_FLOW_OFFLOAD_PACKET 1 << 7 /* Flow raw packet, pkt_hash contains the flow_id (keep flag compatible with ZC) */
 #define PKT_FLAGS_FLOW_OFFLOAD_MARKER 1 << 8 /* Flow raw packet belongs to a flow that has been marked (keep flag compatible with ZC) */
+#define PKT_FLAGS_FLOW_OFFLOAD_1ST    1 << 9 /* Flow raw packet, this is the 1st one (Start of Flow) (keep flag compatible with ZC) */
   u_int32_t flags;
 
   u_int8_t rx_direction;   /* 1=RX: packet received by the NIC, 0=TX: packet transmitted by the NIC */
+  u_int8_t port_id;        /* Port ID (when exported by devices like Arista MetaWatch) */
+  u_int16_t device_id;     /* Device ID (when exported by devices like Arista MetaWatch) */
+
   int32_t  if_index;       /* index of the interface on which the packet has been received.
 			      It can be also used to report other information */
+
   u_int32_t pkt_hash;      /* Hash based on the packet header */
 
   /* --- short header ends here --- */
 
   struct {
     int32_t bounce_interface; /* Interface Id where this packet will bounce after processing
-			     if its values is other than UNKNOWN_INTERFACE */
+			         if its values is other than UNKNOWN_INTERFACE */
     struct sk_buff *reserved; /* Kernel only pointer */
   } tx;
 
@@ -648,13 +682,17 @@ typedef struct {
   ip_addr src_ip;
   ip_addr dst_ip;
 
+  u_int16_t vlan_id;
+  u_int8_t start_of_flow;
+  u_int8_t reserved; /* padding */
+
   u_int16_t src_port;
   u_int16_t dst_port;
 
   u_int32_t fwd_packets;
-  u_int32_t fwd_bytes;
   u_int32_t rev_packets;
-  u_int32_t rev_bytes;
+  u_int64_t fwd_bytes;
+  u_int64_t rev_bytes;
   
   struct pfring_timespec fwd_ts_first;
   struct pfring_timespec fwd_ts_last;
@@ -826,7 +864,8 @@ typedef enum {
   intel_i40e,
   intel_fm10k,
   intel_ixgbe_vf,
-  intel_ixgbe_x550
+  intel_ixgbe_x550,
+  intel_ice
 } zc_dev_model;
 
 typedef struct {
@@ -1097,20 +1136,6 @@ struct cluster_referee {
 
 /* ************************************************* */
 
-typedef int (*do_handle_sw_filtering_hash_bucket)(struct pf_ring_socket *pfr,
-					       sw_filtering_hash_bucket* rule,
-					       u_char add_rule);
-
-typedef int (*do_add_packet_to_ring)(struct pf_ring_socket *pfr,
-				     u_int8_t real_skb,
-				     struct pfring_pkthdr *hdr, struct sk_buff *skb,
-				     int displ, u_int8_t parse_pkt_first);
-
-typedef int (*do_add_raw_packet_to_ring)(struct pf_ring_socket *pfr,
-					 struct pfring_pkthdr *hdr,
-					 u_char *data, u_int data_len,
-					 u_int8_t parse_pkt_first);
-
 typedef u_int32_t (*do_rehash_rss)(struct sk_buff *skb, struct pfring_pkthdr *hdr);
 
 /* ************************************************* */
@@ -1139,6 +1164,8 @@ struct hash_fragment_node {
  * Ring options
  */
 struct pf_ring_socket {
+  rwlock_t ring_config_lock;
+
   u_int8_t ring_active, ring_shutdown, num_rx_channels, num_bound_devices;
   pf_ring_device *ring_dev;
 
@@ -1154,7 +1181,9 @@ struct pf_ring_socket {
   socket_mode mode; /* Specify the link direction to enable (RX, TX, both) */
   pkt_header_len header_len;
   u_int8_t stack_injection_mode;
+  u_int8_t discard_injected_pkts;
   u_int8_t promisc_enabled;
+  u_int8_t __padding;
 
   struct sock *sk;
 
@@ -1247,10 +1276,6 @@ struct pf_ring_socket {
 
   /* Indexes (Internal) */
   u_int32_t insert_page_id, insert_slot_id;
-
-  /* Function pointer */
-  do_add_packet_to_ring add_packet_to_ring;
-  do_add_raw_packet_to_ring add_raw_packet_to_ring;
 
   /* Kernel consumer */
   char *kernel_consumer_options, *kernel_consumer_private;

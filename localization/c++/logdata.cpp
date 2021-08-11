@@ -43,6 +43,18 @@ MemoizedPaths* LogData::GetMemoizedPaths(int src_rack, int dest_rack){
     return ret;
 }
 
+
+LogData::LogData(LogData &data) : LogData(){
+    failed_links = data.failed_links;
+    flows = data.flows;
+    hosts_to_racks = data.hosts_to_racks;
+    links_to_ids = data.links_to_ids;
+    inverse_links = data.inverse_links;
+    memoized_paths = data.memoized_paths;
+}
+
+
+
 void LogData::GetReducedData(unordered_map<Link, Link>& reduced_graph_map,
                                  LogData& reduced_data, int nopenmp_threads) {
     for (auto& it: failed_links){
@@ -358,6 +370,99 @@ vector<vector<int> >* LogData::GetReverseFlowsByLinkId(double max_finish_time_ms
     return reverse_flows_by_link_id;
 }
 
+//TODO DEVICE OPTIMIZE
+vector<vector<int> >* LogData::GetFlowsByDevice(double max_finish_time_ms, int nopenmp_threads){
+    int ndevices = GetMaxDevicePlus1();
+    vector<int> sizes[nopenmp_threads];
+    for(int thread_num=0; thread_num<nopenmp_threads; thread_num++){
+        sizes[thread_num] = vector<int> (ndevices, 0);
+    }
+    auto start_time = chrono::high_resolution_clock::now();
+    int chunk_size = (flows.size() + nopenmp_threads)/nopenmp_threads; //ceiling
+    #pragma omp parallel num_threads(nopenmp_threads)
+    {
+        int thread_num = omp_get_thread_num();
+        assert (thread_num < nopenmp_threads);
+        int start = min((int)flows.size(), thread_num * chunk_size);
+        int end = min((int)flows.size(), (thread_num+1) * chunk_size);
+        assert(start <= end);
+        Path device_path;
+        for (int ff=start; ff<end; ff++){
+            Flow *flow = flows[ff];
+            if (flow->AnySnapshotBefore(max_finish_time_ms)){
+                auto flow_paths = flow->GetPaths(max_finish_time_ms);
+                for (Path* link_path: *flow_paths){
+                    GetDeviceLevelPath(*link_path, device_path);
+                    for (int device: device_path){
+                        if (device >= ndevices){
+                            cout << "Device " << device << " ndevices " << ndevices << " link_path " << *link_path << " device_path " << device_path << endl; 
+                            assert (false);
+                        }
+                        sizes[thread_num][device]++;
+                    }
+                }
+            }
+        }
+    }
+    vector<int> final_sizes;
+    final_sizes.resize(ndevices);
+    #pragma omp parallel for num_threads(nopenmp_threads)
+    for (int device=0; device<ndevices; device++){
+        // use sizes as offsets
+        assert (omp_get_thread_num() < nopenmp_threads);
+        int curr_bin_size = sizes[0][device], last_bin_size;
+        sizes[0][device] = 0;
+        for (int thread_num=1; thread_num<nopenmp_threads; thread_num++){
+            last_bin_size = curr_bin_size;
+            curr_bin_size = sizes[thread_num][device];
+            sizes[thread_num][device] = sizes[thread_num-1][device] + last_bin_size;
+        }
+        final_sizes[device] = sizes[nopenmp_threads-1][device] + curr_bin_size;
+    }
+    if constexpr (VERBOSE){
+        cout<<"Binning flows part 1 done in "<<GetTimeSinceSeconds(start_time)<< " seconds"<<endl;
+    }
+    start_time = chrono::high_resolution_clock::now();
+    flows_by_device = new vector<vector<int> >(ndevices);
+    int nthreads = min(12, nopenmp_threads);
+    #pragma omp parallel for num_threads(nthreads)
+    for(int device=0; device<ndevices; device++){
+        assert (omp_get_thread_num() < nthreads);
+        (*flows_by_device)[device] = vector<int>(final_sizes[device]);
+    }
+    if constexpr (VERBOSE){
+        cout<<"Binning flows part 2 done in "<<GetTimeSinceSeconds(start_time)<< " seconds"<<endl;
+    }
+    start_time = chrono::high_resolution_clock::now();
+    #pragma omp parallel num_threads(nopenmp_threads)
+    {
+        int thread_num = omp_get_thread_num();
+        assert (thread_num < nopenmp_threads);
+        int start = min((int)flows.size(), thread_num * chunk_size);
+        int end = min((int)flows.size(), (thread_num+1) * chunk_size);
+        auto &offsets = sizes[thread_num];
+        assert(start <= end);
+        Path device_path;
+        for (int ff=start; ff<end; ff++){
+            Flow *flow =  flows[ff];
+            if (flow->AnySnapshotBefore(max_finish_time_ms)){
+                auto flow_paths = flow->GetPaths(max_finish_time_ms);
+                for (Path* link_path: *flow_paths){
+                    GetDeviceLevelPath(*link_path, device_path);
+                    for (int device: device_path){
+                        (*flows_by_device)[device][offsets[device]++] = ff;
+                    }
+                }
+            }
+        }
+    }
+    if constexpr (VERBOSE){
+        cout<<"Binning flows part 3 done in "<<GetTimeSinceSeconds(start_time)<< " seconds"<<endl;
+    }
+    start_time = chrono::high_resolution_clock::now();
+    return flows_by_device;
+}
+
 vector<vector<int> >* LogData::GetFlowsByLinkId(double max_finish_time_ms, int nopenmp_threads){
     GetForwardFlowsByLinkId(max_finish_time_ms, nopenmp_threads);
     if constexpr (!CONSIDER_REVERSE_PATH) flows_by_link_id = forward_flows_by_link_id;
@@ -382,6 +487,12 @@ vector<vector<int> >* LogData::GetFlowsByLinkId(double max_finish_time_ms, int n
 void LogData::GetFailedLinkIds(Hypothesis &failed_links_set){
     for (auto &it: failed_links){
         failed_links_set.insert(links_to_ids[it.first]);
+    } 
+}
+
+void LogData::GetFailedDevices(Hypothesis &failed_devices_set){
+    for (auto &it: failed_devices){
+        failed_devices_set.insert(it.first);
     } 
 }
 
@@ -520,14 +631,42 @@ void LogData::OutputToTrace(ostream& out){
     }
 }
 
+int LogData::GetMaxDevicePlus1(){
+    if (max_device == -1){
+        for (Link l: inverse_links){
+            if (l.first < OFFSET_HOST) max_device = max(max_device, l.first);  
+            if (l.second < OFFSET_HOST) max_device = max(max_device, l.second);  
+        }
+    }
+    return max_device+1;
+}
+
+void LogData::GetDeviceLevelPath(Path &path, Path &result){
+    result.clear();
+    if (path.size() > 0){
+        // Add the first device
+        Link link = inverse_links[path[0]];
+        result.push_back(link.first);
+    }
+    for (int link_id: path){
+        Link link = inverse_links[link_id];
+        result.push_back(link.second);
+    }
+}
+
+void LogData::CleanupFlows(){
+   for (Flow *f: flow_pointers_to_delete) delete[] f; 
+   delete(forward_flows_by_link_id);
+   delete(reverse_flows_by_link_id);
+   forward_flows_by_link_id = NULL;
+   reverse_flows_by_link_id = NULL;
+}
 
 LogData::~LogData(){
    for (Flow *f: flows){   
        for (auto s: f->snapshots) delete(s);
    }
-   for (Flow *f: flow_pointers_to_delete) delete[] f; 
-   delete(forward_flows_by_link_id);
-   delete(reverse_flows_by_link_id);
+   CleanupFlows();
 }
 
 

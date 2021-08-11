@@ -16,10 +16,6 @@ using google::dense_hash_map;
 const bool LEAFSPINE_NET_BOUNCER = false; //!HACK
 
 
-inline bool StringStartsWith(const string &a, const string &b) {
-    return (b.length() <= a.length() && equal(b.begin(), b.end(), a.begin()));
-}
-
 inline bool StringEqualTo(const char* a, const char* b) {
     while ((*b == *a) and (*a!='\0')){
         a++;

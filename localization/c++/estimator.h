@@ -8,7 +8,7 @@
 
 class Estimator{
  public:
-    Estimator(): data(NULL), flows_by_link_id(NULL) {}
+    Estimator(): data(NULL), flows_by_link_id(NULL), flows_by_device(NULL) {}
      
     virtual void LocalizeFailures(double min_start_time_ms, double max_finish_time_ms, 
                                  Hypothesis &localized_links, int nopenmp_threads){
@@ -35,10 +35,25 @@ class Estimator{
         }
     }
 
+    void BinFlowsByDevice(double max_finish_time_ms, int nopenmp_threads){
+        auto start_bin_time = chrono::high_resolution_clock::now();
+        if (flows_by_device != NULL) delete(flows_by_device);
+        flows_by_device = data->GetFlowsByDevice(max_finish_time_ms, nopenmp_threads);
+        if constexpr (VERBOSE){
+            int num_flows = count_if (data->flows.begin(), data->flows.end(),
+                                      [max_finish_time_ms](Flow *flow){
+                                        return flow->AnySnapshotBefore(max_finish_time_ms);
+                                      });
+            cout << "Finished binning " << num_flows << " flows by devices in "
+                 << GetTimeSinceSeconds(start_bin_time) << " seconds" << endl;
+        }
+    }
+
     virtual Estimator* CreateObject() { return new Estimator(); }
 
     LogData* data;
     vector<vector<int> >* flows_by_link_id;
+    vector<vector<int> >* flows_by_device;
 };
 
 #endif

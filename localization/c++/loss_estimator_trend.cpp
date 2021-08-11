@@ -14,13 +14,13 @@ using namespace std;
 vector<string> GetFilesHwCalibration(){
     //string file_prefix = "/home/vharsh2/flock/ns3/topology/hw_ls_6_2/optical_fault/plog_testbed";
     //string file_prefix = "/home/vharsh2/Flock/ns3/topology/hw_ls_6_2/calibration/wred_logs/plog_nb";
-    string file_prefix = "/home/vharsh2/Flock/ns3/topology/hw_ls_6_2/calibration/packet_corruption_logs/plog_nb";
+    string file_prefix = "/home/vharsh2/Flock/ns3/topology/hw_ls_6_2/calibration/packet_corruption_logs/t60/plog_nb";
     vector<PII> ignore_files = {};
     vector<string> files;
     for(int f=1; f<=3; f++){
     //for (int f: vector<int>({8})){ // {1-8}
         //for(int s: vector<int>({1,2,3,4,5,6,7,8})){ // {1-2}
-        for (int s = 1; s < 24; s++){
+        for (int s = 1; s < 32; s++){
             if(find(ignore_files.begin(), ignore_files.end(),  PII(f, s)) == ignore_files.end()){
                 files.push_back(file_prefix + "_" + to_string(f) + "_0_" + to_string(s)); 
                 cout << "adding file for analaysis " <<files.back() << endl;
@@ -177,11 +177,11 @@ vector<string> GetFiles007Verification(){
 }
 
 vector<string> GetFiles(){
-    return GetFilesHwCalibration();
+    //return GetFilesHwCalibration();
     //return GetFilesHw();
     //return GetFilesRRG();
     //return GetFilesMixed();
-    //return GetFilesMixed40G();
+    return GetFilesMixed40G();
     //return GetFiles007Verification();
     //return GetFilesFlowSimulator();
     //return GetFilesSoftness();
@@ -283,6 +283,7 @@ void SweepParamsBayesianNet(string topology_filename, double min_start_time_ms, 
     //params = {{1.0 - 0.008, 0.00035, -7.5}}; //flock (A1)
     //params = {{1.0 - 0.01, 0.0003, -35}}; //flock (A2)
     //params = {{1.0- 0.005, 0.0005, -7.5}}; //Flock (A1+A2+P)
+    params = {{1.0 - 0.003, 0.0002, -20}}; // Flock (A1+A2+P)
     vector<PDD> result;
     BayesianNet estimator;
     GetPrecisionRecallParamsFiles(topology_filename, min_start_time_ms, max_finish_time_ms,

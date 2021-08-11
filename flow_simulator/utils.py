@@ -11,6 +11,12 @@ import networkx as nx
 HOST_OFFSET = 10000
 
 
+def TupleHash(t):
+    res = 1
+    for num in t:
+        res = res*8191 + (num*2654435761 % 1000000009)
+    return res
+
 class Flow(object):
     def __init__(self, src, dst, flowsize, srcport=None, dstport=None):
         self.src = src
@@ -18,10 +24,12 @@ class Flow(object):
         self.flowsize = flowsize
         self.srcport = srcport
         self.dstport = dstport
+        self.failed_src_dst_pairs = None
 
     def HashToPath(self, paths):
         ftuple = self.src, self.dst, self.srcport, self.dstport
-        ind = hash(ftuple)%len(paths)
+        ind = TupleHash(ftuple)%len(paths)
+        #print(ftuple, ind)
         return paths[ind]
 
 class Topology(object):
@@ -46,7 +54,8 @@ class Topology(object):
                     tokens = line.split("->")
                     host = int(tokens[0])
                     rack = int(tokens[1])
-                    self.G.add_edge(host+HOST_OFFSET, rack)
+                    #self.G.add_edge(host+HOST_OFFSET, rack)
+                    self.G.add_edge(host, rack)
                     self.nservers += 1
                     self.host_rack_map[host] = rack
                     self.racks.add(rack)
@@ -149,7 +158,7 @@ class Topology(object):
         def uniform_random():
             return HOST_OFFSET + random.randint(0, self.nservers-1)
         flows = []
-        nflows_per_src_dst = 100
+        nflows_per_src_dst = 1000
         for i in range(int(nflows/nflows_per_src_dst)):
             src = uniform_random()
             dst = uniform_random()
@@ -157,10 +166,10 @@ class Topology(object):
             dst_rack = self.host_rack_map[dst]
             for t in range(nflows_per_src_dst):
                 if (i * nflows_per_src_dst + t)%50000 == 0:
-                    print("Finished", i, "flows")
+                    print("Finished", i * nflows_per_src_dst + t, "flows")
                 flowsize = self.GetParetoFlowSize()
-                srcport = random.randint(1000, 1100)
-                dstport = random.randint(1000, 1100)
+                srcport = random.randint(1000, 2000)
+                dstport = random.randint(1000, 2000)
                 flows.append(Flow(src, dst, flowsize, srcport, dstport))
         return flows
 
@@ -171,6 +180,7 @@ class Topology(object):
         src_dst_pairs = [(flow.src, flow.dst) for flow in flows]
         random.shuffle(src_dst_pairs)
         failed_src_dst_pairs = src_dst_pairs[:nfailed_pairs]
+        self.failed_src_dst_pairs = set(failed_src_dst_pairs)
         for src, dst in failed_src_dst_pairs:
             src_rack = self.host_rack_map[src]
             dst_rack = self.host_rack_map[dst]
@@ -178,12 +188,12 @@ class Topology(object):
             links = set()
             for path in all_paths:
                 links.update([(path[i], path[i+1]) for i in range(len(path)-1)])
-            print(links)
+            print(src, dst, "links:", links)
             failed_link = random.choice(list(links))
             failed_component = (failed_link, src, dst)
             print("Failing:", failed_component)
             self.failed_components.append(failed_component)
-            fail_prob[failed_component] = random.uniform(0.01, 0.1)
+            fail_prob[failed_component] = random.uniform(0.05, 0.1)
         return fail_prob
 
     def GetDropProbSilentDrop(self): 
@@ -199,6 +209,43 @@ class Topology(object):
                 fail_prob[edge] = random.uniform(0.0000, 0.0001)
         return fail_prob
 
+    def GetAllRackPairPaths2(self):
+        all_rack_pair_paths = dict()
+        switches = [node for node in self.G.nodes() if node < HOST_OFFSET]   
+        all_pair_dists = [None for i in range(self.max_switch+1)] #dict(nx.all_pairs_shortest_path_length(self.G))
+        print(self.max_switch, "max_switch")
+        for src_sw in switches:
+            if src_sw % 50 == 0:
+                print ("getting path lens", src_sw)
+            src_dists = dict(nx.single_source_shortest_path_length(self.G, src_sw))
+            #print("src_rack", src_rack)
+            all_pair_dists[src_sw] = src_dists
+        def GetPaths(src, dst):
+            if src == dst:
+                return [[dst]]
+            else:
+                ret = []
+                curr_dist = all_pair_dists[src][dst]
+                for nbr in self.G.neighbors(src):
+                    if nbr < HOST_OFFSET and all_pair_dists[nbr][dst] + 1 == curr_dist:
+                        nbr_paths = GetPaths(nbr, dst)
+                        ret += [[src] + path for path in nbr_paths]
+                return ret
+        for src_rack in self.racks:
+            if src_rack % 10 == 0:
+                print ("Printing paths", src_rack)
+            src_paths = dict()
+            for dst_rack in self.racks:
+                if src_rack == dst_rack:
+                    src_paths[dst_rack] = [[]]
+                else:
+                    src_paths[dst_rack] = GetPaths(src_rack, dst_rack)
+                #print(src_rack, dst_rack, len(src_paths[dst_rack]), file=self.outfile)
+                for path in src_paths[dst_rack]:
+                    if path != []:
+                        self.PrintPath("FP", path, out=self.outfile)
+            all_rack_pair_paths[src_rack] = src_paths
+        return all_rack_pair_paths
 
     def GetAllRackPairPaths(self):
         all_rack_pair_paths = dict()
@@ -207,6 +254,7 @@ class Topology(object):
                 print ("printing paths", src_rack)
             src_paths = dict()
             for dst_rack in self.racks:
+                #TODO: parallelize, check if nx.all_shortest_paths are thread safe
                 paths = list(nx.all_shortest_paths(self.G, source=src_rack, target=dst_rack))
                 src_paths[dst_rack] = paths
                 for path in paths:
@@ -214,15 +262,16 @@ class Topology(object):
             all_rack_pair_paths[src_rack] = src_paths
         return all_rack_pair_paths
 
-
-    def PrintLogsBlackHole(self, nfailed_pairs):
+    def PrintLogsBlackHole(self, nfailed_pairs, failfile):
         nflows = 100 * self.nservers
+        print("Nflows", nflows, "nservers", self.nservers)
         flows = self.GetFlowsBlackHole(nflows)
-        all_rack_pair_paths = self.GetAllRackPairPaths()
+        all_rack_pair_paths = self.GetAllRackPairPaths2()
         fail_prob = self.GetDropProbBlackHole(flows, nfailed_pairs, all_rack_pair_paths)
+        for link, src, dst in fail_prob:
+            print("Failing_component", src, dst, link[0], link[1], fail_prob[(link, src, dst)], file=failfile) 
         curr = 0
-        host_offset_copy = HOST_OFFSET + 0
-        print("Host offset copy", host_offset_copy)
+        print("Fail prob", fail_prob)
         def GetFailProb(link, flow):
             if (link, flow.src, flow.dst) in fail_prob:
                 return fail_prob[(link, flow.src, flow.dst)]
@@ -233,18 +282,23 @@ class Topology(object):
             src_rack = self.host_rack_map[flow.src]
             dst_rack = self.host_rack_map[flow.dst]
             #print(src, dst, flowsize)
+            #if (flow.src, flow.dst) in self.failed_src_dst_pairs:
+            #    print("Failed pair", flow.src, flow.dst)
             path_taken = flow.HashToPath(all_rack_pair_paths[src_rack][dst_rack])
-            first_link = (flow.src + host_offset_copy, path_taken[0])
-            last_link = (path_taken[-1], flow.dst + host_offset_copy)
+            #print(path_taken, src_rack, dst_rack)
+            first_link = (flow.src, src_rack)
+            last_link = (dst_rack, flow.dst)
             flow_dropped = False
-            if (random.random() <= GetFailProb(first_link, flow) or random.random() <= GetFailProb(last_link, flow)):
+            if (random.random() < GetFailProb(first_link, flow) or random.random() <= GetFailProb(last_link, flow)):
                 flow_dropped = True
             for k in range(0, len(path_taken)-1):
                 u = path_taken[k]
                 v = path_taken[k+1]
                 if (random.random() <= GetFailProb((u,v), flow)):
                     flow_dropped = True
-            print("FID ", host_offset_copy + flow.src, host_offset_copy + flow.dst, src_rack, dst_rack, flow.flowsize, 0.0, file=self.outfile)
+            if flow_dropped:
+                print("Dropping flow", flow.src, flow.dst)
+            print("FID ", flow.src, flow.dst, src_rack, dst_rack, flow.flowsize, 0.0, file=self.outfile)
             self.PrintPath("FPT", path_taken, out=self.outfile)
             print("SS ", 1000.0 * random.random(), 1, int(flow_dropped), 0, file=self.outfile)
             sumflowsize += flow.flowsize
@@ -262,8 +316,6 @@ class Topology(object):
         all_rack_pair_paths = self.GetAllRackPairPaths()
         packetsize = 1500 #bytes
         sumflowsize = 0
-        host_offset_copy = HOST_OFFSET + 0
-        print("Host offset copy", host_offset_copy)
         curr = 0
         for flow in flows:
             curr += 1
@@ -277,8 +329,8 @@ class Topology(object):
             path_taken = random.choice(all_rack_pair_paths[src_rack][dst_rack])
             packets_dropped = 0
             for i in range(packets_sent):
-                first_link = (flow.src + host_offset_copy, path_taken[0])
-                last_link = (path_taken[-1], flow.dst + host_offset_copy)
+                first_link = (flow.src, path_taken[0])
+                last_link = (path_taken[-1], flow.dst)
                 if (random.random() <= fail_prob[first_link] or random.random() <= fail_prob[last_link]):
                     packets_dropped += 1
                 else:
@@ -288,7 +340,7 @@ class Topology(object):
                         if (random.random() <= fail_prob[(u,v)]):
                             packets_dropped += 1
                             break
-            print("FID ", host_offset_copy + flow.src, host_offset_copy + flow.dst, src_rack, dst_rack, packetsize * packets_sent, 0.0, file=self.outfile)
+            print("FID ", flow.src, flow.dst, src_rack, dst_rack, packetsize * packets_sent, 0.0, file=self.outfile)
             self.PrintPath("FPT", path_taken, out=self.outfile)
             print("SS ", 1000.0 * random.random(), packets_sent, packets_dropped, 0, file=self.outfile)
             sumflowsize += flow.flowsize

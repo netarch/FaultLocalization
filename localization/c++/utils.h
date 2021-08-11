@@ -84,6 +84,14 @@ inline bool HypothesisIntersectsPath(Hypothesis *hypothesis, Path *path){
     return link_in_path;
 }
 
+inline int NumIntersectionsHypothesisPath(Hypothesis *hypothesis, Path *path){
+    int links_in_path = 0;
+    for (int link_id: *path){
+        links_in_path += (hypothesis->count(link_id) > 0);
+    }
+    return links_in_path;
+}
+
 inline int GetTokenLength(char *str){
     int ind = 0;
     while(str[ind]==' ') ind++; //Trim initial whitespace
@@ -150,9 +158,7 @@ inline bool GetFirstDouble(char* &str, double &result){
 inline bool GetString(char* &str, string &result){
     int ind = 0;
     result.clear();
-    return true;
     while(*str!=' ') result.push_back(*(str++)); //Trim initial whitespace
-
     int token_length = GetTokenLength(str);
     result.clear();
     result.insert(0, str, token_length);
@@ -164,6 +170,10 @@ inline bool GetString(char* &str, char *result){
     while(*str!=' ') *(result++) = (*(str++));
     *result = '\0';
     return true;
+}
+
+inline bool StringStartsWith(const string &a, const string &b) {
+    return (b.length() <= a.length() && equal(b.begin(), b.end(), a.begin()));
 }
 
 PDD GetPrecisionRecall(Hypothesis& failed_links, Hypothesis& predicted_hypothesis);

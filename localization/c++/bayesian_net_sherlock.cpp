@@ -79,50 +79,6 @@ void Sherlock::SearchHypothesesFlock(double min_start_time_ms, double max_finish
     int cnt = 0;
     auto start_search_time = chrono::high_resolution_clock::now();
     ExploreTopNode(min_start_time_ms, max_finish_time_ms, all_hypothesis, nopenmp_threads, hstack);
-
-    /*
-    while(!hstack.empty()){
-        if constexpr (VERBOSE){
-            if (cnt++ % 500 == 0){
-                cout << MAX_FAILS << " Finished traversing "<<cnt<<" Hypotheses in "<< 
-                        GetTimeSinceSeconds(start_search_time) << " seconds, " << "stack size " << hstack.size() << endl;
-            }
-        }
-        auto[base_hypothesis, base_scores] = hstack.top();
-        hstack.pop();
-        ExploreNode (base_hypothesis
-        double base_likelihood = all_hypothesis[base_hypothesis];
-        auto max_it = std::max_element(base_hypothesis->begin(), base_hypothesis->end());
-        int max_link_id = (max_it == base_hypothesis->end()? -1: *max_it);
-        vector<pair<double, Hypothesis*> > result;
-        for (int link_id = data->inverse_links.size()-1; link_id>max_link_id; link_id--){
-            Hypothesis *new_hypothesis = new Hypothesis(*base_hypothesis);
-            new_hypothesis->insert(link_id);
-            double new_likelihood = base_likelihood + base_scores->at(link_id)
-                                                    + ComputeLogPrior(new_hypothesis)
-                                                    - ComputeLogPrior(base_hypothesis);
-            if (new_hypothesis->size() < MAX_FAILS){
-                vector<double> *new_scores = new vector<double>(*base_scores);
-                UpdateScores(*new_scores, new_hypothesis, base_hypothesis, min_start_time_ms, max_finish_time_ms, nopenmp_threads);
-                hstack.push(PHS(new_hypothesis, new_scores));
-                //cout << "pushing to stack " << *new_hypothesis << endl;
-            }
-            result.push_back(make_pair(new_likelihood, new_hypothesis));
-        }
-        sort(result.begin(), result.end(), greater<pair<double, Hypothesis*> >());
-        int nsave = (base_hypothesis->size() < MAX_FAILS-1? result.size(): min(10, (int)result.size()));
-        //cout << nsave << " " << base_hypothesis->size() << endl;
-        int curr = 0;
-        while(curr < nsave){
-            all_hypothesis[result[curr].second] = result[curr].first;
-            curr++;
-        }
-        while (curr < result.size() and base_hypothesis->size() == MAX_FAILS-1){
-            delete result[curr].second;
-            curr++;
-        }
-        delete base_scores;
-    }*/
 }
 
 void Sherlock::SearchHypotheses(double min_start_time_ms, double max_finish_time_ms,

@@ -7,6 +7,8 @@ class BayesianNet : public Estimator{
     BayesianNet() : Estimator() {}
     void LocalizeFailures(double min_start_time_ms, double max_finish_time_ms,
                           Hypothesis &localized_links, int nopenmp_threads);
+    void LocalizeDeviceFailures(double min_start_time_ms, double max_finish_time_ms,
+                                Hypothesis& localized_devices, int nopenmp_threads);
     const bool PRINT_SCORES = true;
     const int MAX_FAILS = 10;
     const int NUM_CANDIDATES = max(15, 5 * MAX_FAILS);
@@ -15,6 +17,7 @@ class BayesianNet : public Estimator{
     const int N_MAX_K_LIKELIHOODS = 20;
     const bool USE_CONDITIONAL = false;
     double PRIOR = -1000.0;
+    const int GIBBS_SAMPLING_ITERATIONS = 1000000;
     bool REDUCED_ANALYSIS = false;
     void SetReducedAnalysis(bool val) { REDUCED_ANALYSIS = val; }
     void SetNumReducedLinksMap(unordered_map<int, int>* num_reduced_links_map_) {
@@ -29,30 +32,56 @@ class BayesianNet : public Estimator{
     void SetParams(vector<double>& param);
 
 protected:
+    void LocalizeFailuresHelper(double min_start_time_ms, double max_finish_time_ms,
+                                Hypothesis& localized_links, bool device_level,
+                                int nopenmp_threads);
+    void HypothesesIntersection(set<Hypothesis*> &hypotheses_set, Hypothesis &result);
+
     void SearchHypotheses(double min_start_time_ms, double max_finish_time_ms,
                           unordered_map<Hypothesis*, double> &all_hypothesis,
                           int nopenmp_threads);
-    void SearchHypotheses1(double min_start_time_ms, double max_finish_time_ms,
+    void SearchHypothesesJle(double min_start_time_ms, double max_finish_time_ms,
+                          unordered_map<Hypothesis*, double> &all_hypothesis,
+                          bool device_level, int nopenmp_threads);
+
+    void SearchHypothesesGibbsSampling(double min_start_time_ms, double max_finish_time_ms,
                           unordered_map<Hypothesis*, double> &all_hypothesis,
                           int nopenmp_threads);
+    void SearchHypothesesGibbsSamplingJLE(double min_start_time_ms, double max_finish_time_ms,
+                          unordered_map<Hypothesis*, double> &all_hypothesis,
+                          int nopenmp_threads);
+    void FlipLinkId(Hypothesis* hypothesis, int link_id);
+
 
     void PrintScores(double min_start_time_ms, double max_finish_time_ms,
                      int nopenmp_threads);
 
+    void PrintCorrectHypothesisLikelihood(double min_start_time_ms, double max_finish_time_ms,
+                                          Hypothesis &localized_components, 
+                                          bool device_level, int nopenmp_threads);
+
     void ComputeInitialLikelihoods(vector<double> &initial_likelihoods,
                                  double min_start_time_ms, double max_finish_time_ms,
                                  int nopenmp_threads);
+    void ComputeInitialLikelihoodsHelper(vector<double> &initial_likelihoods,
+                                 double min_start_time_ms, double max_finish_time_ms,
+                                 bool device_level, int nopenmp_threads);
     void ComputeSingleLinkLogLikelihood(vector<pair<double, Hypothesis*> > &result,
                                  double min_start_time_ms, double  max_finish_time_ms,
                                  int nopenmp_threads);
     void GetRelevantFlows(Hypothesis* hypothesis, Hypothesis* base_hypothesis,
                                  double min_start_time_ms, double max_finish_time_ms,
                                  vector<int>& relevant_flows);
+    void GetRelevantFlowsHelper(Hypothesis* hypothesis, Hypothesis* base_hypothesis,
+                                double min_start_time_ms, double max_finish_time_ms,
+                                vector<int>& relevant_flows, bool device_level);
 
     inline bool DiscardFlow(Flow *flow, double min_start_time_ms, double max_finish_time_ms);
 
     array<int, 6> ComputeFlowPathCountersUnreduced(Flow *flow, Hypothesis *hypothesis,
                               Hypothesis *base_hypothesis, double max_finish_time_ms);
+    array<int, 6> ComputeFlowPathCountersUnreducedDevice(Flow *flow, Hypothesis *hypothesis,
+                                    Hypothesis *base_hypothesis, double max_finish_time_ms);
     array<int, 6> ComputeFlowPathCountersReduced(Flow *flow, Hypothesis *hypothesis,
                               Hypothesis *base_hypothesis, double max_finish_time_ms);
 
@@ -61,6 +90,17 @@ protected:
                    double base_likelihood, double min_start_time_ms, double max_finish_time_ms,
                    vector<int> &relevant_flows, int nopenmp_threads=1);
 
+    // for a single hypothesis (device level)
+    double ComputeLogLikelihoodDevice(Hypothesis* hypothesis, Hypothesis* base_hypothesis,
+                   double base_likelihood, double min_start_time_ms, double max_finish_time_ms,
+                   vector<int> &relevant_flows, int nopenmp_threads=1);
+
+    // for a single hypothesis (abstracts out link/device level)
+    double ComputeLogLikelihoodHelper(Hypothesis* hypothesis, Hypothesis* base_hypothesis,
+                   double base_likelihood, double min_start_time_ms, double max_finish_time_ms,
+                   vector<int> &relevant_flows, bool device_level, int nopenmp_threads=1);
+
+    // differentiate between multiple link failures on a path
     double ComputeLogLikelihood2(Hypothesis* hypothesis, Hypothesis* base_hypothesis,
                    double base_likelihood, double min_start_time_ms, double max_finish_time_ms,
                    vector<int> &relevant_flows, int nopenmp_threads=1);
@@ -70,6 +110,12 @@ protected:
     double ComputeLogLikelihood(Hypothesis* hypothesis, Hypothesis* base_hypothesis,
                     double base_likelihood, double min_start_time_ms,
                     double max_finish_time_ms, int nopenmp_threads=1);
+
+    // computes relevant_flows and calls the other version
+    double ComputeLogLikelihoodHelper(Hypothesis* hypothesis, Hypothesis* base_hypothesis,
+                                      double base_likelihood, double min_start_time_ms,
+                                      double max_finish_time_ms, bool device_level,
+                                      int nopenmp_threads=1);
 
     // for a set of hypothesis
     void ComputeLogLikelihood(vector<Hypothesis*> &hypothesis_space,
@@ -107,11 +153,25 @@ protected:
     int UpdateScores(vector<double> &likelihood_scores, Hypothesis* hypothesis,
                       Hypothesis* base_hypothesis, double min_start_time_ms,
                       double max_finish_time_ms, int nopenmp_threads);
+    int UpdateScoresPopulateCounters(vector<Path*> *flow_paths, Hypothesis *hypothesis, int end_failed_links,
+                                  vector<int> &end_links, vector<int> &npaths_failed_exclude_end_link,
+                                  vector<short int> &link_ctrs_threads, bool *hypothesis_link_bitmap);
+
+    int UpdateScoresDevice(vector<double> &likelihood_scores, Hypothesis* hypothesis,
+                           Hypothesis* base_hypothesis, double min_start_time_ms,
+                           double max_finish_time_ms, int nopenmp_threads);
+    int UpdateScoresDevicePopulateCounters(vector<Path*> *flow_paths, Hypothesis *hypothesis,
+                                  vector<short int> &device_ctrs_threads, bool *hypothesis_link_bitmap);
     void GetIndicesOfTopK(vector<double>& scores, int k, vector<int>& result, Hypothesis *exclude);
 
     // Verify likelihood computation optimizations with the vanilla version
     bool VerifyLikelihoodComputation(unordered_map<Hypothesis*, double>& all_hypothesis,
               double min_start_time_ms, double max_finish_time_ms, int nopenmp_threads);
+
+    void AddContributionsFromThreads(vector<double> *contributions, vector<double> &result,
+                                     int nopenmp_threads);
+
+    int GetNumComponents(bool device_level);
 
     // Noise parameters
     double p1 = 1.0-5.0e-3, p2 = 2.0e-4;

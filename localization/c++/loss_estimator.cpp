@@ -28,8 +28,8 @@ int main(int argc, char *argv[]){
     //NetBouncer estimator; vector<double> params = {0.016, 0.0113};
     //Sherlock estimator;
     BayesianNet estimator;
-    vector<double> params = {1.0 - 0.01, 0.00055, -5};
-    //vector<double> params = {1.0-3.0e-3, 2.0e-4, -20.0};
+    vector<double> params = {1.0-3.0e-3, 2.0e-4, -20.0};
+    //vector<double> params = {1.0-1.0e-3, 1.0e-4, -20.0};
     //DoubleO7 estimator;
     //vector<double> params = {0.0025};
     estimator.SetParams(params);

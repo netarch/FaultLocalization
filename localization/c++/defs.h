@@ -11,7 +11,7 @@ using google::dense_hash_map;
 
 using namespace std;
 
-const bool PATH_KNOWN=false;
+const bool PATH_KNOWN=true;
 const bool CONSIDER_REVERSE_PATH=false;
 const bool VERBOSE=true;
 
@@ -19,6 +19,7 @@ const bool VERBOSE=true;
 const int OFFSET_HOST = 10000;
 
 #define MAX_PATH_LENGTH 4
+//#define MAX_PATH_LENGTH 6
 
 template <typename T>
 struct SmallVector{
@@ -30,7 +31,7 @@ struct SmallVector{
             arr[ind++] = elt;
         }
     }
-    SmallVector() {}
+    SmallVector(): arr_size(0), ind(0) {}
     SmallVector(int _size): arr_size(_size), ind(0){
         //arr = new T[arr_size];
     }
@@ -55,6 +56,9 @@ struct SmallVector{
     }
     T &operator[] (int ii){
         return arr[ii];
+    }
+    void clear(){
+        arr_size = ind = 0;
     }
     char size() {
         return arr_size;

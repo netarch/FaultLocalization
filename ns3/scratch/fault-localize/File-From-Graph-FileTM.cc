@@ -128,7 +128,7 @@ int main(int argc, char *argv[]){
     Config::SetDefault("ns3::DropTailQueue::MaxPackets", UintegerValue (drop_queue_limit));
 
     // Simulation parameters
-    double sim_time_seconds = 20; //0.5;
+    double sim_time_seconds = 60; //0.5;
     double warmup_time_seconds = 1.0;
 
     // Define topology
@@ -143,7 +143,7 @@ int main(int argc, char *argv[]){
     //char maxBytes [] = "0" ; //"50000"; // "0"; // unlimited
 
     // Initialize parameters for PointToPoint protocol
-    char dataRate [] = "10Gbps"; //"10Gbps";
+    char dataRate [] = "1Gbps"; //"10Gbps";
     uint64_t delay_us = 2.5; //microseconds
 
     // Fail some links, by setting loss rates

@@ -18,7 +18,9 @@ const bool VERBOSE=true;
 // All trace files have hosts numbered as host + OFFSET_HOST
 const int OFFSET_HOST = 10000;
 
-#define MAX_PATH_LENGTH 4
+//+1 for device level localization
+#define MAX_PATH_LENGTH 5
+//#define MAX_PATH_LENGTH 4
 //#define MAX_PATH_LENGTH 6
 
 template <typename T>
@@ -62,6 +64,10 @@ struct SmallVector{
     }
     char size() {
         return arr_size;
+    }
+    void SetSize(int _size){
+        arr_size = (char)_size;
+        ind = 0;
     }
     class iterator{
         public:

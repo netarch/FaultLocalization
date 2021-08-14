@@ -394,8 +394,10 @@ vector<vector<int> >* LogData::GetFlowsByDevice(double max_finish_time_ms, int n
                 for (Path* link_path: *flow_paths){
                     GetDeviceLevelPath(*link_path, device_path);
                     for (int device: device_path){
-                        if (device >= ndevices){
-                            cout << "Device " << device << " ndevices " << ndevices << " link_path " << *link_path << " device_path " << device_path << endl; 
+                        if (device < 0 or device >= ndevices){
+                            cout << "Device " << device << " ndevices " << ndevices << " link_path "
+                                 << *link_path << " device_path " << device_path << " link_path_size "
+                                 << int((*link_path).size()) <<  " device_path_size " << int(device_path.size()) << endl; 
                             assert (false);
                         }
                         sizes[thread_num][device]++;
@@ -644,6 +646,7 @@ int LogData::GetMaxDevicePlus1(){
 void LogData::GetDeviceLevelPath(Path &path, Path &result){
     result.clear();
     if (path.size() > 0){
+        result.SetSize(path.size()+1);
         // Add the first device
         Link link = inverse_links[path[0]];
         result.push_back(link.first);

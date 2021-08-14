@@ -12,27 +12,30 @@
 using namespace std;
 
 
-map<PII, pair<Link, double> > ReadFailures(string fail_file){
+map<PII, pair<int, double> > ReadFailures(string fail_file){
     auto start_time = chrono::high_resolution_clock::now();
     ifstream infile(fail_file);
     string line;
     char op[30];
-    // map[(src, dst)] = (failed_link_id, failparam)
-    map<PII, pair<Link, double> > fails;
+    // map[(src, dst)] = (failed_component(link/device), failparam)
+    map<PII, pair<int, double> > fails;
     while (getline(infile, line)){
         char* linec = const_cast<char*>(line.c_str());
         GetString(linec, op);
         if (StringStartsWith(op, "Failing_component")){
-            int src, dest, node1, node2;
+            int src, dest, device; //node1, node2;
             double failparam;
             GetFirstInt(linec, src);
             GetFirstInt(linec, dest);
-            GetFirstInt(linec, node1);
-            GetFirstInt(linec, node2);
+            //GetFirstInt(linec, node1);
+            //GetFirstInt(linec, node2);
+            GetFirstInt(linec, device);
             GetFirstDouble(linec, failparam);
-            fails[PII(src, dest)] = pair<Link, double>(Link(node1, node2), failparam);
+            //fails[PII(src, dest)] = pair<Link, double>(Link(node1, node2), failparam);
+            fails[PII(src, dest)] = pair<int, double>(device, failparam);
             if constexpr (VERBOSE){
-                cout<< "Failed component "<<src<<" "<<dest<<" ("<<node1<<","<<node2<<") "<<failparam<<endl; 
+                //cout<< "Failed component "<<src<<" "<<dest<<" ("<<node1<<","<<node2<<") "<<failparam<<endl; 
+                cout<< "Failed component "<<src<<" "<<dest<<" "<<device<<failparam<<endl; 
             }
         }
     }
@@ -81,19 +84,35 @@ int main(int argc, char *argv[]){
             dropped_flows += (int)(flow->GetLatestPacketsLost() > 0);
         }
         if (dropped_flows){
-            cout << ep_data.flows[0]->src << "->" << ep_data.flows[0]->dest << " dropped flows:" << dropped_flows << endl;
-            if (failed_components.find(ep) != failed_components.end()){
-                pair<Link, double> failed_link = failed_components[ep];
-                ep_data.failed_links.insert(failed_link);
-                cout << "Failed link " << failed_link << "for pair " << ep << endl;
+            Flow *flow = ep_data.flows[0];
+            cout << flow->src << "(" << ep_data.hosts_to_racks[flow->src] << ")->" << flow->dest
+                 << "(" << ep_data.hosts_to_racks[flow->dest] << ") dropped flows:"
+                 << dropped_flows << endl;
+            cout << "Printing paths::  " << endl;
+            vector<Path*>* flow_paths = flow->GetPaths(max_finish_time_ms);
+            Path device_path;
+            for (Path* link_path: *flow_paths){
+                ep_data.GetDeviceLevelPath(*link_path, device_path);
+                for (int device: device_path){
+                    cout <<" " << device;
+                }
+                cout << endl;
             }
-            Hypothesis failed_links_set;
-            ep_data.GetFailedLinkIds(failed_links_set);
+            if (failed_components.find(ep) != failed_components.end()){
+                //pair<Link, double> failed_link = failed_components[ep];
+                //ep_data.failed_links.insert(failed_link);
+                //cout << "Failed link " << failed_link << "for pair " << ep << endl;
+                pair<int, double> failed_device = failed_components[ep];
+                ep_data.failed_devices.insert(failed_device);
+                cout << "Failed device " << failed_device << " for pair " << ep << endl;
+            }
+            Hypothesis failed_devices_set;
+            ep_data.GetFailedDevices(failed_devices_set);
             //NetBouncer estimator; vector<double> params = {0.016, 0.0113};
             //Sherlock estimator;
             BayesianNet estimator;
             //vector<double> params = {1.0-3.0e-3, 2.0e-4, -20.0};
-            vector<double> params = {1.0-1.0e-3, 1.0e-4, -5.0};
+            vector<double> params = {1.0-1.0e-3, 1.0e-4, -25.0};
             //DoubleO7 estimator;
             //vector<double> params = {0.0025};
             estimator.SetParams(params);
@@ -102,10 +121,11 @@ int main(int argc, char *argv[]){
             auto start_localization_time = chrono::high_resolution_clock::now();
             estimator.LocalizeDeviceFailures(min_start_time_ms, max_finish_time_ms,
                                        estimator_hypothesis, nopenmp_threads);
-            PDD precision_recall = GetPrecisionRecall(failed_links_set, estimator_hypothesis);
-            cout << "Output Hypothesis: " << ep_data.IdsToLinks(estimator_hypothesis) << " precsion_recall "
+            PDD precision_recall = GetPrecisionRecall(failed_devices_set, estimator_hypothesis);
+            cout << "Output Hypothesis: " << estimator_hypothesis << " precsion_recall "
                  <<precision_recall.first << " " << precision_recall.second<<endl;
             cout << "Finished localization in "<< GetTimeSinceSeconds(start_localization_time) << " seconds" << endl;
+            cout << "****************************" << endl << endl << endl;
         }
     }
     return 0;

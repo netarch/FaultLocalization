@@ -22,8 +22,6 @@ Sherlock* Sherlock::CreateObject(){
     return ret;
 }
 
-
-
 void Sherlock::ExploreTopNode(double min_start_time_ms, double max_finish_time_ms,
                               unordered_map<Hypothesis*, double> &all_hypothesis, int nopenmp_threads, stack<PHS> &hstack){
         auto[base_hypothesis, base_scores] = hstack.top();
@@ -173,7 +171,7 @@ void Sherlock::LocalizeFailures(double min_start_time_ms, double max_finish_time
     }
     if (VERBOSE and PRINT_SCORES){
         auto start_print_time = chrono::high_resolution_clock::now();
-        PrintScores(min_start_time_ms, max_finish_time_ms, nopenmp_threads);
+        PrintScores(min_start_time_ms, max_finish_time_ms, false, nopenmp_threads);
         cout << "Finished printing scores in " << GetTimeSinceSeconds(start_print_time)
              << " seconds" << endl;
     }

@@ -1,14 +1,16 @@
 CC = g++
-#CFLAGS = -std=c++17 -O3 -fopenmp -ffast-math -w -Wall -Wno-deprecated -Wno-unused-variable
-CFLAGS = -g -std=c++17 -fopenmp -ffast-math -w -Wall -Wno-deprecated -Wno-unused-variable
+CFLAGS = -std=c++17 -O3 -fopenmp -ffast-math -w -Wall -Wno-deprecated -Wno-unused-variable
+#CFLAGS = -g -std=c++17 -fopenmp -ffast-math -w -Wall -Wno-deprecated -Wno-unused-variable
 LIBDIR = -Lsparsehash/libs
 INCLUDE = -Isparsehash/include
 
 ESTIMATOR_OBJS = bayesian_net.o bayesian_net_continuous.o doubleO7.o score.o net_bouncer.o bayesian_net_sherlock.o
 
+ESTIMATOR_MAINS = black_hole_estimator loss_estimator misconfigured_acl
+
 OBJS = flow.o logdata.o utils.o $(ESTIMATOR_OBJS)
 
-all: black_hole_estimator loss_estimator loss_estimator_trend reduced_estimator
+all: $(ESTIMATOR_MAINS) loss_estimator_trend reduced_estimator
 
 libflock.a: $(OBJS)
 	ar crf libflock.a $(OBJS)
@@ -16,11 +18,8 @@ libflock.a: $(OBJS)
 reduced_estimator: $(OBJS) reduced_estimator.cpp reduced_utils.o
 	$(CC) $(INCLUDE) $(CFLAGS) $(OBJS) reduced_utils.o -o reduced_estimator reduced_estimator.cpp
 
-loss_estimator: $(OBJS) loss_estimator.cpp
-	$(CC) $(INCLUDE) $(CFLAGS) $(OBJS) -o loss_estimator loss_estimator.cpp
-
-black_hole_estimator: $(OBJS) black_hole_estimator.cpp
-	$(CC) $(INCLUDE) $(CFLAGS) $(OBJS) -o black_hole_estimator black_hole_estimator.cpp
+$(ESTIMATOR_MAINS): %: %.cpp $(OBJS)
+	$(CC) $(INCLUDE) $(CFLAGS) $(OBJS) -o $@ $<
 
 loss_estimator_trend: $(OBJS) common_testing_system.o reduced_utils.o loss_estimator_trend.cpp
 	$(CC) $(INCLUDE) $(CFLAGS) $(OBJS) common_testing_system.o reduced_utils.o -o loss_estimator_trend loss_estimator_trend.cpp
@@ -44,4 +43,4 @@ $(ESTIMATOR_OBJS): %.o: %.cpp %.h estimator.h flow.h utils.h logdata.h defs.h
 	$(CC) $(INCLUDE) $(CFLAGS) -c $< $(LIBDIR) -o $@ 
 
 clean:	
-	rm -f *.o loss_estimator reduced_estimator loss_estimator_trend black_hole_estimator libflock.a
+	rm -f *.o reduced_estimator loss_estimator_trend libflock.a $(ESTIMATOR_MAINS)

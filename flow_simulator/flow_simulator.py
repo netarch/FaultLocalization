@@ -24,7 +24,7 @@ print("Random witness", random.randint(1, 100000))
 #print(TupleHash(tuple1), TupleHash(tuple1)%25, TupleHash(tuple2), TupleHash(tuple2)%25)
 
 network_file = sys.argv[1]
-nfailed_links = int(sys.argv[2])
+nfailures = int(sys.argv[2])
 outfile = sys.argv[3]
 failfile = outfile + ".fails"
 
@@ -33,7 +33,8 @@ topo.ReadGraphFromFile(network_file)
 outfile = open(outfile,"w+")
 topo.SetOutFile(outfile)
 failfile = open(failfile, "w+")
-nflows, sumflowsize = topo.PrintLogsBlackHole(nfailed_links, failfile)
-#nflows, sumflowsize = topo.PrintLogsSilentDrop(nfailed_links)
+#nflows, sumflowsize = topo.PrintLogsBlackHole(nfailures, failfile)
+nflows, sumflowsize = topo.PrintLogsMisconfiguredACL(nfailures, failfile)
+#nflows, sumflowsize = topo.printlogssilentdrop(nfailures)
 
 print("Sum flow size: ", sumflowsize, "Numflows", nflows)

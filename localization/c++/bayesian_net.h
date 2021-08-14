@@ -54,7 +54,7 @@ protected:
 
 
     void PrintScores(double min_start_time_ms, double max_finish_time_ms,
-                     int nopenmp_threads);
+                     bool device_level, int nopenmp_threads);
 
     void PrintCorrectHypothesisLikelihood(double min_start_time_ms, double max_finish_time_ms,
                                           Hypothesis &localized_components, 
@@ -173,6 +173,8 @@ protected:
 
     int GetNumComponents(bool device_level);
 
+    Path* PathPointerSelect(Path &link_path, Path &device_path_unfilled, bool device_level);
+
     // Noise parameters
     double p1 = 1.0-5.0e-3, p2 = 2.0e-4;
     //double p1 = 1.0-4.0e-3, p2 = 1.5e-4;
@@ -180,7 +182,7 @@ protected:
     unordered_map<int, int>* num_reduced_links_map;
 
     // For printing scores
-    vector<double> drops_per_link, flows_per_link;
+    vector<double> drops_per_component, flows_per_component;
 
     chrono::time_point<chrono::high_resolution_clock> timer_checkpoint;
 };

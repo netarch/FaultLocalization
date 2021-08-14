@@ -240,7 +240,6 @@ void BayesianNet::SearchHypothesesJle(double min_start_time_ms, double max_finis
     }
 }
 
-
 void BayesianNet::HypothesesIntersection(set<Hypothesis*> &hypotheses_set, Hypothesis &result){
     set<int> all_elements;
     for (auto& ch: hypotheses_set){
@@ -259,10 +258,12 @@ void BayesianNet::HypothesesIntersection(set<Hypothesis*> &hypotheses_set, Hypot
     result.insert(all_elements.begin(), all_elements.end());
 }
 
+
 void BayesianNet::LocalizeDeviceFailures(double min_start_time_ms, double max_finish_time_ms,
                                          Hypothesis& localized_devices, int nopenmp_threads){
     LocalizeFailuresHelper(min_start_time_ms, max_finish_time_ms, localized_devices, true, nopenmp_threads);
 }
+
 void BayesianNet::LocalizeFailures(double min_start_time_ms, double max_finish_time_ms,
                                    Hypothesis& localized_links, int nopenmp_threads){
     LocalizeFailuresHelper(min_start_time_ms, max_finish_time_ms, localized_links, false, nopenmp_threads);
@@ -288,7 +289,7 @@ void BayesianNet::LocalizeFailuresHelper(double min_start_time_ms, double max_fi
     if (VERBOSE and PRINT_SCORES){
         auto start_print_time = chrono::high_resolution_clock::now();
         //TODO DEVICE
-        PrintScores(min_start_time_ms, max_finish_time_ms, nopenmp_threads);
+        PrintScores(min_start_time_ms, max_finish_time_ms, device_level, nopenmp_threads);
         cout << "Finished printing scores in " << GetTimeSinceSeconds(start_print_time)
              << " seconds" << endl;
     }
@@ -309,12 +310,12 @@ void BayesianNet::LocalizeFailuresHelper(double min_start_time_ms, double max_fi
         double likelihood = likelihood_hypothesis[i].first;
         Hypothesis *hypothesis = likelihood_hypothesis[i].second;
         if constexpr (VERBOSE){
-            if (device_level) cout << "Likely candidate "<<hypothesis<<" "<<likelihood << endl;
+            if (device_level) cout << "Likely candidate "<<*hypothesis<<" "<<likelihood << endl;
             else cout << "Likely candidate "<<data->IdsToLinks(*hypothesis)<<" "<<likelihood << endl;
         }
         if (highest_likelihood - likelihood <= 1.0e-3 and candidate_hypothesis.size() == 0){
-	    //if (highest_likelihood - likelihood <= 1.0e-3)
-            candidate_hypothesis.insert(hypothesis);
+	        if (highest_likelihood - likelihood <= 1.0e-3)
+                candidate_hypothesis.insert(hypothesis);
 	        break;
         }
     }
@@ -353,7 +354,9 @@ void BayesianNet::PrintCorrectHypothesisLikelihood(double min_start_time_ms, dou
                                       no_failure_hypothesis, 0.0, min_start_time_ms,
                                       max_finish_time_ms, device_level, nopenmp_threads);
                 //TODO DEVICE
-                //cout << "Score of predicted failed component " << data->inverse_links[link_id] << " score " << drops_per_link[link_id] << " E[nflows] " << flows_per_link[link_id] << " likelihood " << l << endl;
+                //cout << "Score of predicted failed component " << data->inverse_links[link_id] 
+                //     << " score " << drops_per_component[link_id] << " E[nflows] "
+                //     << flows_per_component[link_id] << " likelihood " << l << endl;
             }
         }
         if (device_level)
@@ -767,18 +770,19 @@ void BayesianNet::SearchHypothesesGibbsSamplingJLE(double min_start_time_ms, dou
 
 
 
-void BayesianNet::PrintScores(double min_start_time_ms, double max_finish_time_ms, int nopenmp_threads){
-    int nlinks = data->inverse_links.size();
+void BayesianNet::PrintScores(double min_start_time_ms, double max_finish_time_ms,
+                              bool device_level, int nopenmp_threads){
+    int ncomponents = GetNumComponents(device_level);
     vector<double> scores1[nopenmp_threads];
     vector<double> scores2[nopenmp_threads];
     vector<double> nflows_threads[nopenmp_threads];
-    vector<short int> link_ctrs_threads[nopenmp_threads];
+    vector<short int> component_ctrs_threads[nopenmp_threads];
     #pragma omp parallel for num_threads(nopenmp_threads)
     for(int t=0; t<nopenmp_threads; t++){
-        scores1[t].resize(nlinks, 0.0);
-        scores2[t].resize(nlinks, 0.0);
-        nflows_threads[t].resize(nlinks, 0.0);
-        link_ctrs_threads[t].resize(nlinks, 0);
+        scores1[t].resize(ncomponents, 0.0);
+        scores2[t].resize(ncomponents, 0.0);
+        nflows_threads[t].resize(ncomponents, 0.0);
+        component_ctrs_threads[t].resize(ncomponents, 0);
     }
     #pragma omp parallel for num_threads(nopenmp_threads)
     for (int ii=0; ii<data->flows.size(); ii++){
@@ -793,12 +797,15 @@ void BayesianNet::PrintScores(double min_start_time_ms, double max_finish_time_m
         if constexpr (CONSIDER_REVERSE_PATH) {assert (false);}
         PII weight = flow->LabelWeightsFunc(max_finish_time_ms);
         if (weight.first == 0 and weight.second == 0) continue;
-        nflows_threads[thread_num][flow->first_link_id] += 1;
-        nflows_threads[thread_num][flow->last_link_id] += 1;
-        scores1[thread_num][flow->first_link_id] += weight.first;
-        scores2[thread_num][flow->first_link_id] += weight.second;
-        scores1[thread_num][flow->last_link_id] += weight.first;
-        scores2[thread_num][flow->last_link_id] += weight.second;
+
+        if (!device_level){
+            nflows_threads[thread_num][flow->first_link_id] += 1;
+            nflows_threads[thread_num][flow->last_link_id] += 1;
+            scores1[thread_num][flow->first_link_id] += weight.first;
+            scores2[thread_num][flow->first_link_id] += weight.second;
+            scores1[thread_num][flow->last_link_id] += weight.first;
+            scores2[thread_num][flow->last_link_id] += weight.second;
+        }
         /*
         if (flow->dest == 10278){
             flow->PrintFlowMetrics();
@@ -806,60 +813,78 @@ void BayesianNet::PrintScores(double min_start_time_ms, double max_finish_time_m
         }
         */
         //cout << "npaths " << npaths << endl;
-        for (Path* path: *flow_paths){
-            for (int link_id: *path){
-                link_ctrs_threads[thread_num][link_id]++;
+        Path device_path, *path_ptr;
+        for (Path* link_path: *flow_paths){
+            path_ptr = PathPointerSelect(*link_path, device_path, device_level);
+            for (int cmp: *path_ptr){
+                component_ctrs_threads[thread_num][cmp]++;
             }
         }
-        for (Path* path: *flow_paths){
-            for (int link_id: *path){
-                int naffected = link_ctrs_threads[thread_num][link_id];
+        for (Path* link_path: *flow_paths){
+            path_ptr = PathPointerSelect(*link_path, device_path, device_level);
+            for (int cmp: *path_ptr){
+                int naffected = component_ctrs_threads[thread_num][cmp];
                 if (naffected > 0){
-                    nflows_threads[thread_num][link_id] += ((double)naffected)/npaths;
-                    scores1[thread_num][link_id] += (double)(weight.first * naffected)/npaths;
-                    scores2[thread_num][link_id] += weight.second;
+                    nflows_threads[thread_num][cmp] += ((double)naffected)/npaths;
+                    scores1[thread_num][cmp] += (double)(weight.first * naffected)/npaths;
+                    scores2[thread_num][cmp] += weight.second;
                 }
-                // Reset counter so that likelihood for link_id isn't counted again
-                link_ctrs_threads[thread_num][link_id] = 0;
+                // Reset counter so that likelihood for cmp isn't counted again
+                component_ctrs_threads[thread_num][cmp] = 0;
             }
         }
     }
-    drops_per_link.resize(nlinks, 0.0);
-    flows_per_link.resize(nlinks, 0.0);
+    drops_per_component.resize(ncomponents, 0.0);
+    flows_per_component.resize(ncomponents, 0.0);
 
     auto GetScore =
-        [&scores1, &scores2, nopenmp_threads] (int link_id){
+        [&scores1, &scores2, nopenmp_threads] (int cmp){
             double score1=0, score2=0;
             for(int t=0; t<nopenmp_threads; t++){
-                score1 += scores1[t][link_id];
-                score2 += scores2[t][link_id];
+                score1 += scores1[t][cmp];
+                score2 += scores2[t][cmp];
             }
             return tuple(score2, score1);
         };
     #pragma omp parallel for num_threads(nopenmp_threads)
-    for (int link_id=0; link_id<nlinks; link_id++){
+    for (int cmp=0; cmp<ncomponents; cmp++){
         //!TODO: Try changing likelihoods 2d array from (threads X links) to (links X threads)
-        auto [score2, score1] = GetScore(link_id);
-        drops_per_link[link_id] = score2/max(1.0e-30, score1);
+        auto [score2, score1] = GetScore(cmp);
+        drops_per_component[cmp] = score2/max(1.0e-30, score1);
         double f = 0.0;
         for(int t=0; t<nopenmp_threads; t++){
-            f += nflows_threads[t][link_id];
+            f += nflows_threads[t][cmp];
         }
-        flows_per_link[link_id] = f;
+        flows_per_component[cmp] = f;
     }
-    vector<int> idx(drops_per_link.size());
+    vector<int> idx(drops_per_component.size());
     iota(idx.begin(), idx.end(), 0);
-    sort(idx.begin(), idx.end(), [this](int i1, int i2) {return (abs(drops_per_link[i1] - drops_per_link[i2]) < 1.0e-6? false: (drops_per_link[i1] < drops_per_link[i2]));});
+    sort(idx.begin(), idx.end(), [this](int i1, int i2) {
+                                 return (abs(drops_per_component[i1] - drops_per_component[i2]) < 1.0e-6? 
+                                    false: (drops_per_component[i1] < drops_per_component[i2]));});
     for (int ii = max(0, (int)idx.size()-50); ii<idx.size(); ii++){
-        int link_id = idx[ii];
-        auto [score2, score1] = GetScore(link_id);
-        if (flows_per_link[link_id] > 0)
-            cout << "Link " << data->inverse_links[link_id] << " " << score2 << " " << score1 << " " << drops_per_link[link_id] << " E[nflows] " << flows_per_link[link_id] << endl;
+        int cmp = idx[ii];
+        auto [score2, score1] = GetScore(cmp);
+        if (flows_per_component[cmp] > 0){
+            if (device_level) cout << "Device " << cmp;
+            else cout << "Link " << data->inverse_links[cmp];
+            cout <<  " " << score2 << " " << score1 << " " << drops_per_component[cmp] << " E[nflows] " << flows_per_component[cmp] << endl;
+        }
     }
-    for (auto [link, failparam]: data->failed_links){
-        int link_id = data->links_to_ids[link];
-        auto [score2, score1] = GetScore(link_id);
-        cout << "Failed Link " << link << " " << score2 << " " << score1 << " " << drops_per_link[link_id] << " E[nflows] " << flows_per_link[link_id] << endl;
+    if (device_level){
+        for (auto [device, failparam]: data->failed_devices){
+            auto [score2, score1] = GetScore(device);
+            cout << "Failed Device " << device << " " << score2 << " " << score1 << " " 
+                 << drops_per_component[device] << " E[nflows] " << flows_per_component[device] << endl;
+        }
+    }
+    else{
+        for (auto [link, failparam]: data->failed_links){
+            int link_id = data->links_to_ids[link];
+            auto [score2, score1] = GetScore(link_id);
+            cout << "Failed Link " << link << " " << score2 << " " << score1 << " " 
+                 << drops_per_component[link_id] << " E[nflows] " << flows_per_component[link_id] << endl;
+        }
     }
 }
 
@@ -868,6 +893,14 @@ void BayesianNet::ComputeInitialLikelihoods(vector<double> &initial_likelihoods,
                                         int nopenmp_threads){
     ComputeInitialLikelihoodsHelper(initial_likelihoods, min_start_time_ms,
                                     max_finish_time_ms, false, nopenmp_threads);
+}
+
+Path* BayesianNet::PathPointerSelect(Path &link_path, Path &device_path_unfilled, bool device_level){
+    if (device_level){
+        data->GetDeviceLevelPath(link_path, device_path_unfilled);
+        return &device_path_unfilled;
+    }
+    else return &link_path;
 }
 
 void BayesianNet::ComputeInitialLikelihoodsHelper(vector<double> &initial_likelihoods,
@@ -895,23 +928,15 @@ void BayesianNet::ComputeInitialLikelihoodsHelper(vector<double> &initial_likeli
         PII weight = flow->LabelWeightsFunc(max_finish_time_ms);
         if (weight.first == 0 and weight.second == 0) continue;
         Path device_path, *path_ptr;
-        for (Path* path: *flow_paths){
-            if (device_level){
-                data->GetDeviceLevelPath(*path, device_path);
-                path_ptr = &device_path;
-            }
-            else path_ptr = path;
+        for (Path* link_path: *flow_paths){
+            path_ptr = PathPointerSelect(*link_path, device_path, device_level);
             for (int component: *path_ptr){
                 component_ctrs_threads[thread_num][component]++;
             }
         }
         long double intermediate_val = flow->GetCachedIntermediateValue();
-        for (Path* path: *flow_paths){
-            if (device_level){
-                data->GetDeviceLevelPath(*path, device_path);
-                path_ptr = &device_path;
-            }
-            else path_ptr = path;
+        for (Path* link_path: *flow_paths){
+            path_ptr = PathPointerSelect(*link_path, device_path, device_level);
             for (int cmp: *path_ptr){
                 int naffected = component_ctrs_threads[thread_num][cmp];
                 if (naffected > 0){
@@ -942,7 +967,6 @@ void BayesianNet::ComputeInitialLikelihoodsHelper(vector<double> &initial_likeli
         }
     }
 
-    //sum contributions from all threads
     initial_likelihoods.resize(ncomponents, 0.0);
     AddContributionsFromThreads(likelihoods, initial_likelihoods, nopenmp_threads);
 }

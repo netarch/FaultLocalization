@@ -16,14 +16,17 @@ private:
 
     inline double EstimatedPathSuccessRate(Flow *flow, vector<double>& success_prob);
 
+    void DetectBadDevices(vector<int>& bad_devices, double min_start_time_ms,
+                          double max_finish_time_ms, int nopenmp_threads);
+
     double ComputeError(vector<Flow*>& active_flows, vector<double>& success_prob,
                         double min_start_time_ms, double max_finish_time_ms);
 
-    double ArgMinError(vector<Flow*>& active_flows, vector<double>& success_prob,
-            int var_link_id, double min_start_time_ms, double max_finish_time_ms);
+    double ArgMinError(vector<double>& success_prob, int var_link_id,
+                       double min_start_time_ms, double max_finish_time_ms);
 
     double regularize_const = 0.01;
     double fail_threshold = 0.001;
-    const int MAX_ITERATIONS = 200;
+    const int MAX_ITERATIONS = 100;
 };
 #endif

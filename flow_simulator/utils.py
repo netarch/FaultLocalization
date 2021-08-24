@@ -22,6 +22,10 @@ class Flow(object):
         self.src = src
         self.dst = dst
         self.flowsize = flowsize
+        if srcport == None:
+            srcport = random.randint(1000, 1100)
+        if dstport == None:
+            dstport = random.randint(1000, 1100)
         self.srcport = srcport
         self.dstport = dstport
 
@@ -148,9 +152,15 @@ class Topology(object):
             src_rack = self.host_rack_map[src]
             dst_rack = self.host_rack_map[dst]
             flowsize = self.GetParetoFlowSize()
-            srcport = random.randint(1000, 1100)
-            dstport = random.randint(1000, 1100)
             flows.append(Flow(src, dst, flowsize, srcport, dstport))
+        return flows
+
+    def GetFlowsViaFile(G, flows_file):
+        flows = []
+        with open(flows_file, 'r') as ff:
+            for line in ff:
+                src, dst, flowsize = [int(x) for x in line.split()[:3]]
+                flows.append(Flow(src, dst, flowsize))
         return flows
 
     def GetFlowsBlackHole(self, nflows):
@@ -202,7 +212,7 @@ class Topology(object):
 
     def GetDropProbMisconfiguredACL(self, nfailures):
         fail_prob = dict()
-        drop_racks = random.sample(list(self.racks), 3)
+        drop_racks = random.sample(list(self.racks), 1)
         drop_hosts = [host for host in self.host_rack_map.keys() if self.host_rack_map[host] in drop_racks]
         print("Drop racks", drop_racks)
         print("Drop hosts", drop_hosts)
@@ -219,7 +229,6 @@ class Topology(object):
                 fail_prob[failed_component] = 1.0
         return fail_prob
     
-    
     def GetDropProbSilentDrop(self): 
         fail_prob = dict()
         edges = [(u,v) for (u,v) in self.G.edges]
@@ -233,8 +242,8 @@ class Topology(object):
                 fail_prob[edge] = random.uniform(0.0000, 0.0001)
         return fail_prob
 
-    def GetAllRackPairPaths2(self):
-        all_rack_pair_paths = dict()
+    def GetAllSwitchPairPaths2(self):
+        all_sw_pair_paths = dict()
         switches = [node for node in self.G.nodes() if node < HOST_OFFSET]   
         all_pair_dists = [None for i in range(self.max_switch+1)] #dict(nx.all_pairs_shortest_path_length(self.G))
         print(self.max_switch, "max_switch")
@@ -255,21 +264,21 @@ class Topology(object):
                         nbr_paths = GetPaths(nbr, dst)
                         ret += [[src] + path for path in nbr_paths]
                 return ret
-        for src_rack in self.racks:
-            if src_rack % 10 == 0:
-                print ("Printing paths", src_rack)
+        for src_sw in switches:
+            if src_sw % 10 == 0:
+                print ("Printing paths", src_sw)
             src_paths = dict()
-            for dst_rack in self.racks:
-                if src_rack == dst_rack:
-                    src_paths[dst_rack] = [[]]
+            for dst_sw in switches:
+                if src_sw == dst_sw:
+                    src_paths[dst_sw] = [[]]
                 else:
-                    src_paths[dst_rack] = GetPaths(src_rack, dst_rack)
+                    src_paths[dst_sw] = GetPaths(src_sw, dst_sw)
                 #print(src_rack, dst_rack, len(src_paths[dst_rack]), file=self.outfile)
-                for path in src_paths[dst_rack]:
+                for path in src_paths[dst_sw]:
                     if path != []:
                         self.PrintPath("FP", path, out=self.outfile)
-            all_rack_pair_paths[src_rack] = src_paths
-        return all_rack_pair_paths
+            all_sw_pair_paths[src_sw] = src_paths
+        return all_sw_pair_paths
 
     def GetAllRackPairPaths(self):
         all_rack_pair_paths = dict()
@@ -327,10 +336,12 @@ class Topology(object):
         return nflows, sumflowsize
     
 
-    def PrintLogsMisconfiguredACL(self, nfailures, failfile):
-        nflows = 200 * self.nservers
+    def PrintLogsMisconfiguredACL(self, nfailures, failfile, flowsfile):
+        #nflows = 200 * self.nservers
+        #flows = self.GetFlowsUniform(nflows)
+        flows = self.GetFlowsViaFile(flowsfile)
+        nflows = len(flows)
         print("Nflows", nflows, "nservers", self.nservers)
-        flows = self.GetFlowsUniform(nflows)
         fail_prob = self.GetDropProbMisconfiguredACL(nfailures)
         for device, dst in fail_prob:
             print("Failing_component", device, dst, fail_prob[(device, dst)], file=failfile) 
@@ -338,32 +349,45 @@ class Topology(object):
         print("Fail prob", fail_prob)
         def GetFailProb(device, flow):
             if (device, flow.dst) in fail_prob:
-                print("comes here:::::")
                 return fail_prob[(device, flow.dst)]
             else:
                 return 0.0001
         sumflowsize = 0
-        all_rack_pair_paths = self.GetAllRackPairPaths2()
+        all_sw_pair_paths = self.GetAllSwitchPairPaths2()
         failed_switches = list(set([failed_cmp[0] for failed_cmp in fail_prob.keys()]))
         drop_hosts = [failed_cmp[1] for failed_cmp in fail_prob.keys()]
         for flow in flows:
-            src_rack = self.host_rack_map[flow.src]
-            dst_rack = self.host_rack_map[flow.dst]
-            path_taken = flow.HashToPath(all_rack_pair_paths[src_rack][dst_rack])
+            src_sw = flow.src
+            dst_sw = flow.dst
+            if flow.src >= HOST_OFFSET:
+                src_sw = self.host_rack_map[flow.src]
+            if flow.dst >= HOST_OFFSET:
+                dst_sw = self.host_rack_map[flow.dst]
+            #print (flow.src, flow.dst, src_sw, dst_sw)
+            if len(all_sw_pair_paths[src_sw][dst_sw])==0:
+                print (src_sw, dst_sw)
+            path_taken = flow.HashToPath(all_sw_pair_paths[src_sw][dst_sw])
+            if src_sw == dst_sw:
+                path_taken = [src_sw]
+            complete_path = []
+            if flow.src != src_sw:
+                complete_path.append(flow.src)
+            complete_path += path_taken
+            if flow.dst != dst_sw:
+                complete_path.append(flow.dst)
             flow_dropped = False
-            for k in range(0, len(path_taken)):
-                if random.random() <= GetFailProb(path_taken[k], flow):
+            for k in range(0, len(complete_path)):
+                if random.random() <= GetFailProb(complete_path[k], flow):
                     flow_dropped = True
-            if flow.dst in drop_hosts:
-                print("Flow", flow.src, flow.dst, path_taken)
-            if flow_dropped:
-                print("Dropping flow", flow.src, flow.dst)
-            print("FID ", flow.src, flow.dst, src_rack, dst_rack, flow.flowsize, 0.0, file=self.outfile)
-            self.PrintPath("FPT", path_taken, out=self.outfile)
+            #if flow.dst in drop_hosts:
+                #print("Flow", flow.src, flow.dst, complete_path)
+            #print(complete_path, flow.src, flow.dst, src_sw, dst_sw, path_taken)
+            assert (len(complete_path) > 2)
+            print("FID ", flow.src, flow.dst, complete_path[1], complete_path[-2], flow.flowsize, 0.0, file=self.outfile)
+            self.PrintPath("FPT", complete_path[1:-1], out=self.outfile)
             print("SS ", 1000.0 * random.random(), 1, int(flow_dropped), 0, file=self.outfile)
             sumflowsize += flow.flowsize
         return nflows, sumflowsize
-            
 
 
     def PrintLogsSilentDrop(self, nfailed_links):
@@ -382,6 +406,7 @@ class Topology(object):
                 print("Finished", curr, "flows")
             src_rack = self.host_rack_map[flow.src]
             dst_rack = self.host_rack_map[flow.dst]
+            assert (flow.flowsize > 0)
             #print(src, dst, flowsize)
             packets_sent = math.ceil(flow.flowsize/packetsize)
             #path_taken = random.choice(list(nx.all_shortest_paths(G, source=src_rack, target=dst_rack)))

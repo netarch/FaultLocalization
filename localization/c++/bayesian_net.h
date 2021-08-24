@@ -160,7 +160,7 @@ protected:
     int UpdateScoresDevice(vector<double> &likelihood_scores, Hypothesis* hypothesis,
                            Hypothesis* base_hypothesis, double min_start_time_ms,
                            double max_finish_time_ms, int nopenmp_threads);
-    int UpdateScoresDevicePopulateCounters(vector<Path*> *flow_paths, Hypothesis *hypothesis,
+    int UpdateScoresDevicePopulateCounters(Flow *flow, vector<Path*> *flow_paths, Hypothesis *hypothesis,
                                   vector<short int> &device_ctrs_threads, bool *hypothesis_link_bitmap);
     void GetIndicesOfTopK(vector<double>& scores, int k, vector<int>& result, Hypothesis *exclude);
 
@@ -173,7 +173,7 @@ protected:
 
     int GetNumComponents(bool device_level);
 
-    Path* PathPointerSelect(Path &link_path, Path &device_path_unfilled, bool device_level);
+    Path* PathPointerSelect(Flow *flow, Path &link_path, Path &device_path_unfilled, bool device_level);
 
     // Noise parameters
     double p1 = 1.0-5.0e-3, p2 = 2.0e-4;

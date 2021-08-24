@@ -207,7 +207,8 @@ void Flow::UpdateSnapshotPtr(double max_finish_time_ms){
 double Flow::GetDropRate(double max_finish_time_ms){
     UpdateSnapshotPtr(max_finish_time_ms);
     if (curr_snapshot_ptr >= 0){
-        return ((float)snapshots[curr_snapshot_ptr]->packets_lost)/snapshots[curr_snapshot_ptr]->packets_sent;
+        return ((float)snapshots[curr_snapshot_ptr]->packets_lost)
+                     / max(1.0e-30, (double)snapshots[curr_snapshot_ptr]->packets_sent);
     }
     return 0.0;
 }
@@ -252,7 +253,8 @@ bool Flow::IsFlowActive(){
 }
 
 bool Flow::TracerouteFlow(double max_finish_time_ms){
-    return (PATH_KNOWN || GetPacketsLost(max_finish_time_ms) > 0 || IsFlowActive());
+    return (PATH_KNOWN || (TRACEROUTE_BAD_FLOWS && (GetPacketsLost(max_finish_time_ms)>0))
+            || IsFlowActive());
 }
 
 bool Flow::IsFlowBad(double max_finish_time_ms){
@@ -285,9 +287,9 @@ bool Flow::DiscardFlow(){
     //double drop_rate = GetLatestPacketsLost() / GetLatestPacketsSent();
     //return (drop_rate > 0.3);
     //return (GetLatestPacketsSent() < 100);
-    return false;
+    //return false;
     //return (src < OFFSET_HOST  or  dest < OFFSET_HOST or GetLatestPacketsSent() < 0);
-    //return !IsFlowActive();
+    return !IsFlowActive();
     //return IsFlowActive();
 }
 

@@ -38,7 +38,9 @@ public:
         //memoized_paths.set_empty_key(PII(-1, -1));
     }
 
-    void GetDeviceLevelPath(Path &path, Path &result);
+    inline bool IsNodeSwitch(int node) { return (node < OFFSET_HOST); } 
+
+    void GetDeviceLevelPath(Flow *flow, Path &path, Path &result);
 
     vector<vector<int> >* GetForwardFlowsByLinkId(double max_finish_time_ms, int nopenmp_threads);
     void GetSizesForForwardFlowsByLinkId(double max_finish_time_ms, int nopenmp_threads, vector<int>& result);

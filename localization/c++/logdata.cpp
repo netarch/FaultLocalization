@@ -124,7 +124,7 @@ void LogData::FilterFlowsForConditional(double max_finish_time_ms, int nopenmp_t
     for (int ff=0; ff<flows.size(); ff++){
         int thread_num = omp_get_thread_num();
         Flow* f = flows[ff];
-        if (f->TracerouteFlow(max_finish_time_ms)){
+        if (f->TracerouteFlow(max_finish_time_ms) and !f->DiscardFlow()){
             filtered_flows[thread_num].push_back(f);
             f->ResetSnapshotCounter();
         }
@@ -392,7 +392,7 @@ vector<vector<int> >* LogData::GetFlowsByDevice(double max_finish_time_ms, int n
             if (flow->AnySnapshotBefore(max_finish_time_ms)){
                 auto flow_paths = flow->GetPaths(max_finish_time_ms);
                 for (Path* link_path: *flow_paths){
-                    GetDeviceLevelPath(*link_path, device_path);
+                    GetDeviceLevelPath(flow, *link_path, device_path);
                     for (int device: device_path){
                         if (device < 0 or device >= ndevices){
                             cout << "Device " << device << " ndevices " << ndevices << " link_path "
@@ -450,7 +450,7 @@ vector<vector<int> >* LogData::GetFlowsByDevice(double max_finish_time_ms, int n
             if (flow->AnySnapshotBefore(max_finish_time_ms)){
                 auto flow_paths = flow->GetPaths(max_finish_time_ms);
                 for (Path* link_path: *flow_paths){
-                    GetDeviceLevelPath(*link_path, device_path);
+                    GetDeviceLevelPath(flow, *link_path, device_path);
                     for (int device: device_path){
                         (*flows_by_device)[device][offsets[device]++] = ff;
                     }
@@ -643,18 +643,21 @@ int LogData::GetMaxDevicePlus1(){
     return max_device+1;
 }
 
-void LogData::GetDeviceLevelPath(Path &path, Path &result){
+void LogData::GetDeviceLevelPath(Flow *flow, Path &path, Path &result){
     result.clear();
+    Link first_link = inverse_links[flow->first_link_id];
+    if (IsNodeSwitch(first_link.first)) result.push_back(first_link.first);
     if (path.size() > 0){
-        result.SetSize(path.size()+1);
-        // Add the first device
         Link link = inverse_links[path[0]];
         result.push_back(link.first);
+        for (int link_id: path){
+            Link link = inverse_links[link_id];
+            result.push_back(link.second);
+        }
     }
-    for (int link_id: path){
-        Link link = inverse_links[link_id];
-        result.push_back(link.second);
-    }
+    else result.push_back(first_link.second);
+    Link last_link = inverse_links[flow->last_link_id];
+    if (IsNodeSwitch(last_link.second)) result.push_back(last_link.second);
 }
 
 void LogData::CleanupFlows(){

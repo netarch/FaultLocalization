@@ -11,15 +11,18 @@ using google::dense_hash_map;
 
 using namespace std;
 
-const bool PATH_KNOWN=true;
+const bool PATH_KNOWN=false;
+const bool TRACEROUTE_BAD_FLOWS=true;
 const bool CONSIDER_REVERSE_PATH=false;
 const bool VERBOSE=true;
+
+const bool CONSIDER_DEVICE_LINK=false;
 
 // All trace files have hosts numbered as host + OFFSET_HOST
 const int OFFSET_HOST = 10000;
 
-//+1 for device level localization
-#define MAX_PATH_LENGTH 5
+#define MAX_PATH_LENGTH 10
+//#define MAX_PATH_LENGTH 5 //+1 for device level localization
 //#define MAX_PATH_LENGTH 4
 //#define MAX_PATH_LENGTH 6
 
@@ -39,6 +42,7 @@ struct SmallVector{
     }
     void push_back(T elt){
         arr[ind++] = elt;
+        arr_size = max(arr_size, ind);
     }
     bool operator==(const SmallVector<T>& rhs) {
         if (arr_size != rhs.arr_size) return false;

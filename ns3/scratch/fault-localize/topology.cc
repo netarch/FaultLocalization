@@ -3,6 +3,9 @@
 #include <queue>
 #include <set>
 #include <map>
+#include <random>
+#include <iterator>
+#include <algorithm>
 #include <climits>
 #include <assert.h>
 #include "ns3/flow-monitor-module.h"
@@ -150,6 +153,26 @@ void Topology::ReadTopologyFromFile(string topology_filename){
         }
     }
     ComputeAllPairShortestPathlens();
+}
+
+void Topology::ChooseFailedDevice(int nfails){
+    vector<int> switches;
+    vector<int> failed_switches;
+    for (int n: nodes) if (!IsNodeHost(n) and !IsNodeRack(n)) switches.push_back(n);
+    //!TODO: nfails
+    failed_switches.push_back(switches[rand()%switches.size()]);
+
+    failed_links.clear();
+    for (int fsw: failed_switches){
+        for (int nbr: network_links[fsw]){
+            failed_links.insert(pair<int, int>(fsw, nbr));
+            failed_links.insert(pair<int, int>(nbr, fsw));
+        }
+        for(int host: hosts_in_tor[fsw]){
+            failed_links.insert(pair<int, int>(fsw, host));
+            failed_links.insert(pair<int, int>(host, fsw));
+        }
+    }
 }
 
 void Topology::ChooseFailedLinks(int nfails){
@@ -339,6 +362,10 @@ bool Topology::IsNodeHost(int node){
     return (node >= HOST_OFFSET);
 }
 
+bool Topology::IsNodeRack(int node){
+    return (node < HOST_OFFSET) and (hosts_in_tor.size()<node and hosts_in_tor[node].size()>0);
+}
+
 int Topology::GetHostRack(int host){
     assert (IsNodeHost(host));
     return host_to_tor[host];
@@ -368,7 +395,7 @@ double Topology::GetDropRateFailedLink(){
     //if (drand48() <= 0.5){
         double min_drop_rate_failed_link = 0.001;
         double max_drop_rate_failed_link = 0.01;
-        return GetDropRateLinkUniform(min_drop_rate_failed_link, max_drop_rate_failed_link);
+       return GetDropRateLinkUniform(min_drop_rate_failed_link, max_drop_rate_failed_link);
     //}
     //else{
     //    double min_drop_rate_failed_link = 0.05;
@@ -591,6 +618,20 @@ int Topology::GetFirstUnusedPort(int src_node, int dest_node){
     endpoint_first_unused_port[endpoints] = port+1;
     //cout << src_node << " " << dest_node << " " << port << endl;
     return port;
+}
+
+void Topology::SetupEcmpFailure(NodeContainer &tors){
+    vector<int> switches;
+    vector<int> failed_switches;
+    for (int n: nodes) if (!IsNodeHost(n) and !IsNodeRack(n)) switches.push_back(n);
+    failed_switches.push_back(switches[rand()%switches.size()]);
+    cout << "Failing ecmp on " << failed_switches[0] << endl;
+    for (int fsw: failed_switches){
+        Ptr<Node> node = tors.Get(fsw);
+        Ptr<Ipv4> ipv4 = node->GetObject<Ipv4> ();
+        Ptr<Ipv4GlobalRouting> routing_proto = StaticCast<Ipv4GlobalRouting, Ipv4RoutingProtocol>(ipv4->GetRoutingProtocol());
+        routing_proto->SetEcmpFailure();
+    }
 }
 
 void Topology::AdaptNetwork(){

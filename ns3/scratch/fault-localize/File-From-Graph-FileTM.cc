@@ -128,7 +128,7 @@ int main(int argc, char *argv[]){
     Config::SetDefault("ns3::DropTailQueue::MaxPackets", UintegerValue (drop_queue_limit));
 
     // Simulation parameters
-    double sim_time_seconds = 60; //0.5;
+    double sim_time_seconds = 1.0; //60; //0.5;
     double warmup_time_seconds = 1.0;
 
     // Define topology
@@ -143,11 +143,12 @@ int main(int argc, char *argv[]){
     //char maxBytes [] = "0" ; //"50000"; // "0"; // unlimited
 
     // Initialize parameters for PointToPoint protocol
-    char dataRate [] = "1Gbps"; //"10Gbps";
+    char dataRate [] = "40Gbps"; //"1Gbps"; //"10Gbps";
     uint64_t delay_us = 2.5; //microseconds
 
     // Fail some links, by setting loss rates
     double silent_drop_rate = fail_param;
+    //topology.ChooseFailedDevice(1); //TODO: do for nfails
     topology.ChooseFailedLinks(nfails);
 
     cout << "Total number of hosts =  "<< topology.total_host<<"\n";
@@ -248,6 +249,10 @@ int main(int argc, char *argv[]){
     // Connect switches to switches
     topology.ConnectSwitchesAndSwitches(p2p, tors, silent_drop_rate);
     cout << "Finished connecting switches and switches  "<< endl;
+
+    //!TODO: change
+    // Setup Ecmp failure
+    //topology.SetupEcmpFailure(tors);
 
     // Set functions that need to be periodically invoked in the simulation
     Simulator::Schedule(Seconds(warmup_time_seconds), &EchoProgress, sim_time_seconds/100.0);

@@ -25,13 +25,11 @@ int main(int argc, char *argv[]){
     GetDataFromLogFileParallel(trace_file, topology_file, &data, nopenmp_threads);
     Hypothesis failed_links_set;
     data.GetFailedLinkIds(failed_links_set);
-    //NetBouncer estimator; vector<double> params = {0.016, 0.0113};
+    //DoubleO7 estimator; vector<double> params = {0.0025};
+    NetBouncer estimator; vector<double> params = {0.016, 0.0113};
     //Sherlock estimator;
-    BayesianNet estimator;
-    vector<double> params = {1.0-3.0e-3, 2.0e-4, -20.0};
+    //BayesianNet estimator; vector<double> params = {1.0-3.0e-3, 2.0e-4, -20.0};
     //vector<double> params = {1.0-1.0e-3, 1.0e-4, -20.0};
-    //DoubleO7 estimator;
-    //vector<double> params = {0.0025};
     estimator.SetParams(params);
     estimator.SetLogData(&data, max_finish_time_ms, nopenmp_threads);
     Hypothesis estimator_hypothesis;

@@ -35,6 +35,27 @@ double NetBouncer::EstimatedPathSuccessRate(Flow *flow, vector<double>& success_
     return x;
 }
 
+void NetBouncer::DetectBadDevices(vector<int>& bad_devices, double min_start_time_ms,
+                                  double max_finish_time_ms, int nopenmp_threads){
+    BinFlowsByDevice(max_finish_time_ms, nopenmp_threads);
+    bad_devices.clear();
+    for (int device=0; device < data->GetMaxDevicePlus1(); device++){
+        vector<int> &device_flows = (*flows_by_device)[device];
+        bool good_device = false;
+        for(int ff: device_flows){
+            Flow *flow = data->flows[ff];
+            assert(flow->TracerouteFlow(max_finish_time_ms));
+            double y = 1.0 - flow->GetDropRate(max_finish_time_ms);
+            if (abs(y - 1.0) < 1.0e-8){
+                good_device = true;
+                break;
+            }
+        }
+        cout << "Device " << device <<", num_flows: " << device_flows.size() << " : " << good_device << endl; 
+        if (!good_device) bad_devices.push_back(device);
+    }
+}
+
 double NetBouncer::ComputeError(vector<Flow*>& active_flows, vector<double>& success_prob,
                                 double min_start_time_ms, double max_finish_time_ms){
     double error = 0.0;
@@ -45,6 +66,9 @@ double NetBouncer::ComputeError(vector<Flow*>& active_flows, vector<double>& suc
         double x = EstimatedPathSuccessRate(flow, success_prob);
         double y = 1.0 - flow->GetDropRate(max_finish_time_ms);
         error += (y-x)*(y-x);
+        //cout << error << " " << y << " " << x << " " << flow->GetPacketsSent(max_finish_time_ms)
+        //     << " " << flow->GetPacketsLost(max_finish_time_ms) << " "
+        //     << flow->GetDropRate(max_finish_time_ms) << endl;
     }
     for(int link_id=0; link_id<nlinks; link_id++){
         error += regularize_const * success_prob[link_id] * (1.0 - success_prob[link_id]);
@@ -52,8 +76,8 @@ double NetBouncer::ComputeError(vector<Flow*>& active_flows, vector<double>& suc
     return error;
 }
 
-double NetBouncer::ArgMinError(vector<Flow*>& active_flows, vector<double>& success_prob,
-                   int var_link_id, double min_start_time_ms, double max_finish_time_ms){
+double NetBouncer::ArgMinError(vector<double>& success_prob, int var_link_id,
+                               double min_start_time_ms, double max_finish_time_ms){
     double s1=0.0, s2=0.0;
     vector<int> &link_id_flows = (*flows_by_link_id)[var_link_id];
     for(int ff: link_id_flows){
@@ -78,9 +102,12 @@ void NetBouncer::LocalizeFailures(double min_start_time_ms, double max_finish_ti
     localized_links.clear();
     vector<Flow*> active_flows; 
     for(Flow* flow: data->flows){
-        if(flow->IsFlowActive())
+        if((flow->IsFlowActive()) or PATH_KNOWN)
             active_flows.push_back(flow);
     }
+    vector<int> bad_devices;
+    DetectBadDevices(bad_devices, min_start_time_ms, max_finish_time_ms, nopenmp_threads);
+    cout << "Bad devices " << bad_devices << endl;
     int nlinks = data->inverse_links.size();
     vector<double> success_prob(nlinks, 0.0);
     vector<double> num_flows_through_link(nlinks, 0.0);
@@ -96,13 +123,14 @@ void NetBouncer::LocalizeFailures(double min_start_time_ms, double max_finish_ti
         //cout << ff << " " << flow->GetPacketsSent(max_finish_time_ms) << " " << flow_drop_rate << endl;
         if (flow->GetPacketsSent(max_finish_time_ms) == 0) continue;
         assert(flow->GetPacketsSent(max_finish_time_ms) > 0);
-        success_prob[flow->first_link_id] += flow_success_rate; 
-        success_prob[flow->last_link_id] += flow_success_rate; 
-        num_flows_through_link[flow->first_link_id]++;
-        num_flows_through_link[flow->last_link_id]++;
+        double multiplier = 1; //flow->GetPacketsSent(max_finish_time_ms); //1
+        success_prob[flow->first_link_id] += flow_success_rate * multiplier; 
+        success_prob[flow->last_link_id] += flow_success_rate * multiplier; 
+        num_flows_through_link[flow->first_link_id] += multiplier;
+        num_flows_through_link[flow->last_link_id] += multiplier;
         for (int link_id: *path_taken){
-            success_prob[link_id] += flow_success_rate; 
-            num_flows_through_link[link_id]++;
+            success_prob[link_id] += flow_success_rate * multiplier; 
+            num_flows_through_link[link_id] += multiplier;
         }
     }
     for(int link_id=0; link_id<nlinks; link_id++){
@@ -113,15 +141,15 @@ void NetBouncer::LocalizeFailures(double min_start_time_ms, double max_finish_ti
     for (int it=0; it<MAX_ITERATIONS; it++){
         auto start_iter_time = chrono::high_resolution_clock::now();
         for(int link_id=0; link_id < nlinks; link_id++){
-            success_prob[link_id] = max(0.0, min(1.0, ArgMinError(active_flows, success_prob,
-                                            link_id, min_start_time_ms, max_finish_time_ms)));
+            success_prob[link_id] = max(0.0, min(1.0, ArgMinError(success_prob, link_id,
+                                                        min_start_time_ms, max_finish_time_ms)));
         }
         double new_error = ComputeError(active_flows, success_prob, min_start_time_ms, max_finish_time_ms);
         if constexpr (VERBOSE){
             cout << "Iteration " << it << " error " << new_error << " finished in "
                  << GetTimeSinceSeconds(start_iter_time) * 1.0e-3 << endl;
         }
-        //if (abs(new_error - error) < 1.0e-6) break;
+        if (abs(new_error - error) < 1.0e-9) break;
         error = new_error;
     }
 
@@ -129,7 +157,7 @@ void NetBouncer::LocalizeFailures(double min_start_time_ms, double max_finish_ti
     for(int link_id=0; link_id<nlinks; link_id++){
         if (VERBOSE and (1.0 - success_prob[link_id] >= fail_threshold/2)){
             //cout << "Suspicious link "<< data->inverse_links[link_id] << " "
-            //     << 1.0 - success_prob[link_id] << endl;
+            //     << 1.0 - success_prob[link_id] << " " << fail_threshold << endl;
         }
         if (1.0 - success_prob[link_id] >= fail_threshold){
             localized_links.insert(link_id);

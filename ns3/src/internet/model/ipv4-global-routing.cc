@@ -72,7 +72,8 @@ Ipv4GlobalRouting::GetTypeId (void)
 }
 
 Ipv4GlobalRouting::Ipv4GlobalRouting () 
-  : m_randomEcmpRouting (false),
+  : m_failedEcmpRouting (false),
+    m_randomEcmpRouting (false),
     m_flowEcmpRouting (false),
     m_respondToInterfaceEvents (false)
 {
@@ -264,10 +265,9 @@ Ipv4GlobalRouting::LookupGlobal (const Ipv4Header &header, Ptr<const Packet> ipP
   RouteVec_t allRoutes;
 
   NS_LOG_LOGIC ("Number of m_hostRoutes = " << m_hostRoutes.size ());
-  for (HostRoutesCI i = m_hostRoutes.begin (); 
-       i != m_hostRoutes.end (); 
-       i++) 
-    {
+  //std::cout << "Number of m_hostRoutes = " << m_hostRoutes.size () << " " << oif << " " ;
+  //std::cout << "Number of m_networkRoutes = " << m_networkRoutes.size () << " self: " << this << std::endl;
+  for (HostRoutesCI i = m_hostRoutes.begin (); i != m_hostRoutes.end (); i++) {
       NS_ASSERT ((*i)->IsHost ());
       if ((*i)->GetDest ().IsEqual (dest)) 
         {
@@ -339,12 +339,14 @@ Ipv4GlobalRouting::LookupGlobal (const Ipv4Header &header, Ptr<const Packet> ipP
       uint32_t selectIndex;
       if (m_randomEcmpRouting)
         {
+          assert (false);
           selectIndex = m_rand->GetInteger (0, allRoutes.size ()-1);
         }
       else  if ((m_flowEcmpRouting || true) && (allRoutes.size () > 0))
         {
           uint32_t tupleValue = GetTupleValue(header, ipPayload);
-          selectIndex = tupleValue % allRoutes.size ();
+          assert (!m_failedEcmpRouting);
+          selectIndex = (m_failedEcmpRouting? 0 : tupleValue % allRoutes.size ());
           LogFlowRule(header, ipPayload, allRoutes, selectIndex);
           //std::cout<<"selectIndex : "<<selectIndex<<"/"<<allRoutes.size()<<std::endl;
         }
@@ -731,6 +733,13 @@ Ipv4GlobalRouting::SetIpv4 (Ptr<Ipv4> ipv4)
   NS_ASSERT (m_ipv4 == 0 && ipv4 != 0);
   m_ipv4 = ipv4;
 }
+
+void 
+Ipv4GlobalRouting::SetEcmpFailure()
+{
+  m_failedEcmpRouting = true;
+}
+
 
 
 } // namespace ns3

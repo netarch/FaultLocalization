@@ -71,6 +71,7 @@ class LogData;
 void GetAllPairShortestPaths(vector<int>& nodes, unordered_set<Link>& links, LogData* result);
 void GetLinkMappings(string topology_file, LogData* result, bool compute_paths=false);
 void GetDataFromLogFile(string trace_file, LogData* result);
+void ReadPath(char* path_c, vector<int>& path_nodes, vector<int> &temp_path, LogData* result);
 void ProcessFlowPathLines(vector<char*>& lines, vector<array<int, 10> >& path_nodes_list, int nopenmp_threads);
 void ProcessFlowLines(vector<FlowLines>& all_flow_lines, LogData* result, int nopenmp_threads);
 void GetDataFromLogFileParallel(string trace_file, string topology_file, LogData* result, int nopenmp_threads);

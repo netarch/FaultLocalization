@@ -49,6 +49,7 @@ class Topology{
     void ReadFlowsFromFile(string tm_filename);
     void ReadTopologyFromFile(string topology_filename);
     void ChooseFailedLinks(int nfails);
+    void ChooseFailedDevice(int nfails);
 
     char* GetFlowSrcIpAddress(Flow &flow);
     char* GetFlowDestIpAddress(Flow &flow);
@@ -57,6 +58,7 @@ class Topology{
     char* GetHostRackIpAddressRackIface(int host);
 
     bool IsNodeHost(int node);
+    bool IsNodeRack(int node);
     int GetHostRack(int host);
     int GetNumHostsInRack(int rack);
     int GetHostIndexInRack(int host);
@@ -79,6 +81,8 @@ class Topology{
     int GetFirstUnusedPort(int src_node, int dest_node);
     int GetStartPort() { return start_port;}
     int GetFirstUnusedPort(int node) { return node_first_unused_port[node]; }
+
+    void SetupEcmpFailure(NodeContainer &tors);
 
 private:
     //The hosts are offset in the paths

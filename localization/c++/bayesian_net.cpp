@@ -580,9 +580,9 @@ int BayesianNet::UpdateScoresDevice(vector<double> &likelihood_scores, Hypothesi
         if (weight.first == 0 and weight.second == 0) continue;
 
         int npaths_failed = 0, npaths_failed_base = 0;
-        npaths_failed += UpdateScoresDevicePopulateCounters(flow_paths, hypothesis,
+        npaths_failed += UpdateScoresDevicePopulateCounters(flow, flow_paths, hypothesis,
                                         device_ctrs_threads[thread_num], hypothesis_component_bitmap);
-        npaths_failed_base += UpdateScoresDevicePopulateCounters(flow_paths, base_hypothesis,
+        npaths_failed_base += UpdateScoresDevicePopulateCounters(flow, flow_paths, base_hypothesis,
                                 device_ctrs_threads_base[thread_num], base_hypothesis_component_bitmap);
 
         long double intermediate_val = flow->GetCachedIntermediateValue();
@@ -592,7 +592,7 @@ int BayesianNet::UpdateScoresDevice(vector<double> &likelihood_scores, Hypothesi
                                         npaths_r, weight.first, weight.second, intermediate_val);
         Path device_path;
         for (Path* link_path: *flow_paths){
-            data->GetDeviceLevelPath(*link_path, device_path);
+            data->GetDeviceLevelPath(flow, *link_path, device_path);
             for (int device: device_path){
                 int naffected = device_ctrs_threads[thread_num][device];
                 int naffected_base = device_ctrs_threads_base[thread_num][device];
@@ -636,12 +636,12 @@ int BayesianNet::UpdateScoresPopulateCounters(vector<Path*> *flow_paths, Hypothe
     return npaths_failed;
 }
 
-int BayesianNet::UpdateScoresDevicePopulateCounters(vector<Path*> *flow_paths, Hypothesis *hypothesis,
+int BayesianNet::UpdateScoresDevicePopulateCounters(Flow *flow, vector<Path*> *flow_paths, Hypothesis *hypothesis,
                                   vector<short int> &device_ctrs_threads, bool *hypothesis_link_bitmap){
     int npaths_failed = 0;
     Path device_path;
     for (Path* link_path: *flow_paths){
-        data->GetDeviceLevelPath(*link_path, device_path);
+        data->GetDeviceLevelPath(flow, *link_path, device_path);
         int failed_links_in_path = NumIntersectionsHypothesisPath(hypothesis, &device_path);
         npaths_failed += (int) (failed_links_in_path > 0);
         for (int device: device_path){
@@ -815,13 +815,13 @@ void BayesianNet::PrintScores(double min_start_time_ms, double max_finish_time_m
         //cout << "npaths " << npaths << endl;
         Path device_path, *path_ptr;
         for (Path* link_path: *flow_paths){
-            path_ptr = PathPointerSelect(*link_path, device_path, device_level);
+            path_ptr = PathPointerSelect(flow, *link_path, device_path, device_level);
             for (int cmp: *path_ptr){
                 component_ctrs_threads[thread_num][cmp]++;
             }
         }
         for (Path* link_path: *flow_paths){
-            path_ptr = PathPointerSelect(*link_path, device_path, device_level);
+            path_ptr = PathPointerSelect(flow, *link_path, device_path, device_level);
             for (int cmp: *path_ptr){
                 int naffected = component_ctrs_threads[thread_num][cmp];
                 if (naffected > 0){
@@ -895,9 +895,9 @@ void BayesianNet::ComputeInitialLikelihoods(vector<double> &initial_likelihoods,
                                     max_finish_time_ms, false, nopenmp_threads);
 }
 
-Path* BayesianNet::PathPointerSelect(Path &link_path, Path &device_path_unfilled, bool device_level){
+Path* BayesianNet::PathPointerSelect(Flow *flow, Path &link_path, Path &device_path_unfilled, bool device_level){
     if (device_level){
-        data->GetDeviceLevelPath(link_path, device_path_unfilled);
+        data->GetDeviceLevelPath(flow, link_path, device_path_unfilled);
         return &device_path_unfilled;
     }
     else return &link_path;
@@ -929,14 +929,14 @@ void BayesianNet::ComputeInitialLikelihoodsHelper(vector<double> &initial_likeli
         if (weight.first == 0 and weight.second == 0) continue;
         Path device_path, *path_ptr;
         for (Path* link_path: *flow_paths){
-            path_ptr = PathPointerSelect(*link_path, device_path, device_level);
+            path_ptr = PathPointerSelect(flow, *link_path, device_path, device_level);
             for (int component: *path_ptr){
                 component_ctrs_threads[thread_num][component]++;
             }
         }
         long double intermediate_val = flow->GetCachedIntermediateValue();
         for (Path* link_path: *flow_paths){
-            path_ptr = PathPointerSelect(*link_path, device_path, device_level);
+            path_ptr = PathPointerSelect(flow, *link_path, device_path, device_level);
             for (int cmp: *path_ptr){
                 int naffected = component_ctrs_threads[thread_num][cmp];
                 if (naffected > 0){
@@ -1204,7 +1204,7 @@ array<int, 6> BayesianNet::ComputeFlowPathCountersUnreducedDevice(Flow *flow, Hy
     int npaths = flow_paths->size(), naffected=0, naffected_base=0;
     Path device_path;
     for (Path* link_path: *flow_paths){
-        data->GetDeviceLevelPath(*link_path, device_path); 
+        data->GetDeviceLevelPath(flow, *link_path, device_path); 
         naffected += (int) HypothesisIntersectsPath(hypothesis, &device_path);
         naffected_base += (int) HypothesisIntersectsPath(base_hypothesis, &device_path);
     }

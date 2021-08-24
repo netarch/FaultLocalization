@@ -39,6 +39,7 @@ void GetDataFromLogFileDistributed(string dirname, int nchunks, LogData *result,
 
 
 void ComputeAllPairShortestPaths(unordered_set<int>& nodes, unordered_set<Link>& links, LogData* result){
+    assert(!CONSIDER_DEVICE_LINK);
     int MAX_NODE_ID = *max_element (nodes.begin(), nodes.end());
     vector<vector<int> > shortest_path_len(MAX_NODE_ID+1);
     for(int i=0; i<MAX_NODE_ID+1; i++){
@@ -100,6 +101,7 @@ void ComputeAllPairShortestPaths(unordered_set<int>& nodes, unordered_set<Link>&
 
 //Compute and store (Link <-> Link-id) mappings
 void GetLinkMappings(string topology_file, LogData* result, bool compute_paths){
+    assert((compute_paths and CONSIDER_DEVICE_LINK) == false);
     ifstream tfile(topology_file);
     string line;
     if constexpr (VERBOSE){
@@ -116,6 +118,10 @@ void GetLinkMappings(string topology_file, LogData* result, bool compute_paths){
             GetFirstInt(linec, sw2);
             result->GetLinkId(Link(sw1, sw2));
             result->GetLinkId(Link(sw2, sw1));
+            if (CONSIDER_DEVICE_LINK){
+                result->GetLinkId(Link(sw1, sw1));
+                result->GetLinkId(Link(sw2, sw2));
+            }
             if(compute_paths){
                 nodes.insert(sw1);
                 nodes.insert(sw2);
@@ -295,6 +301,23 @@ void GetDataFromLogFile(string trace_file, LogData *result){
     }
 }
 
+void ReadPath(char* path_c, vector<int>& path_nodes, vector<int> &temp_path, LogData* result){
+    temp_path.clear();
+    path_nodes.clear();
+    int node;
+    // This is only the portion from src_rack to dst_rack
+    while (GetFirstInt(path_c, node)){
+        if (path_nodes.size() > 0){
+            temp_path.push_back(result->GetLinkIdUnsafe(Link(path_nodes.back(), node)));
+            if (CONSIDER_DEVICE_LINK) temp_path.push_back(result->GetLinkIdUnsafe(Link(node, node)));
+        }
+        //TODO CONSIDER_DEVICE_LINK Read path
+        path_nodes.push_back(node);
+        if (CONSIDER_DEVICE_LINK) path_nodes.push_back(node); //push twice
+    }
+}
+
+
 void ProcessFlowLines(vector<FlowLines>& all_flow_lines, LogData* result, int nopenmp_threads){
     auto start_time = chrono::high_resolution_clock::now();
     //vector<Flow*> flows_threads[nopenmp_threads];
@@ -329,7 +352,8 @@ void ProcessFlowLines(vector<FlowLines>& all_flow_lines, LogData* result, int no
         
         //!HACK for leaf spine
         if (LEAFSPINE_NET_BOUNCER and (srcrack == src or destrack == dest)){
-            assert (flow->IsFlowActive());
+            //!TODO: implement device link
+            assert (flow->IsFlowActive() and !CONSIDER_DEVICE_LINK);
             if (src == srcrack){
                 assert (destrack != dest);
                 flow->SetFirstLinkId(result->GetLinkIdUnsafe(Link(srcrack, destrack)));
@@ -349,6 +373,7 @@ void ProcessFlowLines(vector<FlowLines>& all_flow_lines, LogData* result, int no
             //flow->PrintInfo();
         }
         else{
+            //cout << Link(flow->src, srcrack) << " " << restore_c << endl;
             flow->SetFirstLinkId(result->GetLinkIdUnsafe(Link(flow->src, srcrack)));
             flow->SetLastLinkId(result->GetLinkIdUnsafe(Link(destrack, flow->dest)));
             // If flow active, then there is only one path
@@ -356,34 +381,17 @@ void ProcessFlowLines(vector<FlowLines>& all_flow_lines, LogData* result, int no
 
             /* Reverse flow path taken */
             if (flow_lines.fprt_c != NULL){
-                temp_path[thread_num].clear();
-                path_nodes[thread_num].clear();
                 restore_c = flow_lines.fprt_c;
-                int node;
-                // This is only the portion from dest_rack to src_rack
-                while (GetFirstInt(flow_lines.fprt_c, node)){
-                    if (path_nodes[thread_num].size() > 0){
-                        temp_path[thread_num].push_back(result->GetLinkIdUnsafe(Link(path_nodes[thread_num].back(), node)));
-                    }
-                    path_nodes[thread_num].push_back(node);
-                }
+                ReadPath(flow_lines.fprt_c, path_nodes[thread_num], temp_path[thread_num], result);
                 flow->SetReversePathTaken(result->GetPointerToPathTaken(
                                    path_nodes[thread_num], temp_path[thread_num], flow));
                 flow_lines.fprt_c = restore_c;
             }
             /* Flow path taken */
             if(flow_lines.fpt_c != NULL){
-                temp_path[thread_num].clear();
-                path_nodes[thread_num].clear();
                 restore_c = flow_lines.fpt_c;
-                int node;
-                // This is only the portion from src_rack to dest_rack
-                while (GetFirstInt(flow_lines.fpt_c, node)){
-                    if (path_nodes[thread_num].size() > 0){
-                        temp_path[thread_num].push_back(result->GetLinkIdUnsafe(Link(path_nodes[thread_num].back(), node)));
-                    }
-                    path_nodes[thread_num].push_back(node);
-                }
+                ReadPath(flow_lines.fpt_c, path_nodes[thread_num], temp_path[thread_num], result);
+                //cout << "path_nodes " << path_nodes[thread_num] << " path-link " << temp_path[thread_num] << endl;
                 flow->SetPathTaken(result->GetPointerToPathTaken(
                                    path_nodes[thread_num], temp_path[thread_num], flow));
                 flow_lines.fpt_c = restore_c;
@@ -432,6 +440,7 @@ void ProcessFlowLines(vector<FlowLines>& all_flow_lines, LogData* result, int no
 void ProcessFlowPathLines(vector<char*>& lines, LogData* result, int nopenmp_threads){
     auto start_time = chrono::high_resolution_clock::now();
     vector<int> path_nodes_t[nopenmp_threads];
+    vector<int> temp_path_t[nopenmp_threads];
     for(int t=0; t<nopenmp_threads; t++){
         path_nodes_t[t].reserve(MAX_PATH_LENGTH+1);
     }
@@ -441,22 +450,9 @@ void ProcessFlowPathLines(vector<char*>& lines, LogData* result, int nopenmp_thr
     for(int ii=0; ii<lines.size(); ii++){
         int thread_num = omp_get_thread_num();
         char *linec = lines[ii];
-        char *restore_c = linec;
-        path_nodes_t[thread_num].clear();
-        int node;
-        // This is only the portion from src_rack to dest_rack
-        while (GetFirstInt(linec, node)){
-            path_nodes_t[thread_num].push_back(node);
-        }
-        if(path_nodes_t[thread_num].size() <= 0)
-            cout << "line " << restore_c << endl;
+        ReadPath(linec, path_nodes_t[thread_num], temp_path_t[thread_num], result);
+        path_arr[ii] = Path(temp_path_t[thread_num]);
         assert(path_nodes_t[thread_num].size()>0); // No direct link for src_host to dest_host or vice_versa
-
-        path_arr[ii] = Path(path_nodes_t[thread_num].size()-1);
-        for(int tt=1; tt<path_nodes_t[thread_num].size(); tt++){
-            path_arr[ii].push_back(result->GetLinkIdUnsafe(
-                         Link(path_nodes_t[thread_num][tt-1], path_nodes_t[thread_num][tt])));
-        }
         src_dest_rack[ii] = PII(path_nodes_t[thread_num][0], path_nodes_t[thread_num].back());
     }
     if constexpr (VERBOSE){

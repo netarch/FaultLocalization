@@ -92,7 +92,7 @@ int main(int argc, char *argv[]){
             vector<Path*>* flow_paths = flow->GetPaths(max_finish_time_ms);
             Path device_path;
             for (Path* link_path: *flow_paths){
-                ep_data.GetDeviceLevelPath(*link_path, device_path);
+                ep_data.GetDeviceLevelPath(flow, *link_path, device_path);
                 for (int device: device_path){
                     cout <<" " << device;
                 }

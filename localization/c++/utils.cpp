@@ -309,14 +309,77 @@ void ReadPath(char* path_c, vector<int>& path_nodes, vector<int> &temp_path, Log
     while (GetFirstInt(path_c, node)){
         if (path_nodes.size() > 0){
             temp_path.push_back(result->GetLinkIdUnsafe(Link(path_nodes.back(), node)));
-            if (CONSIDER_DEVICE_LINK) temp_path.push_back(result->GetLinkIdUnsafe(Link(node, node)));
         }
         //TODO CONSIDER_DEVICE_LINK Read path
         path_nodes.push_back(node);
-        if (CONSIDER_DEVICE_LINK) path_nodes.push_back(node); //push twice
+        if (CONSIDER_DEVICE_LINK) {
+            path_nodes.push_back(node); //push twice
+            temp_path.push_back(result->GetLinkIdUnsafe(Link(node, node)));
+        }
     }
 }
 
+
+
+void GetCompletePaths(Flow* flow, FlowLines& flow_lines, LogData *data, vector<int>& temp_path,
+                      vector<int>& path_nodes, vector<int>& path_nodes_reverse){
+    /*
+    if (LEAFSPINE_NET_BOUNCER and (srcrack == src or destrack == dest)){
+        //!TODO: implement device link
+        assert (flow->IsFlowActive() and !CONSIDER_DEVICE_LINK);
+        if (src == srcrack){
+            assert (destrack != dest);
+            flow->SetFirstLinkId(result->GetLinkIdUnsafe(Link(srcrack, destrack)));
+            flow->SetLastLinkId(result->GetLinkIdUnsafe(Link(destrack, dest)));
+        }
+        else{
+            assert (srcrack != dest);
+            flow->SetFirstLinkId(result->GetLinkIdUnsafe(Link(flow->src, srcrack)));
+            flow->SetLastLinkId(result->GetLinkIdUnsafe(Link(srcrack, flow->dest)));
+        }
+        temp_path[thread_num].clear();
+        path_nodes[thread_num].clear();
+        flow->AddPath(result->GetPointerToPathTaken(
+                           path_nodes[thread_num], temp_path[thread_num], flow), true);
+        flow->AddReversePath(result->GetPointerToPathTaken(
+                           path_nodes[thread_num], temp_path[thread_num], flow), true);
+        //flow->PrintInfo();
+    }
+    else
+    */
+    {
+        char *restore_c;
+        /* Reverse flow path taken */
+        if (flow_lines.fprt_c != NULL){
+            restore_c = flow_lines.fprt_c;
+            ReadPath(flow_lines.fprt_c, path_nodes_reverse, temp_path, data);
+            path_nodes_reverse.insert(path_nodes_reverse.begin(), flow->dest);
+            path_nodes_reverse.push_back(flow->src);
+            flow_lines.fprt_c = restore_c;
+        }
+        
+        /* Flow path taken */
+        if(flow_lines.fpt_c != NULL){
+            restore_c = flow_lines.fpt_c;
+            ReadPath(flow_lines.fpt_c, path_nodes, temp_path, data);
+            path_nodes.insert(path_nodes.begin(), flow->src);
+            path_nodes.push_back(flow->dest);
+            //cout << "path_nodes " << path_nodes[thread_num] << " path-link " << temp_path[thread_num] << endl;
+            flow_lines.fpt_c = restore_c;
+        }
+
+        if (CONSIDER_DEVICE_LINK){
+            if (data->IsNodeSwitch(flow->src)){
+                path_nodes.insert(path_nodes.begin(), flow->src);
+                path_nodes_reverse.push_back(flow->src);
+            }
+            if (data->IsNodeSwitch(flow->dest)){
+                path_nodes.push_back(flow->dest);
+                path_nodes_reverse.insert(path_nodes_reverse.begin(), flow->dest);
+            }
+        }
+    }
+}
 
 void ProcessFlowLines(vector<FlowLines>& all_flow_lines, LogData* result, int nopenmp_threads){
     auto start_time = chrono::high_resolution_clock::now();
@@ -325,9 +388,11 @@ void ProcessFlowLines(vector<FlowLines>& all_flow_lines, LogData* result, int no
     result->flow_pointers_to_delete.push_back(flows_threads);
     vector<int> temp_path[nopenmp_threads];
     vector<int> path_nodes[nopenmp_threads];
+    vector<int> path_nodes_reverse[nopenmp_threads];
     for (int t=0; t<nopenmp_threads; t++){
         temp_path[t].reserve(MAX_PATH_LENGTH + 2);
         path_nodes[t].reserve(MAX_PATH_LENGTH + 2);
+        path_nodes_reverse[t].reserve(MAX_PATH_LENGTH + 2);
     }
     int previous_nflows = result->flows.size();
     #pragma omp parallel for num_threads(nopenmp_threads)
@@ -347,56 +412,26 @@ void ProcessFlowLines(vector<FlowLines>& all_flow_lines, LogData* result, int no
         flow_lines.fid_c = restore_c;
         Flow *flow = &(flows_threads[ii]);
         *flow = Flow(src, 0, dest, 0, nbytes, start_time_ms);
-        //Flow *flow = new Flow(src, 0, dest, 0, nbytes, start_time_ms);
-        // Set flow paths
-        
-        //!HACK for leaf spine
-        if (LEAFSPINE_NET_BOUNCER and (srcrack == src or destrack == dest)){
-            //!TODO: implement device link
-            assert (flow->IsFlowActive() and !CONSIDER_DEVICE_LINK);
-            if (src == srcrack){
-                assert (destrack != dest);
-                flow->SetFirstLinkId(result->GetLinkIdUnsafe(Link(srcrack, destrack)));
-                flow->SetLastLinkId(result->GetLinkIdUnsafe(Link(destrack, dest)));
-            }
-            else{
-                assert (srcrack != dest);
-                flow->SetFirstLinkId(result->GetLinkIdUnsafe(Link(flow->src, srcrack)));
-                flow->SetLastLinkId(result->GetLinkIdUnsafe(Link(srcrack, flow->dest)));
-            }
-            temp_path[thread_num].clear();
-            path_nodes[thread_num].clear();
-            flow->AddPath(result->GetPointerToPathTaken(
-                               path_nodes[thread_num], temp_path[thread_num], flow), true);
-            flow->AddReversePath(result->GetPointerToPathTaken(
-                               path_nodes[thread_num], temp_path[thread_num], flow), true);
-            //flow->PrintInfo();
-        }
-        else{
-            //cout << Link(flow->src, srcrack) << " " << restore_c << endl;
-            flow->SetFirstLinkId(result->GetLinkIdUnsafe(Link(flow->src, srcrack)));
-            flow->SetLastLinkId(result->GetLinkIdUnsafe(Link(destrack, flow->dest)));
-            // If flow active, then there is only one path
-            if(!flow->IsFlowActive()) result->GetAllPaths(&flow->paths, srcrack, destrack);
 
-            /* Reverse flow path taken */
-            if (flow_lines.fprt_c != NULL){
-                restore_c = flow_lines.fprt_c;
-                ReadPath(flow_lines.fprt_c, path_nodes[thread_num], temp_path[thread_num], result);
-                flow->SetReversePathTaken(result->GetPointerToPathTaken(
-                                   path_nodes[thread_num], temp_path[thread_num], flow));
-                flow_lines.fprt_c = restore_c;
-            }
-            /* Flow path taken */
-            if(flow_lines.fpt_c != NULL){
-                restore_c = flow_lines.fpt_c;
-                ReadPath(flow_lines.fpt_c, path_nodes[thread_num], temp_path[thread_num], result);
-                //cout << "path_nodes " << path_nodes[thread_num] << " path-link " << temp_path[thread_num] << endl;
-                flow->SetPathTaken(result->GetPointerToPathTaken(
-                                   path_nodes[thread_num], temp_path[thread_num], flow));
-                flow_lines.fpt_c = restore_c;
-            }
+        // Set flow paths: If flow active, then there is only one path
+        if(!flow->IsFlowActive()) result->GetAllPaths(&flow->paths, srcrack, destrack);
+      
+        // Set paths taken by flow
+        GetCompletePaths(flow, flow_lines, result, temp_path[thread_num],
+                         path_nodes[thread_num], path_nodes_reverse[thread_num]);
+        // Set forward path 
+        if (path_nodes[thread_num].size() > 0){
+            result->GetLinkIdPath(path_nodes[thread_num], flow->first_link_id,
+                                  flow->last_link_id, temp_path[thread_num]);
+            flow->SetPathTaken(result->GetPointerToPathTaken(temp_path[thread_num], flow));
         }
+        // Set reverse path
+        if (path_nodes_reverse[thread_num].size() > 0){
+            result->GetLinkIdPath(path_nodes_reverse[thread_num], flow->reverse_first_link_id,
+                                  flow->reverse_last_link_id, temp_path[thread_num]);
+            flow->SetReversePathTaken(result->GetPointerToPathTaken(temp_path[thread_num], flow));
+        }
+
         /* Snapshots */
         for(int ss=0; ss<flow_lines.ss_c.size(); ss++){
             char *ss_c = flow_lines.ss_c[ss];
@@ -463,6 +498,14 @@ void ProcessFlowPathLines(vector<char*>& lines, LogData* result, int nopenmp_thr
     for(int ii=0; ii<lines.size(); ii++){
         MemoizedPaths *memoized_paths = result->GetMemoizedPaths(src_dest_rack[ii].first, src_dest_rack[ii].second);
         memoized_paths->AddPath(&path_arr[ii]);
+    }
+    path_arr = new Path[result->GetMaxDevicePlus1()];
+    for(int device=0; device<result->GetMaxDevicePlus1(); device++){
+        temp_path_t[0].clear();
+        temp_path_t[0].push_back(result->GetLinkIdUnsafe(Link(device, device)));
+        path_arr[device] = Path(temp_path_t[0]);
+        MemoizedPaths *memoized_paths = result->GetMemoizedPaths(device, device);
+        memoized_paths->AddPath(&path_arr[device]);
     }
 }
 

@@ -16,7 +16,7 @@ const bool TRACEROUTE_BAD_FLOWS=true;
 const bool CONSIDER_REVERSE_PATH=false;
 const bool VERBOSE=true;
 
-const bool CONSIDER_DEVICE_LINK=false;
+const bool CONSIDER_DEVICE_LINK=true;
 
 // All trace files have hosts numbered as host + OFFSET_HOST
 const int OFFSET_HOST = 10000;

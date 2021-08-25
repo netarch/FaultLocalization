@@ -41,6 +41,7 @@ public:
     inline bool IsNodeSwitch(int node) { return (node < OFFSET_HOST); } 
 
     void GetDeviceLevelPath(Flow *flow, Path &path, Path &result);
+    void GetLinkIdPath(vector<int> &path_nodes, int &first_link_id, int &last_link_id, vector<int> &link_id_path);
 
     vector<vector<int> >* GetForwardFlowsByLinkId(double max_finish_time_ms, int nopenmp_threads);
     void GetSizesForForwardFlowsByLinkId(double max_finish_time_ms, int nopenmp_threads, vector<int>& result);
@@ -71,6 +72,7 @@ public:
 
     void ResetForAnalysis();
     Path* GetPointerToPathTaken(vector<int>& path_nodes, vector<int>& temp_path, Flow* flow);
+    Path* GetPointerToPathTaken(vector<int>& temp_path, Flow* flow);
     void GetAllPaths(vector<Path*> **result, int src_rack, int dest_rack);
 
     void OutputToTrace(ostream &out);

@@ -105,9 +105,9 @@ void NetBouncer::LocalizeFailures(double min_start_time_ms, double max_finish_ti
         if((flow->IsFlowActive()) or PATH_KNOWN)
             active_flows.push_back(flow);
     }
-    vector<int> bad_devices;
-    DetectBadDevices(bad_devices, min_start_time_ms, max_finish_time_ms, nopenmp_threads);
-    cout << "Bad devices " << bad_devices << endl;
+    //vector<int> bad_devices;
+    //DetectBadDevices(bad_devices, min_start_time_ms, max_finish_time_ms, nopenmp_threads);
+    //cout << "Bad devices " << bad_devices << endl;
     int nlinks = data->inverse_links.size();
     vector<double> success_prob(nlinks, 0.0);
     vector<double> num_flows_through_link(nlinks, 0.0);

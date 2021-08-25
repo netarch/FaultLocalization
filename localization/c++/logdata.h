@@ -39,6 +39,7 @@ public:
     }
 
     inline bool IsNodeSwitch(int node) { return (node < OFFSET_HOST); } 
+    inline bool IsLinkDevice(int link_id) { return (inverse_links[link_id].first == inverse_links[link_id].second); }
 
     void GetDeviceLevelPath(Flow *flow, Path &path, Path &result);
     void GetLinkIdPath(vector<int> &path_nodes, int &first_link_id, int &last_link_id, vector<int> &link_id_path);

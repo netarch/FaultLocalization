@@ -197,8 +197,8 @@ vector<string> GetFiles(){
     //return GetFilesHw();
     //return GetFilesRRG();
     //return GetFilesMixed();
-    return GetFilesMixed40G();
-    //return GetFilesDevice40G();
+    //return GetFilesMixed40G();
+    return GetFilesDevice40G();
     //return GetFiles007Verification();
     //return GetFilesFlowSimulator();
     //return GetFilesSoftness();

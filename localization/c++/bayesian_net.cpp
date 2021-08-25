@@ -329,6 +329,13 @@ void BayesianNet::LocalizeFailuresHelper(double min_start_time_ms, double max_fi
              << GetTimeSinceSeconds(start_search_time) << " seconds" << endl;
         PrintCorrectHypothesisLikelihood(min_start_time_ms, max_finish_time_ms, localized_components,
                                          device_level, nopenmp_threads);
+        /*
+        if (!device_level){
+            //Only for link level localization
+            VerifyLikelihoodComputation(all_hypothesis, min_start_time_ms,
+                                        max_finish_time_ms, nopenmp_threads);
+        }
+        */
     }
     CleanUpAfterLocalization(all_hypothesis);
     if constexpr (VERBOSE) {
@@ -340,35 +347,32 @@ void BayesianNet::LocalizeFailuresHelper(double min_start_time_ms, double max_fi
 void BayesianNet::PrintCorrectHypothesisLikelihood(double min_start_time_ms, double max_finish_time_ms,
                                                    Hypothesis &localized_components, 
                                                    bool device_level, int nopenmp_threads){
-        Hypothesis correct_hypothesis;
-        if (device_level) data->GetFailedDevices(correct_hypothesis);
-        else data->GetFailedLinkIds(correct_hypothesis);
-        Hypothesis* no_failure_hypothesis = new Hypothesis();
-        double likelihood_correct_hypothesis = ComputeLogLikelihoodHelper(&correct_hypothesis,
-					     no_failure_hypothesis, 0.0, min_start_time_ms,
-					     max_finish_time_ms, device_level, nopenmp_threads);
-        if (PRINT_SCORES){
-            for (int cmp: localized_components){
-                Hypothesis single_component_hypothesis = {cmp}; 
-                double l = ComputeLogLikelihoodHelper(&single_component_hypothesis,
-                                      no_failure_hypothesis, 0.0, min_start_time_ms,
-                                      max_finish_time_ms, device_level, nopenmp_threads);
-                //TODO DEVICE
-                //cout << "Score of predicted failed component " << data->inverse_links[link_id] 
-                //     << " score " << drops_per_component[link_id] << " E[nflows] "
-                //     << flows_per_component[link_id] << " likelihood " << l << endl;
-            }
+    Hypothesis correct_hypothesis;
+    if (device_level) data->GetFailedDevices(correct_hypothesis);
+    else data->GetFailedLinkIds(correct_hypothesis);
+    Hypothesis* no_failure_hypothesis = new Hypothesis();
+    double likelihood_correct_hypothesis = ComputeLogLikelihoodHelper(&correct_hypothesis,
+                     no_failure_hypothesis, 0.0, min_start_time_ms,
+                     max_finish_time_ms, device_level, nopenmp_threads);
+    if (PRINT_SCORES){
+        for (int cmp: localized_components){
+            Hypothesis single_component_hypothesis = {cmp}; 
+            double l = ComputeLogLikelihoodHelper(&single_component_hypothesis,
+                                  no_failure_hypothesis, 0.0, min_start_time_ms,
+                                  max_finish_time_ms, device_level, nopenmp_threads);
+            //TODO DEVICE
+            //cout << "Score of predicted failed component " << data->inverse_links[link_id] 
+            //     << " score " << drops_per_component[link_id] << " E[nflows] "
+            //     << flows_per_component[link_id] << " likelihood " << l << endl;
         }
-        if (device_level)
-            cout << "Correct Hypothesis " << correct_hypothesis
-                 << " likelihood " << likelihood_correct_hypothesis << endl;
-        else
-            cout << "Correct Hypothesis " << data->IdsToLinks(correct_hypothesis)
-                 << " likelihood " << likelihood_correct_hypothesis << endl;
-        //Only for link level localization
-        //VerifyLikelihoodComputation(all_hypothesis, min_start_time_ms,
-        //                            max_finish_time_ms, nopenmp_threads);
-        delete(no_failure_hypothesis);
+    }
+    if (device_level)
+        cout << "Correct Hypothesis " << correct_hypothesis
+             << " likelihood " << likelihood_correct_hypothesis << endl;
+    else
+        cout << "Correct Hypothesis " << data->IdsToLinks(correct_hypothesis)
+             << " likelihood " << likelihood_correct_hypothesis << endl;
+    delete(no_failure_hypothesis);
 }
 
 bool BayesianNet::VerifyLikelihoodComputation(unordered_map<Hypothesis*, double>& all_hypothesis,
@@ -1360,6 +1364,14 @@ double BayesianNet::ComputeLogPrior(Hypothesis* hypothesis){
         double log_prior = 0.0;
         for (int link_id: *hypothesis){
             log_prior += log(num_reduced_links_map->at(link_id)) + PRIOR;
+        }
+        return log_prior;
+    }
+    else if (CONSIDER_DEVICE_LINK){
+        double log_prior = 0.0;
+        for (int link_id: *hypothesis){
+            int multiplier = (data->IsLinkDevice(link_id)? 2 : 1);
+            log_prior += multiplier * PRIOR;
         }
         return log_prior;
     }

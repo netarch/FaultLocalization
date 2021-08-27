@@ -49,7 +49,7 @@ class Topology{
     void ReadFlowsFromFile(string tm_filename);
     void ReadTopologyFromFile(string topology_filename);
     void ChooseFailedLinks(int nfails);
-    void ChooseFailedDevice(int nfails);
+    void ChooseFailedDevice(int nfails, double frac_links_failed);
 
     char* GetFlowSrcIpAddress(Flow &flow);
     char* GetFlowDestIpAddress(Flow &flow);
@@ -107,6 +107,7 @@ private:
     vector<vector<int> > hosts_in_tor;
     map<int, int> host_to_tor;
     set<pair<int, int> > failed_links;
+    set<int> failed_switches;
   	Ipv4AddressHelper address;
     vector<vector<int> > shortest_pathlens;
     pair<int, int> PenultimateHops(int src_node, int dest_node);

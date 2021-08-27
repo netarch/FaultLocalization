@@ -56,7 +56,7 @@ vector<string> GetFilesDevice40G(){
     vector<string> files;
     for(int f=1; f<=1; f++){
     //for (int f: vector<int>({8})){ // {1-8}
-        for(int s=1; s<=8; s++){
+        for(int s=1; s<=16; s++){
             if(find(ignore_files.begin(), ignore_files.end(),  PII(f, s)) == ignore_files.end()){
                 files.push_back(file_prefix + "_f" + to_string(f) + "_0_s" + to_string(s)); 
                 cout << "adding file for analaysis " <<files.back() << endl;
@@ -389,6 +389,6 @@ int main(int argc, char *argv[]){
     cout << "sizeof(Flow) " << sizeof(Flow) << " bytes" << endl;
     //GetPrecisionRecallTrendSherlock(topology_filename, min_start_time_ms, 
                                     //max_finish_time_ms, step_ms, nopenmp_threads);
-    SweepParamsBayesianNet(topology_filename, min_start_time_ms, max_finish_time_ms, nopenmp_threads);
+    SweepParamsNetBouncer(topology_filename, min_start_time_ms, max_finish_time_ms, nopenmp_threads);
     return 0;
 }

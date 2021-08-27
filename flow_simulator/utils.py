@@ -216,7 +216,7 @@ class Topology(object):
         drop_hosts = [host for host in self.host_rack_map.keys() if self.host_rack_map[host] in drop_racks]
         print("Drop racks", drop_racks)
         print("Drop hosts", drop_hosts)
-        switches = [v for v in self.G.nodes() if v < HOST_OFFSET]
+        switches = [v for v in self.G.nodes() if v < HOST_OFFSET and v not in self.racks]
         print("switches", switches)
         random.shuffle(switches)
         failed_switches = switches[:nfailures]

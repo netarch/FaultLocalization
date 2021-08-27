@@ -73,7 +73,7 @@ public:
 
     void ResetForAnalysis();
     Path* GetPointerToPathTaken(vector<int>& path_nodes, vector<int>& temp_path, Flow* flow);
-    Path* GetPointerToPathTaken(vector<int>& temp_path, Flow* flow);
+    Path* GetPointerToPathTaken(int src_sw, int dst_sw, vector<int>& temp_path, Flow* flow);
     void GetAllPaths(vector<Path*> **result, int src_rack, int dest_rack);
 
     void OutputToTrace(ostream &out);

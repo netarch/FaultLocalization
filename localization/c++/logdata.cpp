@@ -488,6 +488,7 @@ vector<vector<int> >* LogData::GetFlowsByLinkId(double max_finish_time_ms, int n
 
 void LogData::GetFailedLinkIds(Hypothesis &failed_links_set){
     for (auto &it: failed_links){
+        assert (links_to_ids.find(it.first) != links_to_ids.end());
         failed_links_set.insert(links_to_ids[it.first]);
     } 
 }
@@ -569,14 +570,12 @@ Path* LogData::GetPointerToPathTaken(vector<int>& path_nodes, vector<int>& temp_
     }
 }
 
-Path* LogData::GetPointerToPathTaken(vector<int>& temp_path, Flow *flow){
+Path* LogData::GetPointerToPathTaken(int src_sw, int dst_sw, vector<int>& temp_path, Flow *flow){
     //For 007 verification, make this if condition always true
     if (flow->IsFlowActive()){
         return new Path(temp_path);
     }
     else{
-        int src_sw = inverse_links[temp_path[0]].first;
-        int dst_sw = inverse_links[temp_path.back()].second;
         MemoizedPaths *memoized_paths = GetMemoizedPaths(src_sw, dst_sw);
         return memoized_paths->GetPath(temp_path);
     }
@@ -660,6 +659,7 @@ int LogData::GetMaxDevicePlus1(){
 }
 
 void LogData::GetLinkIdPath(vector<int> &path_nodes, int &first_link_id, int &last_link_id, vector<int> &link_id_path){
+    //cout << path_nodes << endl;
     assert(path_nodes.size()>2);
     first_link_id = GetLinkIdUnsafe(Link(path_nodes[0], path_nodes[1]));
     link_id_path.clear();

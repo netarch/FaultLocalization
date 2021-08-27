@@ -9,6 +9,7 @@
 
 using namespace std;
 
+
 void NetBouncer::SetLogData(LogData* data_, double max_finish_time_ms, int nopenmp_threads){
     Estimator::SetLogData(data_, max_finish_time_ms, nopenmp_threads);
 }
@@ -33,6 +34,34 @@ double NetBouncer::EstimatedPathSuccessRate(Flow *flow, vector<double>& success_
         x *= success_prob[link_id];
     }
     return x;
+}
+
+void NetBouncer::RemoveBadDevices(double min_start_time_ms, double max_finish_time_ms,
+                                   int nopenmp_threads){
+    bad_devices.clear();
+    BinFlowsByDevice(max_finish_time_ms, nopenmp_threads);
+    bad_devices.clear();
+    double BAD_DEVICE_FRAC_BAD_FLOWS = 0.2;
+    for (int device=0; device < data->GetMaxDevicePlus1(); device++){
+        vector<int> &device_flows = (*flows_by_device)[device];
+        int bad_flows = 0;
+        for(int ff: device_flows){
+            Flow *flow = data->flows[ff];
+            assert(flow->TracerouteFlow(max_finish_time_ms));
+            bad_flows += (int)(flow->GetDropRate(max_finish_time_ms) > 0);
+        }
+        //cout << "Device " << device <<", bad_flows: " << bad_flows << "/" << device_flows.size()  << endl; 
+        if ((double)bad_flows/device_flows.size() > BAD_DEVICE_FRAC_BAD_FLOWS) bad_devices.insert(device);
+    }
+    if constexpr (VERBOSE) cout << "Bad devices " << bad_devices << endl;
+    int nlinks = data->inverse_links.size();
+    for (int link_id=0; link_id<nlinks; link_id++){
+        Link link = data->inverse_links[link_id];
+        if ((bad_devices.find(link.first) != bad_devices.end()) or 
+            (bad_devices.find(link.second) != bad_devices.end())){
+            bad_device_links[link_id] = true;
+        }
+    }
 }
 
 void NetBouncer::DetectBadDevices(vector<int>& bad_devices, double min_start_time_ms,
@@ -97,23 +126,30 @@ double NetBouncer::ArgMinError(vector<double>& success_prob, int var_link_id,
 
 void NetBouncer::LocalizeFailures(double min_start_time_ms, double max_finish_time_ms,
                                   Hypothesis &localized_links, int nopenmp_threads){
+    assert (!CONSIDER_DEVICE_LINK);
     BinFlowsByLinkId(max_finish_time_ms, nopenmp_threads);
     assert(data!=NULL);
     localized_links.clear();
+
+    int nlinks = data->inverse_links.size();
+    bad_device_links.resize(nlinks, false);
+    RemoveBadDevices(min_start_time_ms, max_finish_time_ms, nopenmp_threads);
+
     vector<Flow*> active_flows; 
     for(Flow* flow: data->flows){
-        if((flow->IsFlowActive()) or PATH_KNOWN)
+        Path *path_taken = flow->GetPathTaken();
+        bool bad_device_in_path = (bad_device_links[flow->first_link_id] or
+                                   bad_device_links[flow->last_link_id]);
+        for (int link_id: *path_taken)
+            bad_device_in_path = bad_device_in_path or bad_device_links[link_id];
+        if(((flow->IsFlowActive()) or PATH_KNOWN) and !bad_device_in_path){
             active_flows.push_back(flow);
+        }
     }
-    //vector<int> bad_devices;
-    //DetectBadDevices(bad_devices, min_start_time_ms, max_finish_time_ms, nopenmp_threads);
-    //cout << "Bad devices " << bad_devices << endl;
-    int nlinks = data->inverse_links.size();
+
     vector<double> success_prob(nlinks, 0.0);
     vector<double> num_flows_through_link(nlinks, 0.0);
-
     //cout << "numflows " << active_flows.size() << " max_finish_time_ms " << max_finish_time_ms << endl;
-
     for(int ff=0; ff < active_flows.size(); ff++){
         Flow *flow = active_flows[ff];
         assert(flow->TracerouteFlow(max_finish_time_ms));
@@ -134,15 +170,18 @@ void NetBouncer::LocalizeFailures(double min_start_time_ms, double max_finish_ti
         }
     }
     for(int link_id=0; link_id<nlinks; link_id++){
-        assert(num_flows_through_link[link_id] > 0);
-        success_prob[link_id] /= num_flows_through_link[link_id];
+        if (!bad_device_links[link_id] and !data->IsLinkDevice(link_id)){
+            assert(num_flows_through_link[link_id] > 0);
+            success_prob[link_id] /= num_flows_through_link[link_id];
+        }
     }
     double error = ComputeError(active_flows, success_prob, min_start_time_ms, max_finish_time_ms);
     for (int it=0; it<MAX_ITERATIONS; it++){
         auto start_iter_time = chrono::high_resolution_clock::now();
         for(int link_id=0; link_id < nlinks; link_id++){
-            success_prob[link_id] = max(0.0, min(1.0, ArgMinError(success_prob, link_id,
-                                                        min_start_time_ms, max_finish_time_ms)));
+            if (!bad_device_links[link_id] and !data->IsLinkDevice(link_id))
+                success_prob[link_id] = max(0.0, min(1.0, ArgMinError(success_prob, link_id,
+                                                    min_start_time_ms, max_finish_time_ms)));
         }
         double new_error = ComputeError(active_flows, success_prob, min_start_time_ms, max_finish_time_ms);
         if constexpr (VERBOSE){
@@ -155,6 +194,7 @@ void NetBouncer::LocalizeFailures(double min_start_time_ms, double max_finish_ti
 
     localized_links.clear();
     for(int link_id=0; link_id<nlinks; link_id++){
+        if (bad_device_links[link_id] or data->IsLinkDevice(link_id)) continue;
         if (VERBOSE and (1.0 - success_prob[link_id] >= fail_threshold/2)){
             //cout << "Suspicious link "<< data->inverse_links[link_id] << " "
             //     << 1.0 - success_prob[link_id] << " " << fail_threshold << endl;
@@ -163,4 +203,5 @@ void NetBouncer::LocalizeFailures(double min_start_time_ms, double max_finish_ti
             localized_links.insert(link_id);
         }
     }
+    for (int d: bad_devices) localized_links.insert(data->GetLinkIdUnsafe(Link(d, d)));
 }

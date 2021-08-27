@@ -19,6 +19,9 @@ private:
     void DetectBadDevices(vector<int>& bad_devices, double min_start_time_ms,
                           double max_finish_time_ms, int nopenmp_threads);
 
+    void RemoveBadDevices(double min_start_time_ms, double max_finish_time_ms,
+                          int nopenmp_threads);
+
     double ComputeError(vector<Flow*>& active_flows, vector<double>& success_prob,
                         double min_start_time_ms, double max_finish_time_ms);
 
@@ -28,5 +31,7 @@ private:
     double regularize_const = 0.01;
     double fail_threshold = 0.001;
     const int MAX_ITERATIONS = 100;
+    vector<bool> bad_device_links;
+    unordered_set<int> bad_devices;
 };
 #endif

@@ -118,10 +118,10 @@ void GetLinkMappings(string topology_file, LogData* result, bool compute_paths){
             GetFirstInt(linec, sw2);
             result->GetLinkId(Link(sw1, sw2));
             result->GetLinkId(Link(sw2, sw1));
-            if (CONSIDER_DEVICE_LINK){
+            //if (CONSIDER_DEVICE_LINK){
                 result->GetLinkId(Link(sw1, sw1));
                 result->GetLinkId(Link(sw2, sw2));
-            }
+            //}
             if(compute_paths){
                 nodes.insert(sw1);
                 nodes.insert(sw2);
@@ -356,6 +356,10 @@ void GetCompletePaths(Flow* flow, FlowLines& flow_lines, LogData *data, vector<i
             path_nodes_reverse.insert(path_nodes_reverse.begin(), flow->dest);
             path_nodes_reverse.push_back(flow->src);
             flow_lines.fprt_c = restore_c;
+            if (CONSIDER_DEVICE_LINK){
+                if (data->IsNodeSwitch(flow->src)) path_nodes_reverse.push_back(flow->src);
+                if (data->IsNodeSwitch(flow->dest)) path_nodes_reverse.insert(path_nodes_reverse.begin(), flow->dest);
+            }
         }
         
         /* Flow path taken */
@@ -366,16 +370,9 @@ void GetCompletePaths(Flow* flow, FlowLines& flow_lines, LogData *data, vector<i
             path_nodes.push_back(flow->dest);
             //cout << "path_nodes " << path_nodes[thread_num] << " path-link " << temp_path[thread_num] << endl;
             flow_lines.fpt_c = restore_c;
-        }
-
-        if (CONSIDER_DEVICE_LINK){
-            if (data->IsNodeSwitch(flow->src)){
-                path_nodes.insert(path_nodes.begin(), flow->src);
-                path_nodes_reverse.push_back(flow->src);
-            }
-            if (data->IsNodeSwitch(flow->dest)){
-                path_nodes.push_back(flow->dest);
-                path_nodes_reverse.insert(path_nodes_reverse.begin(), flow->dest);
+            if (CONSIDER_DEVICE_LINK){
+                if (data->IsNodeSwitch(flow->src)) path_nodes.insert(path_nodes.begin(), flow->src);
+                if (data->IsNodeSwitch(flow->dest)) path_nodes.push_back(flow->dest);
             }
         }
     }
@@ -423,13 +420,13 @@ void ProcessFlowLines(vector<FlowLines>& all_flow_lines, LogData* result, int no
         if (path_nodes[thread_num].size() > 0){
             result->GetLinkIdPath(path_nodes[thread_num], flow->first_link_id,
                                   flow->last_link_id, temp_path[thread_num]);
-            flow->SetPathTaken(result->GetPointerToPathTaken(temp_path[thread_num], flow));
+            flow->SetPathTaken(result->GetPointerToPathTaken(srcrack, destrack, temp_path[thread_num], flow));
         }
         // Set reverse path
         if (path_nodes_reverse[thread_num].size() > 0){
             result->GetLinkIdPath(path_nodes_reverse[thread_num], flow->reverse_first_link_id,
                                   flow->reverse_last_link_id, temp_path[thread_num]);
-            flow->SetReversePathTaken(result->GetPointerToPathTaken(temp_path[thread_num], flow));
+            flow->SetReversePathTaken(result->GetPointerToPathTaken(destrack, srcrack, temp_path[thread_num], flow));
         }
 
         /* Snapshots */
@@ -500,12 +497,16 @@ void ProcessFlowPathLines(vector<char*>& lines, LogData* result, int nopenmp_thr
         memoized_paths->AddPath(&path_arr[ii]);
     }
     path_arr = new Path[result->GetMaxDevicePlus1()];
+    Path *empty_path = new Path();
     for(int device=0; device<result->GetMaxDevicePlus1(); device++){
-        temp_path_t[0].clear();
-        temp_path_t[0].push_back(result->GetLinkIdUnsafe(Link(device, device)));
-        path_arr[device] = Path(temp_path_t[0]);
         MemoizedPaths *memoized_paths = result->GetMemoizedPaths(device, device);
-        memoized_paths->AddPath(&path_arr[device]);
+        //memoized_paths->AddPath(empty_path);
+        if (CONSIDER_DEVICE_LINK){
+            temp_path_t[0].clear();
+            temp_path_t[0].push_back(result->GetLinkIdUnsafe(Link(device, device)));
+            path_arr[device] = Path(temp_path_t[0]);
+            memoized_paths->AddPath(&path_arr[device]);
+        }
     }
 }
 

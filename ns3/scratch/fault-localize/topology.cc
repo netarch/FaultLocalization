@@ -155,22 +155,29 @@ void Topology::ReadTopologyFromFile(string topology_filename){
     ComputeAllPairShortestPathlens();
 }
 
-void Topology::ChooseFailedDevice(int nfails){
+void Topology::ChooseFailedDevice(int nfails, double frac_links_failed){
     vector<int> switches;
-    vector<int> failed_switches;
-    for (int n: nodes) if (!IsNodeHost(n) and !IsNodeRack(n)) switches.push_back(n);
-    //!TODO: nfails
-    failed_switches.push_back(switches[rand()%switches.size()]);
+    for (int n: nodes) if (!IsNodeHost(n)) switches.push_back(n);
+
+    failed_switches.clear();
+    for (int i=0; i<nfails; i++){
+        int ind = rand()%switches.size();
+        while(failed_switches.find(switches[ind])!=failed_switches.end()){
+            ind = rand()%failed_switches.size();
+        }
+        failed_switches.insert(switches[ind]);
+    }
 
     failed_links.clear();
     for (int fsw: failed_switches){
+        std::cout<<"Failing_link "<<fsw<<" "<<fsw<<" "<<frac_links_failed<<endl;
         for (int nbr: network_links[fsw]){
-            failed_links.insert(pair<int, int>(fsw, nbr));
-            failed_links.insert(pair<int, int>(nbr, fsw));
+            if (drand48() < frac_links_failed) failed_links.insert(pair<int, int>(fsw, nbr));
+            if (drand48() < frac_links_failed) failed_links.insert(pair<int, int>(nbr, fsw));
         }
         for(int host: hosts_in_tor[fsw]){
-            failed_links.insert(pair<int, int>(fsw, host));
-            failed_links.insert(pair<int, int>(host, fsw));
+            if (drand48() < frac_links_failed) failed_links.insert(pair<int, int>(fsw, host));
+            if (drand48() < frac_links_failed) failed_links.insert(pair<int, int>(host, fsw));
         }
     }
 }
@@ -414,7 +421,12 @@ double Topology::GetFailParam(pair<int, int> link, double fail_param){
         //fail_param is appropriately set, so use that
         if (fail_param > max_drop_rate_correct_link) silent_drop_rate = fail_param;
         else silent_drop_rate = GetDropRateFailedLink();
-        std::cout<<"Failing_link "<<link.first<<" "<<link.second<<" "<<silent_drop_rate<<endl;
+        if (failed_switches.find(link.first) == failed_switches.end() and
+            failed_switches.find(link.second) == failed_switches.end()){
+            std::cout<<"Failing_link "<<link.first<<" "<<link.second<<" "<<silent_drop_rate<<endl;
+        }
+        else
+            std::cout<<"Failing_device_link "<<link.first<<" "<<link.second<<" "<<silent_drop_rate<<endl;
     }
     else{
         silent_drop_rate = GetDropRateLinkUniform(min_drop_rate_correct_link, max_drop_rate_correct_link);
@@ -622,11 +634,11 @@ int Topology::GetFirstUnusedPort(int src_node, int dest_node){
 
 void Topology::SetupEcmpFailure(NodeContainer &tors){
     vector<int> switches;
-    vector<int> failed_switches;
+    failed_switches.clear();
     for (int n: nodes) if (!IsNodeHost(n) and !IsNodeRack(n)) switches.push_back(n);
-    failed_switches.push_back(switches[rand()%switches.size()]);
-    cout << "Failing ecmp on " << failed_switches[0] << endl;
+    failed_switches.insert(switches[rand()%switches.size()]);
     for (int fsw: failed_switches){
+        cout << "Failing ecmp on " << fsw << endl;
         Ptr<Node> node = tors.Get(fsw);
         Ptr<Ipv4> ipv4 = node->GetObject<Ipv4> ();
         Ptr<Ipv4GlobalRouting> routing_proto = StaticCast<Ipv4GlobalRouting, Ipv4RoutingProtocol>(ipv4->GetRoutingProtocol());

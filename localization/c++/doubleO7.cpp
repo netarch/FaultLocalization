@@ -64,7 +64,7 @@ PDD DoubleO7::ComputeVotes(vector<Flow*>& bad_flows, vector<double>& votes,
 // Vote adjustment
 void DoubleO7::LocalizeFailures(double min_start_time_ms, double max_finish_time_ms,
                                 Hypothesis &localized_links, int nopenmp_threads){
-    assert(data!=NULL);
+    assert (!CONSIDER_DEVICE_LINK);
     localized_links.clear();
     vector<Flow*> bad_flows; 
     for(Flow* flow: data->flows){

@@ -71,10 +71,12 @@ int main(int argc, char *argv[]){
     estimator.SetLogData(&data, max_finish_time_ms, nopenmp_threads);
     Hypothesis estimator_hypothesis;
     auto start_localization_time = chrono::high_resolution_clock::now();
-    estimator.LocalizeDeviceFailures(min_start_time_ms, max_finish_time_ms,
+    estimator.LocalizeFailures(min_start_time_ms, max_finish_time_ms,
                                estimator_hypothesis, nopenmp_threads);
+    //estimator.LocalizeDeviceFailures(min_start_time_ms, max_finish_time_ms,
+    //                           estimator_hypothesis, nopenmp_threads);
     PDD precision_recall = GetPrecisionRecall(failed_devices, estimator_hypothesis);
-    cout << "Output Hypothesis: " << estimator_hypothesis << " precsion_recall "
+    cout << "Output Hypothesis: " << data.IdsToLinks(estimator_hypothesis) << " precsion_recall "
          <<precision_recall.first << " " << precision_recall.second<<endl;
     cout << "Finished localization in "<< GetTimeSinceSeconds(start_localization_time) << " seconds" << endl;
     return 0;

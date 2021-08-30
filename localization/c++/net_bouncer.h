@@ -4,7 +4,7 @@
 
 class NetBouncer: public Estimator{
  public:
-    NetBouncer(): Estimator() {}
+    NetBouncer();
     void LocalizeFailures(double min_start_time_ms, double max_finish_time_ms,
                           Hypothesis &localized_links, int nopenmp_threads);
 
@@ -30,6 +30,7 @@ private:
 
     double regularize_const = 0.01;
     double fail_threshold = 0.001;
+    double bad_device_frac_bad_flows_threshold= 0.2;
     const int MAX_ITERATIONS = 100;
     vector<bool> bad_device_links;
     unordered_set<int> bad_devices;

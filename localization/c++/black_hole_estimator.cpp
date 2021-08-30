@@ -33,13 +33,13 @@ map<PII, pair<int, double> > ReadFailures(string fail_file){
             GetFirstDouble(linec, failparam);
             //fails[PII(src, dest)] = pair<Link, double>(Link(node1, node2), failparam);
             fails[PII(src, dest)] = pair<int, double>(device, failparam);
-            if constexpr (VERBOSE){
+            if (VERBOSE){
                 //cout<< "Failed component "<<src<<" "<<dest<<" ("<<node1<<","<<node2<<") "<<failparam<<endl; 
                 cout<< "Failed component "<<src<<" "<<dest<<" "<<device<<failparam<<endl; 
             }
         }
     }
-    if constexpr (VERBOSE){
+    if (VERBOSE){
         cout<< "Read fail file in "<<GetTimeSinceSeconds(start_time)
             << " seconds, numfails " << fails.size() << endl;
     }
@@ -56,6 +56,16 @@ int main(int argc, char *argv[]){
     double min_start_time_ms = atof(argv[3]) * 1000.0, max_finish_time_ms = atof(argv[4]) * 1000.0;
     int nopenmp_threads = atoi(argv[5]);
     cout << "Using " << nopenmp_threads << " openmp threads"<<endl;
+
+    //NetBouncer estimator; vector<double> params = {0.016, 0.0113};
+    //Sherlock estimator;
+    BayesianNet estimator;
+    //vector<double> params = {1.0-3.0e-3, 2.0e-4, -20.0};
+    vector<double> params = {1.0-1.0e-3, 1.0e-4, -25.0};
+    //DoubleO7 estimator;
+    //vector<double> params = {0.0025};
+    estimator.SetParams(params);
+
     //int nchunks = 32;
     LogData data;
     //GetDataFromLogFile(trace_file, &data);
@@ -108,20 +118,12 @@ int main(int argc, char *argv[]){
             }
             Hypothesis failed_devices_set;
             ep_data.GetFailedDevices(failed_devices_set);
-            //NetBouncer estimator; vector<double> params = {0.016, 0.0113};
-            //Sherlock estimator;
-            BayesianNet estimator;
-            //vector<double> params = {1.0-3.0e-3, 2.0e-4, -20.0};
-            vector<double> params = {1.0-1.0e-3, 1.0e-4, -25.0};
-            //DoubleO7 estimator;
-            //vector<double> params = {0.0025};
-            estimator.SetParams(params);
             estimator.SetLogData(&ep_data, max_finish_time_ms, nopenmp_threads);
             Hypothesis estimator_hypothesis;
             auto start_localization_time = chrono::high_resolution_clock::now();
             estimator.LocalizeDeviceFailures(min_start_time_ms, max_finish_time_ms,
                                        estimator_hypothesis, nopenmp_threads);
-            PDD precision_recall = GetPrecisionRecall(failed_devices_set, estimator_hypothesis);
+            PDD precision_recall = GetPrecisionRecall(failed_devices_set, estimator_hypothesis, &ep_data);
             cout << "Output Hypothesis: " << estimator_hypothesis << " precsion_recall "
                  <<precision_recall.first << " " << precision_recall.second<<endl;
             cout << "Finished localization in "<< GetTimeSinceSeconds(start_localization_time) << " seconds" << endl;

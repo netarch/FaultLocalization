@@ -51,12 +51,22 @@ vector<string> GetFilesHw(){
 }
 
 vector<string> GetFilesDevice40G(){
-    string file_prefix = "/home/vharsh2/Flock/ns3/topology/ft_k10_os3/logs/40G/device/plog_nb";
+    string file_prefix = "/home/vharsh2/Flock/ns3/topology/ft_k10_os3/logs/40G/device/frac_0.25/plog_nb";
     vector<PII> ignore_files = {};
     vector<string> files;
-    for(int f=1; f<=1; f++){
+    for(int f=1; f<=2; f++){
     //for (int f: vector<int>({8})){ // {1-8}
-        for(int s=1; s<=16; s++){
+        for(int s=1; s<=8; s++){
+            if(find(ignore_files.begin(), ignore_files.end(),  PII(f, s)) == ignore_files.end()){
+                files.push_back(file_prefix + "_f" + to_string(f) + "_0_s" + to_string(s)); 
+                cout << "adding file for analaysis " <<files.back() << endl;
+            }
+        }
+    }
+    file_prefix = "/home/vharsh2/Flock/ns3/topology/ft_k10_os3/logs/40G/device/frac_1/plog_nb";
+    for(int f=1; f<=2; f++){
+    //for (int f: vector<int>({8})){ // {1-8}
+        for(int s=1; s<=8; s++){
             if(find(ignore_files.begin(), ignore_files.end(),  PII(f, s)) == ignore_files.end()){
                 files.push_back(file_prefix + "_f" + to_string(f) + "_0_s" + to_string(s)); 
                 cout << "adding file for analaysis " <<files.back() << endl;
@@ -361,12 +371,15 @@ void SweepParams007(string topology_filename, double min_start_time_ms, double m
 void SweepParamsNetBouncer(string topology_filename, double min_start_time_ms, double max_finish_time_ms, int nopenmp_threads){
     vector<vector<double> > params;
     for (double regularize_c = 1.0e-3; regularize_c <= 25.0e-3; regularize_c += 2.5e-3){
-        for (double fail_threshold_c = 5.0e-4; fail_threshold_c <= 20.0e-3; fail_threshold_c += 5e-4){
+        for (double fail_threshold_c = 30.0e-4; fail_threshold_c <= 50.0e-4; fail_threshold_c += 2.5e-4){
         //for (double fail_threshold_c = 1.0e-3; fail_threshold_c <= 15.0e-3; fail_threshold_c += 1.0e-3){
-            params.push_back(vector<double> {regularize_c, fail_threshold_c});
+            for (double bad_device_threshold = 0.05; bad_device_threshold <= 0.3; bad_device_threshold += 0.025){
+                params.push_back(vector<double> {regularize_c, fail_threshold_c, bad_device_threshold});
+            }
         }
     }
-    //params = {{0.016, 0.0113}};
+    //params = {{0.016, 0.0113, 0.05}};
+    //params = {{0.016, 0.004, 0.45}};
     vector<PDD> result;
     NetBouncer estimator;
     GetPrecisionRecallParamsFiles(topology_filename, min_start_time_ms, max_finish_time_ms,
@@ -379,6 +392,7 @@ void SweepParamsNetBouncer(string topology_filename, double min_start_time_ms, d
 }
 
 int main(int argc, char *argv[]){
+    VERBOSE = false;
     assert (argc == 6);
     string topology_filename (argv[1]);
     cout << "Reading topology from file " << topology_filename << endl;
@@ -389,6 +403,6 @@ int main(int argc, char *argv[]){
     cout << "sizeof(Flow) " << sizeof(Flow) << " bytes" << endl;
     //GetPrecisionRecallTrendSherlock(topology_filename, min_start_time_ms, 
                                     //max_finish_time_ms, step_ms, nopenmp_threads);
-    SweepParamsNetBouncer(topology_filename, min_start_time_ms, max_finish_time_ms, nopenmp_threads);
+    SweepParamsBayesianNet(topology_filename, min_start_time_ms, max_finish_time_ms, nopenmp_threads);
     return 0;
 }

@@ -1,4 +1,5 @@
 #include "flow.h"
+#include "utils.h"
 #include <assert.h>
 
 
@@ -284,13 +285,22 @@ long double Flow::GetCachedIntermediateValue(){
 }
 
 bool Flow::DiscardFlow(){
+    switch(INPUT_FLOW_TYPE) {
+        case ALL_FLOWS:
+            return false;
+            break;
+        case ACTIVE_FLOWS:
+            return !IsFlowActive();
+            break;
+        case PROBLEMATIC_FLOWS:
+            return IsFlowActive();
+        default:
+            return false;
+    }
     //double drop_rate = GetLatestPacketsLost() / GetLatestPacketsSent();
     //return (drop_rate > 0.3);
     //return (GetLatestPacketsSent() < 100);
-    //return false;
     //return (src < OFFSET_HOST  or  dest < OFFSET_HOST or GetLatestPacketsSent() < 0);
-    return !IsFlowActive();
-    //return IsFlowActive();
 }
 
 Flow::~Flow(){

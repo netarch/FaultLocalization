@@ -15,6 +15,10 @@ using google::dense_hash_map;
 
 const bool LEAFSPINE_NET_BOUNCER = false; //!HACK
 
+bool VERBOSE=true;
+bool CONSIDER_DEVICE_LINK=true;
+bool TRACEROUTE_BAD_FLOWS=true;
+InputFlowType INPUT_FLOW_TYPE = ACTIVE_FLOWS;
 
 inline bool StringEqualTo(const char* a, const char* b) {
     while ((*b == *a) and (*a!='\0')){
@@ -32,7 +36,7 @@ void GetDataFromLogFileDistributed(string dirname, int nchunks, LogData *result,
     for(int i=0; i<nchunks; i++){
         GetDataFromLogFile(dirname + "/" + to_string(i), result);
     }
-    if constexpr (VERBOSE){
+    if (VERBOSE){
         cout<<"Read log file chunks in "<<GetTimeSinceSeconds(start_time) << " seconds"<<endl;
     }
 }
@@ -79,7 +83,7 @@ void ComputeAllPairShortestPaths(unordered_set<int>& nodes, unordered_set<Link>&
                                 for(int nn=1; nn<path_till_now.size(); nn++){
                                     path_link_ids->push_back(result->GetLinkIdUnsafe(Link(path_till_now[nn-1], path_till_now[nn])));
                                 }
-                                if constexpr (VERBOSE)
+                                if (VERBOSE)
                                     cout << "Found a shortest path " << path_till_now << " link_id_paths " << *path_link_ids << endl;
                                 memoized_paths->AddPath(path_link_ids);
                             }
@@ -104,7 +108,7 @@ void GetLinkMappings(string topology_file, LogData* result, bool compute_paths){
     assert((compute_paths and CONSIDER_DEVICE_LINK) == false);
     ifstream tfile(topology_file);
     string line;
-    if constexpr (VERBOSE){
+    if (VERBOSE){
         cout << "Asuuming trace file has hosts numbered as host_id + " << OFFSET_HOST << " (OFFSET)" << endl;
     }
     unordered_set<int> nodes;
@@ -273,7 +277,7 @@ void GetDataFromLogFile(string trace_file, LogData *result){
             GetFirstDouble(linec, failparam);
             //sscanf (linum + op.size(),"%d %*d %f", &src, &dest, &failparam);
             result->AddFailedLink(Link(src, dest), failparam);
-            if constexpr (VERBOSE){
+            if (VERBOSE){
                 cout<< "Failed link "<<src<<" "<<dest<<" "<<failparam<<endl; 
             }
         }
@@ -295,7 +299,7 @@ void GetDataFromLogFile(string trace_file, LogData *result){
     }
     result->AddChunkFlows(chunk_flows);
     cout << "Num flows " << chunk_flows.size() << endl;
-    if constexpr (VERBOSE){
+    if (VERBOSE){
         cout<< "Read log file in "<<GetTimeSinceSeconds(start_time)
             << " seconds, numlines " << nlines << endl;
     }
@@ -462,7 +466,7 @@ void ProcessFlowLines(vector<FlowLines>& all_flow_lines, LogData* result, int no
             }
         }
     }
-    if constexpr (VERBOSE){
+    if (VERBOSE){
         cout << "Active flows " << nactive_flows << endl;
         //cout<< "Processed flow lines in "<<GetTimeSinceSeconds(start_time)
         //    << " seconds, numflows " << all_flow_lines.size() << endl;
@@ -487,7 +491,7 @@ void ProcessFlowPathLines(vector<char*>& lines, LogData* result, int nopenmp_thr
         assert(path_nodes_t[thread_num].size()>0); // No direct link for src_host to dest_host or vice_versa
         src_dest_rack[ii] = PII(path_nodes_t[thread_num][0], path_nodes_t[thread_num].back());
     }
-    if constexpr (VERBOSE){
+    if (VERBOSE){
         cout<< "Parsed flow path lines in "<<GetTimeSinceSeconds(start_time)
             << " seconds, numlines " << lines.size() << endl;
     }
@@ -538,7 +542,7 @@ void GetDataFromLogFileParallel(string trace_file, string topology_file, LogData
         double failparam;
         GetFirstDouble(linec, failparam);
         result->AddFailedLink(Link(src, dest), failparam);
-        if constexpr (VERBOSE){
+        if (VERBOSE){
             cout<< "Failed link "<<src<<" "<<dest<<" "<<failparam<<endl; 
         }
         linec = restore_c;
@@ -560,7 +564,7 @@ void GetDataFromLogFileParallel(string trace_file, string topology_file, LogData
         getline_result = getline(&linec, &max_line_size, infile);
         GetString(linec, op);
     }
-    if constexpr (VERBOSE){
+    if (VERBOSE){
         cout<< "Calling ProcessFlowPathLines with " << buffered_lines.size() << " lines after "
             << GetTimeSinceSeconds(start_time) << " seconds" << endl;
     }
@@ -568,7 +572,7 @@ void GetDataFromLogFileParallel(string trace_file, string topology_file, LogData
         ProcessFlowPathLines(buffered_lines, result, nopenmp_threads);
         //!TODO check where delete[] needs to be called instead of delete/free
         for (char* c: buffered_lines) delete[] c;
-        if constexpr (VERBOSE){
+        if (VERBOSE){
             cout<< "Processed flow paths after "<<GetTimeSinceSeconds(start_time)
                 << " seconds, numlines " << buffered_lines.size() << endl;
         }
@@ -605,14 +609,14 @@ void GetDataFromLogFileParallel(string trace_file, string topology_file, LogData
         GetString(linec, op);
     }
 
-    if constexpr (VERBOSE){
+    if (VERBOSE){
         cout<< "Calling ProcessFlowLines after "<<GetTimeSinceSeconds(start_time)
             << " seconds, numflows " << buffered_flows.size() << endl;
     }
     ProcessFlowLines(buffered_flows, result, nopenmp_threads);
     for_each(buffered_flows.begin(), buffered_flows.end(), [](FlowLines& fl){fl.FreeMemory();});
     buffered_flows.clear();
-    if constexpr (VERBOSE){
+    if (VERBOSE){
         cout<< "Read log file in "<<GetTimeSinceSeconds(start_time)
             << " seconds, numlines " << nlines << ", numflows " << result->flows.size()
             << " numlinks " << result->links_to_ids.size() << endl;
@@ -620,19 +624,47 @@ void GetDataFromLogFileParallel(string trace_file, string topology_file, LogData
 }
 
 
-PDD GetPrecisionRecall(Hypothesis& failed_links, Hypothesis& predicted_hypothesis){
-    vector<int> correctly_predicted;
-    for (int link_id: predicted_hypothesis){
-        if (failed_links.find(link_id) != failed_links.end()){
-            correctly_predicted.push_back(link_id);
+PDD GetPrecisionRecall(Hypothesis& failed_links, Hypothesis& predicted_hypothesis, LogData *data){
+    unordered_set<int> failed_devices, failed_predicted_devices;
+    for(int link_id: failed_links){
+        if (data->IsLinkDevice(link_id)) failed_devices.insert(data->inverse_links[link_id].first);
+    }
+    for(int link_id: predicted_hypothesis){
+        if (data->IsLinkDevice(link_id)) failed_predicted_devices.insert(data->inverse_links[link_id].first);
+    }
+
+    double precision = 1.0;
+    if (predicted_hypothesis.size() > 0){
+        int correctly_predicted = 0;
+        for (int link_id: predicted_hypothesis){
+            Link link = data->inverse_links[link_id];
+            if ((failed_links.find(link_id)!=failed_links.end()) or 
+                (failed_devices.find(link.first) != failed_devices.end()) or 
+                (failed_devices.find(link.second) != failed_devices.end())){
+                correctly_predicted++;
+            }
         }
+        precision = ((double) correctly_predicted)/predicted_hypothesis.size();
     }
-    double precision = 1.0, recall = 1.0;
-    if (predicted_hypothesis.size() > 0) {
-        precision = ((double) correctly_predicted.size())/predicted_hypothesis.size();
-    }
+
+    double recall=1.0;
     if (failed_links.size() > 0){
-        recall = ((double) correctly_predicted.size())/failed_links.size();
+        double correctly_recalled = 0.0;
+        for (int link_id: predicted_hypothesis){
+            Link link = data->inverse_links[link_id];
+            if (failed_links.find(link_id)!=failed_links.end()){
+                correctly_recalled++;
+            }
+            else if (failed_devices.find(link.first) != failed_devices.end() and 
+                     failed_predicted_devices.find(link.first) == failed_predicted_devices.end()){
+                correctly_recalled += 1.0/data->NumLinksOfDevice(link.first);
+            }
+            else if (failed_devices.find(link.second) != failed_devices.end() and
+                     failed_predicted_devices.find(link.second) == failed_predicted_devices.end()){
+                correctly_recalled += 1.0/data->NumLinksOfDevice(link.second);
+            }
+        }
+        recall = ((double)correctly_recalled)/failed_links.size();
     }
     return PDD(precision, recall);
 }

@@ -129,7 +129,7 @@ void Score::LocalizeFailures(double min_start_time_ms, double max_finish_time_ms
     }
     int nlinks = data->inverse_links.size();
     vector<double> scores(nlinks, 0.0);
-    if constexpr (VERBOSE){ 
+    if (VERBOSE){ 
         cout << "Num flows "<< bad_flows.size();
     }
     double sum_scores, max_scores;
@@ -141,12 +141,12 @@ void Score::LocalizeFailures(double min_start_time_ms, double max_finish_time_ms
         tie(sum_scores, max_scores) = ComputeScores(bad_flows, scores, localized_links,
                                           min_start_time_ms, max_finish_time_ms);
     }
-    if constexpr (VERBOSE){ 
+    if (VERBOSE){ 
         cout << " sumscore " << sum_scores << " maxscore " << max_scores << endl;
     }
     while ((USE_ABSOLUTE_THRESHOLD and (max_scores >= fail_threshold)) or
           (!USE_ABSOLUTE_THRESHOLD and (max_scores >= fail_threshold * sum_scores and max_scores>0))){
-        if constexpr (VERBOSE){ 
+        if (VERBOSE){ 
             cout << "Num flows "<< bad_flows.size();
         }
         int faulty_link_id = distance(scores.begin(), max_element(scores.begin(), scores.end()));
@@ -166,7 +166,7 @@ void Score::LocalizeFailures(double min_start_time_ms, double max_finish_time_ms
             sum_scores = accumulate(scores.begin(), scores.end(), 0.0, plus<double>());
             max_scores = *max_element(scores.begin(), scores.end());
         }
-        if constexpr (VERBOSE){ 
+        if (VERBOSE){ 
             cout << " sumscore " << sum_scores << " maxscore " << max_scores << endl;
         }
     }

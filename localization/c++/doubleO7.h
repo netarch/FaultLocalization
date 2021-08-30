@@ -6,7 +6,7 @@ const bool USE_BUGGY_007 = false; //to match matlab script
 
 class DoubleO7: public Estimator{
  public:
-    DoubleO7(): Estimator() {}
+    DoubleO7();
     void LocalizeFailures(double min_start_time_ms, double max_finish_time_ms,
                           Hypothesis &localized_links, int nopenmp_threads);
 

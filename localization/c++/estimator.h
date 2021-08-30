@@ -25,7 +25,7 @@ class Estimator{
         auto start_bin_time = chrono::high_resolution_clock::now();
         if (flows_by_link_id != NULL) delete(flows_by_link_id);
         flows_by_link_id = data->GetFlowsByLinkId(max_finish_time_ms, nopenmp_threads);
-        if constexpr (VERBOSE){
+        if (VERBOSE){
             int num_flows = count_if (data->flows.begin(), data->flows.end(),
                                       [max_finish_time_ms](Flow *flow){
                                         return flow->AnySnapshotBefore(max_finish_time_ms);
@@ -39,7 +39,7 @@ class Estimator{
         auto start_bin_time = chrono::high_resolution_clock::now();
         if (flows_by_device != NULL) delete(flows_by_device);
         flows_by_device = data->GetFlowsByDevice(max_finish_time_ms, nopenmp_threads);
-        if constexpr (VERBOSE){
+        if (VERBOSE){
             int num_flows = count_if (data->flows.begin(), data->flows.end(),
                                       [max_finish_time_ms](Flow *flow){
                                         return flow->AnySnapshotBefore(max_finish_time_ms);

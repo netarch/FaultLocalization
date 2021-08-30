@@ -117,11 +117,11 @@ void BayesianNet::SearchHypotheses(double min_start_time_ms, double max_finish_t
                 assert (h->size() == 1);
                 int link_id = *(h->begin());
                 candidates.push_back(link_id);
-                if constexpr (VERBOSE){
+                if (VERBOSE){
                     cout << "Candidate " << data->IdsToLinks(*h) << " " << result[i].first << endl;
                 }
             }
-            if constexpr (VERBOSE) {
+            if (VERBOSE) {
                 for (auto [link, failparam]: data->failed_links){
                     int link_id = data->links_to_ids[link];
                     if (find(candidates.begin(), candidates.end(), link_id) == candidates.end()){
@@ -131,7 +131,7 @@ void BayesianNet::SearchHypotheses(double min_start_time_ms, double max_finish_t
             }
             //SortCandidatesWrtNumRelevantFlows(candidates);
         }
-        if constexpr (VERBOSE){
+        if (VERBOSE){
             cout << "Finished hypothesis search across "<<result.size()<<" Hypothesis for " << nfails
                  <<" failures in "<< GetTimeSinceSeconds(start_stage_time) << " seconds" << endl;
         }
@@ -169,7 +169,7 @@ void BayesianNet::SearchHypothesesJle(double min_start_time_ms, double max_finis
 
     ComputeInitialLikelihoodsHelper(likelihood_scores[0], min_start_time_ms,
                                     max_finish_time_ms, device_level, nopenmp_threads);
-    if constexpr (VERBOSE){
+    if (VERBOSE){
         cout << "Finished hypothesis search for 1 failure in "
              << GetTimeSinceSeconds(start_init_time) << " seconds" << endl;
         cout << "Finished linear stage in " << GetTimeSinceSeconds(timer_checkpoint) << " seconds" << endl;
@@ -231,7 +231,7 @@ void BayesianNet::SearchHypothesesJle(double min_start_time_ms, double max_finis
                                                     min_start_time_ms, max_finish_time_ms, nopenmp_threads);
         }
         swap(likelihood_scores, other_likelihood_scores);
-        if constexpr (VERBOSE){
+        if (VERBOSE){
             cout << "Total flows analyzed " << num_flows_analyzed
                  << " Finished hypothesis search for " << nfails
                  << " failures in "<< GetTimeSinceSeconds(start_stage_time) << " seconds" << endl;
@@ -261,18 +261,20 @@ void BayesianNet::HypothesesIntersection(set<Hypothesis*> &hypotheses_set, Hypot
 
 void BayesianNet::LocalizeDeviceFailures(double min_start_time_ms, double max_finish_time_ms,
                                          Hypothesis& localized_devices, int nopenmp_threads){
+    assert (!CONSIDER_DEVICE_LINK);
     LocalizeFailuresHelper(min_start_time_ms, max_finish_time_ms, localized_devices, true, nopenmp_threads);
 }
 
 void BayesianNet::LocalizeFailures(double min_start_time_ms, double max_finish_time_ms,
                                    Hypothesis& localized_links, int nopenmp_threads){
+    assert (CONSIDER_DEVICE_LINK);
     LocalizeFailuresHelper(min_start_time_ms, max_finish_time_ms, localized_links, false, nopenmp_threads);
 }
 
 void BayesianNet::LocalizeFailuresHelper(double min_start_time_ms, double max_finish_time_ms,
                                    Hypothesis& localized_components, bool device_level,
                                    int nopenmp_threads){
-    if constexpr (VERBOSE) cout << "Params: p1 " << 1.0 - p1 << " p2 " << p2 << " Prior " << PRIOR << " openmp threads " << nopenmp_threads << endl;
+    if (VERBOSE) cout << "Params: p1 " << 1.0 - p1 << " p2 " << p2 << " Prior " << PRIOR << " openmp threads " << nopenmp_threads << endl;
     assert(data != NULL);
 
     if (device_level) BinFlowsByDevice(max_finish_time_ms, nopenmp_threads);
@@ -282,7 +284,7 @@ void BayesianNet::LocalizeFailuresHelper(double min_start_time_ms, double max_fi
     if (!USE_CONDITIONAL){
         ComputeAndStoreIntermediateValues(nopenmp_threads, max_finish_time_ms);
     }
-    if constexpr (VERBOSE){
+    if (VERBOSE){
         cout << "Finished computing intermediate values in "
              << GetTimeSinceSeconds(start_time) << " seconds" << endl;
     }
@@ -309,7 +311,7 @@ void BayesianNet::LocalizeFailuresHelper(double min_start_time_ms, double max_fi
     for (int i=min((int)likelihood_hypothesis.size(), N_MAX_K_LIKELIHOODS)-1; i>=0; i--){
         double likelihood = likelihood_hypothesis[i].first;
         Hypothesis *hypothesis = likelihood_hypothesis[i].second;
-        if constexpr (VERBOSE){
+        if (VERBOSE){
             if (device_level) cout << "Likely candidate "<<*hypothesis<<" "<<likelihood << endl;
             else cout << "Likely candidate "<<data->IdsToLinks(*hypothesis)<<" "<<likelihood << endl;
         }
@@ -324,7 +326,7 @@ void BayesianNet::LocalizeFailuresHelper(double min_start_time_ms, double max_fi
     // If multiple hypothesis have highest likelihoods, then return common elements in all hypothesis
     HypothesesIntersection(candidate_hypothesis, localized_components);
     
-    if constexpr (VERBOSE){
+    if (VERBOSE){
         cout << endl << "Searched hypothesis space in "
              << GetTimeSinceSeconds(start_search_time) << " seconds" << endl;
         PrintCorrectHypothesisLikelihood(min_start_time_ms, max_finish_time_ms, localized_components,
@@ -338,7 +340,7 @@ void BayesianNet::LocalizeFailuresHelper(double min_start_time_ms, double max_fi
         */
     }
     CleanUpAfterLocalization(all_hypothesis);
-    if constexpr (VERBOSE) {
+    if (VERBOSE) {
         cout << "Finished further search in " << GetTimeSinceSeconds(timer_checkpoint) << " seconds" << endl;
     }
 }
@@ -697,7 +699,7 @@ void BayesianNet::SearchHypothesesGibbsSampling(double min_start_time_ms, double
         //cout << " prob. " << prob_x << " " << prob_not_x << endl;
         if (niter%100 == 0) cout << "niter " << niter << " " << prob_x << " " << prob_not_x << " " << current_likelihood << " " << new_likelihood << endl;
         if (float(rand()) / RAND_MAX < prob_not_x){
-            if constexpr (VERBOSE){
+            if (VERBOSE){
                 cout << "Updating link " << link_id << " current likelihood " << current_likelihood
                      << " new likelihood " << new_likelihood << " new diff " << likelihood_scores[link_id]
                      << " current-hypothesis " << *current_hypothesis << " iterations " << niter << endl;
@@ -748,7 +750,7 @@ void BayesianNet::SearchHypothesesGibbsSamplingJLE(double min_start_time_ms, dou
         if (float(rand()) / RAND_MAX < prob_not_x){
             Hypothesis* new_hypothesis  = new Hypothesis(*current_hypothesis);
             FlipLinkId(current_hypothesis, link_id);
-            if constexpr (VERBOSE){
+            if (VERBOSE){
                 cout << "Updating link " << link_id << " current likelihood " << current_likelihood
                      << " new likelihood " << new_likelihood << " new diff " << likelihood_scores[link_id]
                      << " current-hypothesis " << *current_hypothesis << " iterations " << niter << endl;
@@ -756,7 +758,7 @@ void BayesianNet::SearchHypothesesGibbsSamplingJLE(double min_start_time_ms, dou
             num_flows_analyzed += UpdateScores(likelihood_scores, new_hypothesis, current_hypothesis,
                                                 min_start_time_ms, max_finish_time_ms, nopenmp_threads);
             /*
-            if constexpr (VERBOSE){
+            if (VERBOSE){
                 cout << "Updating link " << link_id << " current likelihood " << current_likelihood
                      << " new likelihood " << new_likelihood << " new diff " << likelihood_scores[link_id]
                      << " current-hypothesis " << *current_hypothesis << " iterations " << niter << endl;
@@ -1013,7 +1015,7 @@ void BayesianNet::ComputeLogLikelihood(vector<Hypothesis*> &hypothesis_space,
                 min_start_time_ms, max_finish_time_ms, relevant_flows[i], nopenmp_threads), h);
         total_flows_analyzed += relevant_flows[i].size();
     }
-    if constexpr (VERBOSE) {
+    if (VERBOSE) {
         //cout << "Total flows analyzed "<< total_flows_analyzed << " ";
     }
 }

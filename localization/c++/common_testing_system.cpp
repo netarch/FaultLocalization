@@ -38,7 +38,7 @@ double GetPrecisionRecallTrendFile(string topology_file, string trace_file, doub
         cout << "Flows " << data->flows.size() << " " << min_start_time_ms << " " << finish_time_ms << " " << topology_file << " " << nopenmp_threads << endl;
         estimator->LocalizeFailures(min_start_time_ms, finish_time_ms,
                                    estimator_hypothesis, nopenmp_threads);
-        PDD precision_recall = GetPrecisionRecall(failed_links_set, estimator_hypothesis);
+        PDD precision_recall = GetPrecisionRecall(failed_links_set, estimator_hypothesis, data);
         result.push_back(precision_recall);
         total_flows += data->flows.size();
         cout << GetFileNameFromPath(trace_file) << " Flows " << data->flows.size()
@@ -115,9 +115,9 @@ void GetPrecisionRecallParamsFile(string topology_file, string trace_file, doubl
         Hypothesis estimator_hypothesis;
         estimator->LocalizeFailures(min_start_time_ms, max_finish_time_ms,
                                    estimator_hypothesis, nopenmp_threads);
-        PDD precision_recall = GetPrecisionRecall(failed_links_set, estimator_hypothesis);
+        PDD precision_recall = GetPrecisionRecall(failed_links_set, estimator_hypothesis, data);
         result.push_back(precision_recall);
-        if constexpr (VERBOSE or true) {
+        if (VERBOSE or true) {
             //cout << "Failed links " << failed_links_set << " predicted: " << estimator_hypothesis << " ";
             cout << GetFileNameFromPath(trace_file) << " " << params[ii] << " "
                 << data->IdsToLinks(estimator_hypothesis)<< "  "

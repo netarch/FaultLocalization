@@ -76,7 +76,7 @@ void SetInputForReduced(BayesianNet &estimator, LogData* data, LogData *reduced_
     auto start_time = chrono::high_resolution_clock::now();
     data->GetReducedData(*to_reduced_graph, *reduced_data, nopenmp_threads);
     GetNumReducedLinksMap(*to_reduced_graph, *data, *reduced_data, *num_reduced_links_map);
-    if constexpr (VERBOSE) {
+    if (VERBOSE) {
         cout << "Number of reduced nodes " << from_reduced_graph->size()
              << " Obtained reduced data for running analysis in "
              << GetTimeSinceSeconds(start_time) << " seconds" << endl;

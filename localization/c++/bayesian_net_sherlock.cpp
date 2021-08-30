@@ -137,7 +137,7 @@ void Sherlock::SearchHypotheses(double min_start_time_ms, double max_finish_time
             cout << "Finished hypothesis search across "<<hypothesis_analyzed<<" Hypothesis for " << nfails
                  <<" failures in "<< GetTimeSinceSeconds(start_stage_time) << " seconds" << endl;
         }
-        if constexpr (VERBOSE){
+        if (VERBOSE){
             cout << "Finished hypothesis search across "<<hypothesis_analyzed<<" Hypothesis for " << nfails
                  <<" failures in "<< GetTimeSinceSeconds(start_stage_time) << " seconds" << endl;
         }
@@ -153,7 +153,7 @@ void Sherlock::SearchHypotheses(double min_start_time_ms, double max_finish_time
 
 void Sherlock::LocalizeFailures(double min_start_time_ms, double max_finish_time_ms,
                                    Hypothesis& localized_links, int nopenmp_threads){
-    if constexpr (VERBOSE){
+    if (VERBOSE){
         cout << "Params: p1 " << 1.0 - p1 << " p2 " << p2 << " Prior " << PRIOR << " openmp threads " << nopenmp_threads << endl;
         cout << "start_time_ms " << min_start_time_ms << " " << max_finish_time_ms << endl;
     }
@@ -165,7 +165,7 @@ void Sherlock::LocalizeFailures(double min_start_time_ms, double max_finish_time
     if (!USE_CONDITIONAL){
         ComputeAndStoreIntermediateValues(nopenmp_threads, max_finish_time_ms);
     }
-    if constexpr (VERBOSE){
+    if (VERBOSE){
         cout << "Finished computing intermediate values in "
              << GetTimeSinceSeconds(start_time) << " seconds" << endl;
     }
@@ -196,7 +196,7 @@ void Sherlock::LocalizeFailures(double min_start_time_ms, double max_finish_time
             candidate_hypothesis.insert(hypothesis);
             candidate_link_ids.insert(hypothesis->begin(), hypothesis->end());
         }
-        if constexpr (VERBOSE){
+        if (VERBOSE){
             cout << "Likely candidate "<<data->IdsToLinks(*hypothesis)<<" "<<likelihood << endl;
         }
     }
@@ -214,7 +214,7 @@ void Sherlock::LocalizeFailures(double min_start_time_ms, double max_finish_time
     for(int link_id: erase_link_ids) candidate_link_ids.erase(link_id);
     localized_links.insert(candidate_link_ids.begin(), candidate_link_ids.end());
     
-    if constexpr (VERBOSE){
+    if (VERBOSE){
         cout << endl << "Searched hypothesis space in "
              << GetTimeSinceSeconds(start_search_time) << " seconds" << endl;
         Hypothesis correct_hypothesis;
@@ -238,7 +238,7 @@ void Sherlock::LocalizeFailures(double min_start_time_ms, double max_finish_time
         delete(no_failure_hypothesis);
     }
     CleanUpAfterLocalization(all_hypothesis);
-    if constexpr (VERBOSE) {
+    if (VERBOSE) {
         cout << "Finished further search in " << GetTimeSinceSeconds(timer_checkpoint) << " seconds" << endl;
     }
 }

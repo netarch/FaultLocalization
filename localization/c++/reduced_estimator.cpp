@@ -22,9 +22,9 @@ int main(int argc, char *argv[]){
     cout << "Using reduced map file "<< reduced_map_file <<endl;
     cout << "Using " << nopenmp_threads << " openmp threads"<<endl;
 
+    BayesianNet estimator;
     LogData data;
     GetDataFromLogFileParallel(trace_file, topology_file, &data, nopenmp_threads);
-    BayesianNet estimator;
     if (estimator.USE_CONDITIONAL){
         data.FilterFlowsForConditional(max_finish_time_ms, nopenmp_threads);
     }
@@ -37,7 +37,7 @@ int main(int argc, char *argv[]){
                                estimator_hypothesis, nopenmp_threads);
     Hypothesis failed_links_set;
     reduced_data.GetFailedLinkIds(failed_links_set);
-    PDD precision_recall = GetPrecisionRecall(failed_links_set, estimator_hypothesis);
+    PDD precision_recall = GetPrecisionRecall(failed_links_set, estimator_hypothesis, &reduced_data);
     cout << "Output Hypothesis: " << reduced_data.IdsToLinks(estimator_hypothesis) << " precsion_recall "
          << precision_recall.first << " " << precision_recall.second<<endl;
     return 0;

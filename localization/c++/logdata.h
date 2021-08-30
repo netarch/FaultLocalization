@@ -38,6 +38,8 @@ public:
         //memoized_paths.set_empty_key(PII(-1, -1));
     }
 
+    int NumLinksOfDevice(int device);
+
     inline bool IsNodeSwitch(int node) { return (node < OFFSET_HOST); } 
     inline bool IsLinkDevice(int link_id) { return (inverse_links[link_id].first == inverse_links[link_id].second); }
 

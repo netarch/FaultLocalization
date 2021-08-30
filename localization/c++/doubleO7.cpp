@@ -9,6 +9,12 @@
 
 using namespace std;
 
+DoubleO7::DoubleO7(): Estimator() {
+    CONSIDER_DEVICE_LINK = false;
+    TRACEROUTE_BAD_FLOWS = true;
+    INPUT_FLOW_TYPE = PROBLEMATIC_FLOWS;
+}
+
 void DoubleO7::SetLogData(LogData* data_, double max_finish_time_ms, int nopenmp_threads){
     Estimator::SetLogData(data_, max_finish_time_ms, nopenmp_threads);
     data->FilterFlowsForConditional(max_finish_time_ms, nopenmp_threads);
@@ -64,7 +70,7 @@ PDD DoubleO7::ComputeVotes(vector<Flow*>& bad_flows, vector<double>& votes,
 // Vote adjustment
 void DoubleO7::LocalizeFailures(double min_start_time_ms, double max_finish_time_ms,
                                 Hypothesis &localized_links, int nopenmp_threads){
-    assert (!CONSIDER_DEVICE_LINK);
+    assert (!CONSIDER_DEVICE_LINK and TRACEROUTE_BAD_FLOWS);
     localized_links.clear();
     vector<Flow*> bad_flows; 
     for(Flow* flow: data->flows){
@@ -73,12 +79,12 @@ void DoubleO7::LocalizeFailures(double min_start_time_ms, double max_finish_time
     }
     int nlinks = data->inverse_links.size();
     vector<double> votes(nlinks, 0.0);
-    if constexpr (VERBOSE){ 
+    if (VERBOSE){ 
         cout << "numflows "<< bad_flows.size();
     }
     auto [sum_votes, max_votes] = ComputeVotes(bad_flows, votes, localized_links,
                                           min_start_time_ms, max_finish_time_ms);
-    if constexpr (VERBOSE){ 
+    if (VERBOSE){ 
         cout << " sumvote " << sum_votes << " maxvote " << max_votes
              << " numflows " << bad_flows.size() << endl;
     }
@@ -102,7 +108,7 @@ void DoubleO7::LocalizeFailures(double min_start_time_ms, double max_finish_time
             sum_votes = accumulate(votes.begin(), votes.end(), 0.0, plus<double>());
             max_votes = *max_element(votes.begin(), votes.end());
         }
-        if constexpr (VERBOSE){ 
+        if (VERBOSE){ 
             cout << " sumvote " << sum_votes << " maxvote " << max_votes
                  << " numflows " << bad_flows.size() << endl;
         }

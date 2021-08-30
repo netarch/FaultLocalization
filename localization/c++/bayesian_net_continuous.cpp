@@ -111,7 +111,7 @@ void BayesianNetContinuous::LocalizeFailures(double min_start_time_ms, double ma
             }
         }
         if (VERBOSE and iter%20==0){
-            PDD precision_recall = GetPrecisionRecall(failed_links_set, localized_links);
+            PDD precision_recall = GetPrecisionRecall(failed_links_set, localized_links, data);
             cout << "Iteration " << iter << " log likelihood " << log_likelihood 
                  << " delta " << delta << " learning rate " << decayed_learning_rate
                  << " hypothesis "<< data->IdsToLinks(localized_links) << " pr "

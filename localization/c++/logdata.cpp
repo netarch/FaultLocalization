@@ -65,7 +65,7 @@ void LogData::GetReducedData(unordered_map<Link, Link>& reduced_graph_map,
             reduced_data.failed_links.insert(make_pair(rl, 0.0));
         }
     }
-    if constexpr (VERBOSE) {
+    if (VERBOSE) {
         for (auto& it: reduced_data.failed_links){
             cout << "Failed reduced link "<< it.first << endl;
         }
@@ -79,7 +79,7 @@ void LogData::GetReducedData(unordered_map<Link, Link>& reduced_graph_map,
             reduced_data.inverse_links.push_back(rl);
         }
     }
-    if constexpr (VERBOSE) {
+    if (VERBOSE) {
         cout << "Finished assigning ids to reduced links, nlinks(reduced) " << reduced_data.inverse_links.size() << endl;
     }
 
@@ -111,7 +111,7 @@ void LogData::FilterFlowsBeforeTime(double finish_time_ms, int nopenmp_threads){
     for (int t=0; t<nopenmp_threads; t++){
         flows.insert(flows.end(), filtered_flows[t].begin(), filtered_flows[t].end());
     }
-    if constexpr (VERBOSE) {
+    if (VERBOSE) {
         cout << "Filtered flows for analysis before " << finish_time_ms << " (ms) simtime in "
              << GetTimeSinceSeconds(start_filter_time) << " seconds" << endl;
     }
@@ -137,7 +137,7 @@ void LogData::FilterFlowsForConditional(double max_finish_time_ms, int nopenmp_t
     for (int t=0; t<nopenmp_threads; t++){
         flows.insert(flows.end(), filtered_flows[t].begin(), filtered_flows[t].end());
     }
-    if constexpr (VERBOSE) {
+    if (VERBOSE) {
         cout << "Filtered flows for conditional analysis in "
              << GetTimeSinceSeconds(start_filter_time) << " seconds" << endl;
     }
@@ -187,7 +187,7 @@ vector<vector<int> >* LogData::GetForwardFlowsByLinkId(double max_finish_time_ms
         }
         final_sizes[link_id] = sizes[nopenmp_threads-1][link_id] + curr_bin_size;
     }
-    if constexpr (VERBOSE){
+    if (VERBOSE){
         cout<<"Binning flows part 1 done in "<<GetTimeSinceSeconds(start_time)<< " seconds"<<endl;
     }
     start_time = chrono::high_resolution_clock::now();
@@ -199,7 +199,7 @@ vector<vector<int> >* LogData::GetForwardFlowsByLinkId(double max_finish_time_ms
         //(*forward_flows_by_link_id)[link_id].resize(final_sizes[link_id]);
         (*forward_flows_by_link_id)[link_id] = vector<int>(final_sizes[link_id]);
     }
-    if constexpr (VERBOSE){
+    if (VERBOSE){
         cout<<"Binning flows part 2 done in "<<GetTimeSinceSeconds(start_time)<< " seconds"<<endl;
     }
     start_time = chrono::high_resolution_clock::now();
@@ -225,7 +225,7 @@ vector<vector<int> >* LogData::GetForwardFlowsByLinkId(double max_finish_time_ms
             }
         }
     }
-    if constexpr (VERBOSE){
+    if (VERBOSE){
         cout<<"Binning flows part 3 done in "<<GetTimeSinceSeconds(start_time)<< " seconds"<<endl;
     }
     start_time = chrono::high_resolution_clock::now();
@@ -300,7 +300,7 @@ vector<vector<int> >* LogData::GetForwardFlowsByLinkId1(double max_finish_time_m
     auto start_time = chrono::high_resolution_clock::now();
     vector<int> sizes;
     GetSizesForForwardFlowsByLinkId(max_finish_time_ms, nopenmp_threads, sizes);
-    if constexpr (VERBOSE){
+    if (VERBOSE){
         cout<<"Binning flows part 1 done in "<<GetTimeSinceSeconds(start_time)<< " seconds"<<endl;
     }
     start_time = chrono::high_resolution_clock::now();
@@ -309,7 +309,7 @@ vector<vector<int> >* LogData::GetForwardFlowsByLinkId1(double max_finish_time_m
     for(int link_id=0; link_id<nlinks; link_id++){
         (*forward_flows_by_link_id)[link_id].reserve(sizes[link_id]);
     }
-    if constexpr (VERBOSE){
+    if (VERBOSE){
         cout<<"Binning flows part 2 done in "<<GetTimeSinceSeconds(start_time)<< " seconds"<<endl;
     }
     start_time = chrono::high_resolution_clock::now();
@@ -344,7 +344,7 @@ vector<vector<int> >* LogData::GetForwardFlowsByLinkId1(double max_finish_time_m
             }
         }
     }
-    if constexpr (VERBOSE){
+    if (VERBOSE){
         cout<<"Binning flows part 3 done in "<<GetTimeSinceSeconds(start_time)<< " seconds"<<endl;
     }
     start_time = chrono::high_resolution_clock::now();
@@ -421,7 +421,7 @@ vector<vector<int> >* LogData::GetFlowsByDevice(double max_finish_time_ms, int n
         }
         final_sizes[device] = sizes[nopenmp_threads-1][device] + curr_bin_size;
     }
-    if constexpr (VERBOSE){
+    if (VERBOSE){
         cout<<"Binning flows part 1 done in "<<GetTimeSinceSeconds(start_time)<< " seconds"<<endl;
     }
     start_time = chrono::high_resolution_clock::now();
@@ -432,7 +432,7 @@ vector<vector<int> >* LogData::GetFlowsByDevice(double max_finish_time_ms, int n
         assert (omp_get_thread_num() < nthreads);
         (*flows_by_device)[device] = vector<int>(final_sizes[device]);
     }
-    if constexpr (VERBOSE){
+    if (VERBOSE){
         cout<<"Binning flows part 2 done in "<<GetTimeSinceSeconds(start_time)<< " seconds"<<endl;
     }
     start_time = chrono::high_resolution_clock::now();
@@ -458,7 +458,7 @@ vector<vector<int> >* LogData::GetFlowsByDevice(double max_finish_time_ms, int n
             }
         }
     }
-    if constexpr (VERBOSE){
+    if (VERBOSE){
         cout<<"Binning flows part 3 done in "<<GetTimeSinceSeconds(start_time)<< " seconds"<<endl;
     }
     start_time = chrono::high_resolution_clock::now();
@@ -700,6 +700,14 @@ LogData::~LogData(){
        for (auto s: f->snapshots) delete(s);
    }
    CleanupFlows();
+}
+
+int LogData::NumLinksOfDevice(int device){
+    int num_links = 0;
+    for (Link link: inverse_links){
+        num_links += (int) (link.first==device or link.second==device);
+    }
+    return num_links;
 }
 
 

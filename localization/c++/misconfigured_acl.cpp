@@ -26,12 +26,12 @@ vector<tuple<int, int, double> > ReadFailures(string fail_file){
             GetFirstInt(linec, dest);
             GetFirstDouble(linec, failparam);
             fails.push_back(make_tuple(dest, sw, failparam));
-            if constexpr (VERBOSE){
+            if (VERBOSE){
                 cout<< "Failed component "<<dest<<" "<<sw<<" "<<failparam<<endl; 
             }
         }
     }
-    if constexpr (VERBOSE){
+    if (VERBOSE){
         cout<< "Read fail file in "<<GetTimeSinceSeconds(start_time)
             << " seconds, numfails " << fails.size() << endl;
     }
@@ -48,17 +48,6 @@ int main(int argc, char *argv[]){
     double min_start_time_ms = atof(argv[3]) * 1000.0, max_finish_time_ms = atof(argv[4]) * 1000.0;
     int nopenmp_threads = atoi(argv[5]);
     cout << "Using " << nopenmp_threads << " openmp threads"<<endl;
-    //int nchunks = 32;
-    LogData data;
-    GetDataFromLogFileParallel(trace_file, topology_file, &data, nopenmp_threads);
-
-    string fail_file = trace_file + ".fails";
-    auto failed_components = ReadFailures(fail_file);
-    for (auto [dest, sw, failparam]: failed_components) data.failed_devices.insert(pair<int, double>(sw, failparam));
-    Hypothesis failed_devices;
-    data.GetFailedDevices(failed_devices);
-    cout << "Failed devices: " << failed_devices << endl;
-
 
     //NetBouncer estimator; vector<double> params = {0.016, 0.0113};
     //Sherlock estimator;
@@ -68,14 +57,25 @@ int main(int argc, char *argv[]){
     //DoubleO7 estimator;
     //vector<double> params = {0.0025};
     estimator.SetParams(params);
+
+    //int nchunks = 32;
+    LogData data;
+    GetDataFromLogFileParallel(trace_file, topology_file, &data, nopenmp_threads);
+    string fail_file = trace_file + ".fails";
+    auto failed_components = ReadFailures(fail_file);
+    for (auto [dest, sw, failparam]: failed_components) data.failed_devices.insert(pair<int, double>(sw, failparam));
+    Hypothesis failed_devices;
+    data.GetFailedDevices(failed_devices);
+    cout << "Failed devices: " << failed_devices << endl;
     estimator.SetLogData(&data, max_finish_time_ms, nopenmp_threads);
+
     Hypothesis estimator_hypothesis;
     auto start_localization_time = chrono::high_resolution_clock::now();
     estimator.LocalizeFailures(min_start_time_ms, max_finish_time_ms,
                                estimator_hypothesis, nopenmp_threads);
     //estimator.LocalizeDeviceFailures(min_start_time_ms, max_finish_time_ms,
     //                           estimator_hypothesis, nopenmp_threads);
-    PDD precision_recall = GetPrecisionRecall(failed_devices, estimator_hypothesis);
+    PDD precision_recall = GetPrecisionRecall(failed_devices, estimator_hypothesis, &data);
     cout << "Output Hypothesis: " << data.IdsToLinks(estimator_hypothesis) << " precsion_recall "
          <<precision_recall.first << " " << precision_recall.second<<endl;
     cout << "Finished localization in "<< GetTimeSinceSeconds(start_localization_time) << " seconds" << endl;

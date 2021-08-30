@@ -9,6 +9,10 @@
 
 using namespace std;
 
+NetBouncer::NetBouncer(): Estimator() {
+    INPUT_FLOW_TYPE = ACTIVE_FLOWS;
+    CONSIDER_DEVICE_LINK = false;
+}
 
 void NetBouncer::SetLogData(LogData* data_, double max_finish_time_ms, int nopenmp_threads){
     Estimator::SetLogData(data_, max_finish_time_ms, nopenmp_threads);
@@ -16,15 +20,16 @@ void NetBouncer::SetLogData(LogData* data_, double max_finish_time_ms, int nopen
 
 NetBouncer* NetBouncer::CreateObject() {
     NetBouncer* ret = new NetBouncer();
-    vector<double> param {regularize_const, fail_threshold};
+    vector<double> param {regularize_const, fail_threshold, bad_device_frac_bad_flows_threshold};
     ret->SetParams(param);
     return ret;
 }
     
 void NetBouncer::SetParams(vector<double>& params){
-    assert(params.size() == 2);
+    assert(params.size() == 3);
     regularize_const = params[0];
     fail_threshold = params[1];
+    bad_device_frac_bad_flows_threshold = params[2];
 }
 
 double NetBouncer::EstimatedPathSuccessRate(Flow *flow, vector<double>& success_prob){
@@ -41,7 +46,6 @@ void NetBouncer::RemoveBadDevices(double min_start_time_ms, double max_finish_ti
     bad_devices.clear();
     BinFlowsByDevice(max_finish_time_ms, nopenmp_threads);
     bad_devices.clear();
-    double BAD_DEVICE_FRAC_BAD_FLOWS = 0.2;
     for (int device=0; device < data->GetMaxDevicePlus1(); device++){
         vector<int> &device_flows = (*flows_by_device)[device];
         int bad_flows = 0;
@@ -50,17 +54,16 @@ void NetBouncer::RemoveBadDevices(double min_start_time_ms, double max_finish_ti
             assert(flow->TracerouteFlow(max_finish_time_ms));
             bad_flows += (int)(flow->GetDropRate(max_finish_time_ms) > 0);
         }
-        //cout << "Device " << device <<", bad_flows: " << bad_flows << "/" << device_flows.size()  << endl; 
-        if ((double)bad_flows/device_flows.size() > BAD_DEVICE_FRAC_BAD_FLOWS) bad_devices.insert(device);
+        if (VERBOSE and (double)bad_flows/device_flows.size() > 0.125 * bad_device_frac_bad_flows_threshold)
+            cout << "Device " << device <<", bad_flows: " << bad_flows << "/" << device_flows.size()  << endl; 
+        if ((double)bad_flows/device_flows.size() > bad_device_frac_bad_flows_threshold) bad_devices.insert(device);
     }
-    if constexpr (VERBOSE) cout << "Bad devices " << bad_devices << endl;
+    if (VERBOSE) cout << "Bad devices " << bad_devices << endl;
     int nlinks = data->inverse_links.size();
     for (int link_id=0; link_id<nlinks; link_id++){
         Link link = data->inverse_links[link_id];
-        if ((bad_devices.find(link.first) != bad_devices.end()) or 
-            (bad_devices.find(link.second) != bad_devices.end())){
-            bad_device_links[link_id] = true;
-        }
+        bad_device_links[link_id] = ((bad_devices.find(link.first) != bad_devices.end()) or 
+                                     (bad_devices.find(link.second) != bad_devices.end()));
     }
 }
 
@@ -171,8 +174,9 @@ void NetBouncer::LocalizeFailures(double min_start_time_ms, double max_finish_ti
     }
     for(int link_id=0; link_id<nlinks; link_id++){
         if (!bad_device_links[link_id] and !data->IsLinkDevice(link_id)){
-            assert(num_flows_through_link[link_id] > 0);
-            success_prob[link_id] /= num_flows_through_link[link_id];
+            //cout << "link " << data->inverse_links[link_id] << endl;
+            //assert(num_flows_through_link[link_id] > 0);
+            success_prob[link_id] /= max(1.0e-30, num_flows_through_link[link_id]);
         }
     }
     double error = ComputeError(active_flows, success_prob, min_start_time_ms, max_finish_time_ms);
@@ -184,11 +188,11 @@ void NetBouncer::LocalizeFailures(double min_start_time_ms, double max_finish_ti
                                                     min_start_time_ms, max_finish_time_ms)));
         }
         double new_error = ComputeError(active_flows, success_prob, min_start_time_ms, max_finish_time_ms);
-        if constexpr (VERBOSE){
+        if (VERBOSE){
             cout << "Iteration " << it << " error " << new_error << " finished in "
                  << GetTimeSinceSeconds(start_iter_time) * 1.0e-3 << endl;
         }
-        if (abs(new_error - error) < 1.0e-9) break;
+        if (abs(new_error - error) < 1.0e-6) break;
         error = new_error;
     }
 

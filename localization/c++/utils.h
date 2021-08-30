@@ -16,6 +16,18 @@ using google::dense_hash_map;
 using namespace std;
 
 inline constexpr bool PARALLEL_IO=false;
+const bool PATH_KNOWN=false;
+const bool CONSIDER_REVERSE_PATH=false;
+
+extern bool VERBOSE;
+extern bool CONSIDER_DEVICE_LINK;
+extern bool TRACEROUTE_BAD_FLOWS;
+enum InputFlowType {ACTIVE_FLOWS, ALL_FLOWS, PROBLEMATIC_FLOWS};
+extern InputFlowType INPUT_FLOW_TYPE;
+// All trace files have hosts numbered as host + OFFSET_HOST
+const int OFFSET_HOST = 10000;
+
+
 
 struct MemoizedPaths{
     vector<Path*> paths;
@@ -179,6 +191,6 @@ inline bool StringStartsWith(const string &a, const string &b) {
     return (b.length() <= a.length() && equal(b.begin(), b.end(), a.begin()));
 }
 
-PDD GetPrecisionRecall(Hypothesis& failed_links, Hypothesis& predicted_hypothesis);
+PDD GetPrecisionRecall(Hypothesis& failed_links, Hypothesis& predicted_hypothesis, LogData *data);
 
 #endif

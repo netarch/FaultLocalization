@@ -4,7 +4,7 @@
 
 class BayesianNet : public Estimator{
  public:
-    BayesianNet() : Estimator() {}
+    BayesianNet() : Estimator() { CONSIDER_DEVICE_LINK = true;}
     void LocalizeFailures(double min_start_time_ms, double max_finish_time_ms,
                           Hypothesis &localized_links, int nopenmp_threads);
     void LocalizeDeviceFailures(double min_start_time_ms, double max_finish_time_ms,

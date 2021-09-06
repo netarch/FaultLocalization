@@ -26,6 +26,7 @@ void Sherlock::ExploreTopNode(double min_start_time_ms, double max_finish_time_m
                               unordered_map<Hypothesis*, double> &all_hypothesis, int nopenmp_threads, stack<PHS> &hstack){
         auto[base_hypothesis, base_scores] = hstack.top();
         hstack.pop();
+        assert (all_hypothesis.find(base_hypothesis) != all_hypothesis.end());
         double base_likelihood = all_hypothesis[base_hypothesis];
         auto max_it = std::max_element(base_hypothesis->begin(), base_hypothesis->end());
         int max_link_id = (max_it == base_hypothesis->end()? -1: *max_it);
@@ -36,18 +37,20 @@ void Sherlock::ExploreTopNode(double min_start_time_ms, double max_finish_time_m
             double new_likelihood = base_likelihood + base_scores->at(link_id)
                                                     + ComputeLogPrior(new_hypothesis)
                                                     - ComputeLogPrior(base_hypothesis);
+            result.push_back(make_pair(new_likelihood, new_hypothesis));
             if (new_hypothesis->size() < MAX_FAILS){
                 vector<double> *new_scores = new vector<double>(*base_scores);
                 UpdateScores(*new_scores, new_hypothesis, base_hypothesis, min_start_time_ms, max_finish_time_ms, nopenmp_threads);
+                all_hypothesis[new_hypothesis] = new_likelihood;
                 hstack.push(PHS(new_hypothesis, new_scores));
                 ExploreTopNode(min_start_time_ms, max_finish_time_ms, all_hypothesis, nopenmp_threads, hstack);
-                //ExploreTopNode();
-                if (link_id % 1000 == 0) cout << "pushing to stack " << *new_hypothesis << endl;
+                if (link_id % 5000 == 0) cout << "pushing to stack " << *new_hypothesis << endl;
             }
-            result.push_back(make_pair(new_likelihood, new_hypothesis));
+            //else cout << "new_hypothesis " << *new_hypothesis << " " << new_likelihood << " " << *base_hypothesis << " " << base_likelihood << endl;
         }
         sort(result.begin(), result.end(), greater<pair<double, Hypothesis*> >());
-        int nsave = (base_hypothesis->size() < MAX_FAILS-1? result.size(): min(10, (int)result.size()));
+        //int nsave = (base_hypothesis->size() < MAX_FAILS-1? result.size(): min(10, (int)result.size()));
+        int nsave = (base_hypothesis->size() < MAX_FAILS-1? 0: min(10, (int)result.size()));
         //cout << nsave << " " << base_hypothesis->size() << endl;
         int curr = 0;
         while(curr < nsave){
@@ -178,7 +181,7 @@ void Sherlock::LocalizeFailures(double min_start_time_ms, double max_finish_time
 
     unordered_map<Hypothesis*, double> all_hypothesis;
     auto start_search_time = chrono::high_resolution_clock::now();
-    SearchHypotheses(min_start_time_ms, max_finish_time_ms, all_hypothesis, nopenmp_threads);
+    SearchHypothesesFlock(min_start_time_ms, max_finish_time_ms, all_hypothesis, nopenmp_threads);
     vector<pair<double, Hypothesis*> > likelihood_hypothesis;
     for (auto& it: all_hypothesis){
         likelihood_hypothesis.push_back(make_pair(it.second, it.first));

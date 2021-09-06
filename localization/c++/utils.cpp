@@ -18,7 +18,8 @@ const bool LEAFSPINE_NET_BOUNCER = false; //!HACK
 bool VERBOSE=true;
 bool CONSIDER_DEVICE_LINK=true;
 bool TRACEROUTE_BAD_FLOWS=true;
-InputFlowType INPUT_FLOW_TYPE = ACTIVE_FLOWS;
+InputFlowType INPUT_FLOW_TYPE = ALL_FLOWS;
+const bool MISCONFIGURED_ACL = false;
 
 inline bool StringEqualTo(const char* a, const char* b) {
     while ((*b == *a) and (*a!='\0')){
@@ -27,7 +28,6 @@ inline bool StringEqualTo(const char* a, const char* b) {
     }
     return (*b=='\0' and *a=='\0');
 }
-
 
 
 void GetDataFromLogFileDistributed(string dirname, int nchunks, LogData *result, int nopenmp_threads){ 
@@ -142,6 +142,7 @@ void GetLinkMappings(string topology_file, LogData* result, bool compute_paths){
             result->GetLinkId(Link(sw, svr));
             result->GetLinkId(Link(svr, sw));
             result->hosts_to_racks[svr] = sw;
+            result->GetLinkId(Link(sw, sw));
 	        //cout << svr << "-->" << sw << endl;
         }
     }
@@ -422,12 +423,14 @@ void ProcessFlowLines(vector<FlowLines>& all_flow_lines, LogData* result, int no
                          path_nodes[thread_num], path_nodes_reverse[thread_num]);
         // Set forward path 
         if (path_nodes[thread_num].size() > 0){
+            //cout << "FPT " << path_nodes[thread_num] << " " << flow->first_link_id << " " << flow->last_link_id << " " << endl;
             result->GetLinkIdPath(path_nodes[thread_num], flow->first_link_id,
                                   flow->last_link_id, temp_path[thread_num]);
             flow->SetPathTaken(result->GetPointerToPathTaken(srcrack, destrack, temp_path[thread_num], flow));
         }
         // Set reverse path
         if (path_nodes_reverse[thread_num].size() > 0){
+            //cout << "FPRT " << path_nodes_reverse[thread_num] << " " << flow->first_link_id << " " << flow->last_link_id << " " << endl;
             result->GetLinkIdPath(path_nodes_reverse[thread_num], flow->reverse_first_link_id,
                                   flow->reverse_last_link_id, temp_path[thread_num]);
             flow->SetReversePathTaken(result->GetPointerToPathTaken(destrack, srcrack, temp_path[thread_num], flow));
@@ -581,7 +584,7 @@ void GetDataFromLogFileParallel(string trace_file, string topology_file, LogData
     while(getline_result > 0){
         nlines += 1;
         char *dup_linec = strdup(linec);
-        //cout << "op " << op << " : " << line << endl;
+        //cout << "op " << op << " : " << linec << endl;
         if (StringEqualTo(op, "SS")){
             assert(curr_flow_lines->fid_c != NULL);
             curr_flow_lines->ss_c.push_back(dup_linec);
@@ -657,14 +660,19 @@ PDD GetPrecisionRecall(Hypothesis& failed_links, Hypothesis& predicted_hypothesi
             }
             else if (failed_devices.find(link.first) != failed_devices.end() and 
                      failed_predicted_devices.find(link.first) == failed_predicted_devices.end()){
-                correctly_recalled += 1.0/data->NumLinksOfDevice(link.first);
+                double multiplier = 1.0;
+                if (MISCONFIGURED_ACL) multiplier = 2.0;
+                correctly_recalled += multiplier/data->NumLinksOfDevice(link.first);
             }
             else if (failed_devices.find(link.second) != failed_devices.end() and
                      failed_predicted_devices.find(link.second) == failed_predicted_devices.end()){
-                correctly_recalled += 1.0/data->NumLinksOfDevice(link.second);
+                double multiplier = 1.0;
+                if (MISCONFIGURED_ACL) multiplier = 2.0;
+                correctly_recalled += multiplier/data->NumLinksOfDevice(link.second);
             }
         }
         recall = ((double)correctly_recalled)/failed_links.size();
     }
+    assert (recall <= 1.0);
     return PDD(precision, recall);
 }

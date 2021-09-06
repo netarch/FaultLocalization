@@ -67,9 +67,18 @@ PDD DoubleO7::ComputeVotes(vector<Flow*>& bad_flows, vector<double>& votes,
     return PDD(sum_votes, max_votes);
 }
 
-// Vote adjustment
 void DoubleO7::LocalizeFailures(double min_start_time_ms, double max_finish_time_ms,
-                                Hypothesis &localized_links, int nopenmp_threads){
+                                Hypothesis &localized_components, int nopenmp_threads){
+    if (DEVICE_ANALYSIS)
+        LocalizeDeviceFailures(min_start_time_ms, max_finish_time_ms,
+                               localized_components, nopenmp_threads);
+    else
+        LocalizeLinkFailures(min_start_time_ms, max_finish_time_ms,
+                             localized_components, nopenmp_threads);
+}
+// Vote adjustment
+void DoubleO7::LocalizeLinkFailures(double min_start_time_ms, double max_finish_time_ms,
+                                    Hypothesis &localized_links, int nopenmp_threads){
     assert (!CONSIDER_DEVICE_LINK and TRACEROUTE_BAD_FLOWS);
     localized_links.clear();
     vector<Flow*> bad_flows; 
@@ -113,4 +122,74 @@ void DoubleO7::LocalizeFailures(double min_start_time_ms, double max_finish_time
                  << " numflows " << bad_flows.size() << endl;
         }
     }
+}
+
+PDD DoubleO7::ComputeVotesDevice(vector<Flow*>& bad_flows, vector<double>& votes,
+                                 Hypothesis &problematic_devices, double min_start_time_ms,
+                                 double max_finish_time_ms){
+    fill(votes.begin(), votes.end(), 0.0);
+    Path device_path;
+    for(int ff=0; ff < bad_flows.size(); ff++){
+        Flow *flow = bad_flows[ff];
+        assert(flow->TracerouteFlow(max_finish_time_ms));
+        data->GetDeviceLevelPath(flow, *flow->GetPathTaken(), device_path);
+        if (!HypothesisIntersectsPath(&problematic_devices, &device_path)){
+            int flow_vote = (int) (flow->LabelWeightsFunc(max_finish_time_ms).second > 0);
+            //cout << " path_taken " << *path_taken << " " << flow_vote << endl;
+            if (FILTER_NOISY_DROPS){
+                flow_vote = (int) (flow->LabelWeightsFunc(max_finish_time_ms).second > 1);
+            }
+            else{
+                assert(flow_vote == 1 or flow->IsFlowActive());
+            }
+            int total_path_length = device_path.size();
+            double vote = ((double)flow_vote) / total_path_length;
+            for (int device: device_path){
+                votes[device] += vote;
+            }
+        }
+    }
+    double sum_votes = accumulate(votes.begin(), votes.end(), 0.0, plus<double>());
+    double max_votes = *max_element(votes.begin(), votes.end());
+    return PDD(sum_votes, max_votes);
+}
+
+void DoubleO7::LocalizeDeviceFailures(double min_start_time_ms, double max_finish_time_ms,
+                                      Hypothesis &localized_device_links, int nopenmp_threads){
+    assert (!CONSIDER_DEVICE_LINK and TRACEROUTE_BAD_FLOWS);
+    vector<Flow*> bad_flows; 
+    for(Flow* flow: data->flows){
+        if(flow->TracerouteFlow(max_finish_time_ms))
+            bad_flows.push_back(flow);
+    }
+    int ndevices = data->GetMaxDevicePlus1();
+    vector<double> votes(ndevices, 0.0);
+    if (VERBOSE) cout << "numflows "<< bad_flows.size();
+    Hypothesis localized_devices;
+    auto [sum_votes, max_votes] = ComputeVotesDevice(bad_flows, votes, localized_devices,
+                                                     min_start_time_ms, max_finish_time_ms);
+    if (VERBOSE){ 
+        cout << " sumvote " << sum_votes << " maxvote " << max_votes
+             << " numflows " << bad_flows.size() << endl;
+    }
+    while (max_votes >= fail_threshold * sum_votes and max_votes > 0){
+        int faulty_device = distance(votes.begin(), max_element(votes.begin(), votes.end()));
+        localized_devices.insert(faulty_device);
+        if(ADJUST_VOTES){
+            tie(sum_votes, max_votes) = ComputeVotesDevice(bad_flows, votes, localized_devices,
+                                                     min_start_time_ms, max_finish_time_ms);
+        }
+        else{
+            votes[faulty_device] = 0; // Ensure it doesn't show up again
+            sum_votes = accumulate(votes.begin(), votes.end(), 0.0, plus<double>());
+            max_votes = *max_element(votes.begin(), votes.end());
+        }
+        if (VERBOSE){ 
+            cout << " sumvote " << sum_votes << " maxvote " << max_votes
+                 << " numflows " << bad_flows.size() << endl;
+        }
+    }
+    localized_device_links.clear();
+    for (int device: localized_devices)
+        localized_device_links.insert(data->GetLinkIdUnsafe(Link(device, device)));
 }

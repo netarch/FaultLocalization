@@ -119,9 +119,9 @@ void GetPrecisionRecallParamsFile(string topology_file, string trace_file, doubl
         result.push_back(precision_recall);
         if (VERBOSE or true) {
             //cout << "Failed links " << failed_links_set << " predicted: " << estimator_hypothesis << " ";
-            cout << GetFileNameFromPath(trace_file) << " " << params[ii] << " "
-                << data->IdsToLinks(estimator_hypothesis)<< "  "
-                << precision_recall.first << " " << precision_recall.second<<endl;
+            cout << GetFileNameFromPath(trace_file) << " flows " << data->flows.size() << " "
+                 << params[ii] << " " << data->IdsToLinks(estimator_hypothesis)<< "  "
+                 << precision_recall.first << " " << precision_recall.second << endl;
         }
     }
     delete(data);

@@ -16,8 +16,11 @@ using google::dense_hash_map;
 using namespace std;
 
 inline constexpr bool PARALLEL_IO=false;
-const bool PATH_KNOWN=false;
 const bool CONSIDER_REVERSE_PATH=false;
+
+const bool PATH_KNOWN=false;
+const bool UNION_TOP_HYPOTHESIS = false;
+const int NUM_HYPOTHESIS_FOR_UNION = 5;
 
 extern bool VERBOSE;
 extern bool CONSIDER_DEVICE_LINK;

@@ -1,6 +1,6 @@
 CC = g++
-CFLAGS = -std=c++17 -O3 -fopenmp -ffast-math -w -Wall -Wno-deprecated -Wno-unused-variable
-#CFLAGS = -g -std=c++17 -fopenmp -ffast-math -w -Wall -Wno-deprecated -Wno-unused-variable
+#CFLAGS = -std=c++17 -O3 -fopenmp -ffast-math -w -Wall -Wno-deprecated -Wno-unused-variable
+CFLAGS = -g -std=c++17 -fopenmp -ffast-math -w -Wall -Wno-deprecated -Wno-unused-variable
 LIBDIR = -Lsparsehash/libs
 INCLUDE = -Isparsehash/include
 
@@ -24,22 +24,22 @@ $(ESTIMATOR_MAINS): %: %.cpp $(OBJS)
 loss_estimator_trend: $(OBJS) common_testing_system.o reduced_utils.o loss_estimator_trend.cpp
 	$(CC) $(INCLUDE) $(CFLAGS) $(OBJS) common_testing_system.o reduced_utils.o -o loss_estimator_trend loss_estimator_trend.cpp
 
-flow.o: flow.cpp flow.h defs.h
+flow.o: flow.cpp utils.cpp flow.h defs.h utils.h
 	$(CC) $(INCLUDE) $(CFLAGS) -c flow.cpp
 
 utils.o: utils.cpp utils.h flow.h defs.h
 	$(CC) $(INCLUDE) $(CFLAGS) -c utils.cpp
 
-logdata.o: logdata.cpp logdata.h utils.h flow.h defs.h
+logdata.o: logdata.cpp utils.cpp logdata.h utils.h flow.h defs.h
 	$(CC) $(INCLUDE) $(CFLAGS) -c logdata.cpp
 
 common_testing_system.o: common_testing_system.cpp common_testing_system.h utils.o flow.o logdata.o
 	$(CC) $(INCLUDE) $(CFLAGS) -c common_testing_system.cpp
 
-reduced_utils.o: reduced_utils.cpp reduced_utils.h bayesian_net.h flow.h defs.h 
+reduced_utils.o: reduced_utils.cpp reduced_utils.h bayesian_net.h flow.h defs.h utils.h utils.cpp
 	$(CC) $(INCLUDE) $(CFLAGS) -c reduced_utils.cpp
 
-$(ESTIMATOR_OBJS): %.o: %.cpp %.h estimator.h flow.h utils.h logdata.h defs.h
+$(ESTIMATOR_OBJS): %.o: %.cpp %.h estimator.h flow.h utils.h logdata.h defs.h utils.h utils.cpp
 	$(CC) $(INCLUDE) $(CFLAGS) -c $< $(LIBDIR) -o $@ 
 
 clean:	

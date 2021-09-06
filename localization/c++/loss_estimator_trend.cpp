@@ -51,22 +51,31 @@ vector<string> GetFilesHw(){
 }
 
 vector<string> GetFilesDevice40G(){
-    string file_prefix = "/home/vharsh2/Flock/ns3/topology/ft_k10_os3/logs/40G/device/frac_0.25/plog_nb";
+    string file_dir = "/home/vharsh2/Flock/ns3/topology/ft_k10_os3/logs/40G/device";
+    vector<PII> ignore_files = {};
+    vector<string> files;
+    for (string frac: vector<string>({"0.25", "0.5", "0.75", "1"})){
+        string file_prefix = file_dir + "/frac_" + frac + "/plog_nb";
+        for(int f=1; f<=2; f++){
+        //for (int f: vector<int>({8})){ // {1-8}
+            for(int s=1; s<=8; s++){
+                if(find(ignore_files.begin(), ignore_files.end(),  PII(f, s)) == ignore_files.end()){
+                    files.push_back(file_prefix + "_f" + to_string(f) + "_0_s" + to_string(s)); 
+                    cout << "adding file for analaysis " <<files.back() << endl;
+                }
+            }
+        }
+    }
+    return files;
+}
+
+vector<string> GetFilesMisconfiguredAcl(){
+    string file_prefix = "/home/vharsh2/Flock/flow_simulator/logs/macl/plog_macl";
     vector<PII> ignore_files = {};
     vector<string> files;
     for(int f=1; f<=2; f++){
     //for (int f: vector<int>({8})){ // {1-8}
-        for(int s=1; s<=8; s++){
-            if(find(ignore_files.begin(), ignore_files.end(),  PII(f, s)) == ignore_files.end()){
-                files.push_back(file_prefix + "_f" + to_string(f) + "_0_s" + to_string(s)); 
-                cout << "adding file for analaysis " <<files.back() << endl;
-            }
-        }
-    }
-    file_prefix = "/home/vharsh2/Flock/ns3/topology/ft_k10_os3/logs/40G/device/frac_1/plog_nb";
-    for(int f=1; f<=2; f++){
-    //for (int f: vector<int>({8})){ // {1-8}
-        for(int s=1; s<=8; s++){
+        for(int s=1; s<=16; s++){ //1,2,3,4,5,6,7,8})){ // {1-2}
             if(find(ignore_files.begin(), ignore_files.end(),  PII(f, s)) == ignore_files.end()){
                 files.push_back(file_prefix + "_f" + to_string(f) + "_0_s" + to_string(s)); 
                 cout << "adding file for analaysis " <<files.back() << endl;
@@ -113,11 +122,11 @@ vector<string> GetFilesMixed(){
 vector<string> GetFilesRRG(){
     //string file_prefix = "/home/vharsh2/ns-allinone-3.24.1/ns-3.24.1/flow_simulator/logs/irregular_topology/plog";
     string file_prefix = "/home/vharsh2/ns-allinone-3.24.1/ns-3.24.1/ns3/topology/ft_k10_os3/ommitted/logs/plog";
-    int nlinks_ommitted = 100;
+    int nlinks_ommitted = 200;
     typedef array<int, 3> AI3;
     vector<AI3> ignore_files = {{10, 8, 3}, {30, 7, 3}, {40, 7, 3}, {50, 7, 3}};
     vector<string> files;
-    for(int s: vector<int>({1,2,3,4})){ // {1-2}
+    for(int s: vector<int>({1,2,3,4,5,6,7})){//{1,2,3,4})){ // {1-2}
         for(int f=1; f<=8; f++){
             if(find(ignore_files.begin(), ignore_files.end(),  AI3({nlinks_ommitted, f, s})) == ignore_files.end()){
                 files.push_back(file_prefix + "_o" + to_string(nlinks_ommitted) + "_" + to_string(f) + "_0_" + to_string(s)); 
@@ -163,19 +172,18 @@ vector<string> GetFilesSoftness(){
     vector<string> files;
 
     file_prefix = "/home/vharsh2/Flock/ns3/topology/ft_k10_os3/logs/40G/softness/plog_nb_random";
-    loss_rate_strings = {"0.014", "0.018"};
-    //loss_rate_strings = {"0.01"};
+    loss_rate_strings = {"0.002"};
     ignore_files = {{"0.002",39}, {"0.004",18}, {"0.004",19}, {"0.004",8}, {"0.014",21}, {"0.014",24}, {"0.014",28}, {"0.014",29}};
     for (string& loss_rate_string: loss_rate_strings){
         for(int i=1; i<=16; i++){
             if(find(ignore_files.begin(), ignore_files.end(),  pair<string, int>(loss_rate_string, i)) == ignore_files.end()){
-                files.push_back(file_prefix + "_" + loss_rate_string + "_" + to_string(i)); 
-                cout << "adding file for analaysis " <<files.back() << endl;
+                //files.push_back(file_prefix + "_" + loss_rate_string + "_" + to_string(i)); 
+                //cout << "adding file for analaysis " <<files.back() << endl;
             }
         }
     }
     file_prefix = "/home/vharsh2/Flock/ns3/topology/ft_k10_os3/logs/40G/softness/plog_nb_skewed";
-    loss_rate_strings = {"0.018"};
+    loss_rate_strings = {"0.002"};
     ignore_files = {{"0.014",3}, {"0.004",19}, {"0.004",2}, {"0.004",22}, {"0.004",6}};
     for (string& loss_rate_string: loss_rate_strings){
         for(int i=1; i<=16; i++){
@@ -205,10 +213,11 @@ vector<string> GetFiles007Verification(){
 vector<string> GetFiles(){
     //return GetFilesHwCalibration();
     //return GetFilesHw();
-    //return GetFilesRRG();
+    return GetFilesRRG();
     //return GetFilesMixed();
     //return GetFilesMixed40G();
-    return GetFilesDevice40G();
+    //return GetFilesDevice40G();
+    //return GetFilesMisconfiguredAcl();
     //return GetFiles007Verification();
     //return GetFilesFlowSimulator();
     //return GetFilesSoftness();
@@ -284,14 +293,14 @@ void GetPrecisionRecallTrendBayesianNet(string topology_filename, double min_sta
 void SweepParamsBayesianNet(string topology_filename, double min_start_time_ms, double max_finish_time_ms, int nopenmp_threads){
     vector<vector<double> > params;
     double eps = 1.0e-10;
-    for (double p1c = 2.0e-3; p1c <=10.0e-3+eps; p1c += 1.0e-3){
+    for (double p1c = 0.5e-3; p1c <=4.0e-3+eps; p1c += 1.0e-3){
         //for (double p2 = 2.0e-4; p2 <=7.0e-4+eps; p2 += 0.5e-4){
-        for (double p2 = 1.5e-4; p2 <=5.5e-4+eps;p2 += 0.5e-4){
+        for (double p2 = 0.25e-4; p2 <=1.5e-4+eps;p2 += 0.25e-4){
             if (p2 >= p1c - 0.5e-5) continue;
             //double nprior = 10.0;
             //for(double nprior=7.5; nprior<=22.5+eps; nprior+=2.5)
             //for (double nprior: {10.0, 25.0, 50.0, 100.0, 250.0, 500.0})
-            for(double nprior=5.0; nprior<=60.0+eps; nprior+=5.0)
+            for(double nprior=0.0; nprior<=5.0+eps; nprior+=1.0)
             //for(double nprior=0.0; nprior<=25.0+eps; nprior+=5.0)
                 params.push_back(vector<double> {1.0 - p1c, p2, -nprior});
             //}
@@ -307,11 +316,11 @@ void SweepParamsBayesianNet(string topology_filename, double min_start_time_ms, 
     }
     */
     //params = {{1.0 - 4.0e-3, 2.0e-4, -250.0}};
-    //params = {{1.0 - 0.01, 0.00055, -5}}; //flock (A1)
-    //params = {{1.0 - 0.008, 0.00035, -7.5}}; //flock (A1)
-    //params = {{1.0 - 0.01, 0.0003, -35}}; //flock (A2)
+    //params = {{1.0 - 0.005, 0.00015, -10}}; //Flock (A1)
+    //params = {{1.0 - 0.002, 0.00045, -10.0}}; //Flock (INT) (A1+A2+P)
+    //params = {{1.0 - 0.007, 0.00045, -30.0}}; //Flock (A2)
     //params = {{1.0- 0.005, 0.0005, -7.5}}; //Flock (A1+A2+P)
-    //params = {{1.0 - 0.003, 0.0002, -20}}; // Flock (A1+A2+P)
+    params = {{1.0-0.008, 0.0001, -25}}; //flock_omitted
     vector<PDD> result;
     BayesianNet estimator;
     GetPrecisionRecallParamsFiles(topology_filename, min_start_time_ms, max_finish_time_ms,
@@ -320,8 +329,8 @@ void SweepParamsBayesianNet(string topology_filename, double min_start_time_ms, 
     for (auto &param: params){
         param[0] = 1.0 - param[0];
         auto p_r = result[ctr++];
-        if (p_r.first > 0.0 and p_r.second > 0.0)
-            cout << param << " " << p_r << endl;
+        //if (p_r.first > 0.0 and p_r.second > 0.0)
+        cout << param << " " << p_r << endl;
     }
 }
 
@@ -354,7 +363,8 @@ void SweepParams007(string topology_filename, double min_start_time_ms, double m
         params.push_back(vector<double> {fail_threshold});
     }
     //params = {{0.0025}}; //random
-    //params = {{0.0083}}; //skewed
+    params = {{0.0083}}; //skewed
+    //params = {{0.0019}};
 
     vector<PDD> result;
     DoubleO7 estimator;
@@ -370,16 +380,19 @@ void SweepParams007(string topology_filename, double min_start_time_ms, double m
 
 void SweepParamsNetBouncer(string topology_filename, double min_start_time_ms, double max_finish_time_ms, int nopenmp_threads){
     vector<vector<double> > params;
-    for (double regularize_c = 1.0e-3; regularize_c <= 25.0e-3; regularize_c += 2.5e-3){
-        for (double fail_threshold_c = 30.0e-4; fail_threshold_c <= 50.0e-4; fail_threshold_c += 2.5e-4){
+    for (double regularize_c = 1.0e-3; regularize_c <= 20.0e-3; regularize_c += 2.5e-3){
+    //for (double regularize_c = 1.0e-2; regularize_c <= 40.0e-2; regularize_c += 10e-2){
+        for (double fail_threshold_c = 5.0e-4; fail_threshold_c <= 51.0e-4; fail_threshold_c +=  5e-4){
         //for (double fail_threshold_c = 1.0e-3; fail_threshold_c <= 15.0e-3; fail_threshold_c += 1.0e-3){
-            for (double bad_device_threshold = 0.05; bad_device_threshold <= 0.3; bad_device_threshold += 0.025){
+            for (double bad_device_threshold = 0.025; bad_device_threshold <= 0.20; bad_device_threshold += 0.05){
                 params.push_back(vector<double> {regularize_c, fail_threshold_c, bad_device_threshold});
             }
         }
     }
-    //params = {{0.016, 0.0113, 0.05}};
+    params = {{0.006, 0.0015, 0.075}}; //INT
+    //params = {{0.016, 0.006, 0.15}};
     //params = {{0.016, 0.004, 0.45}};
+    //params = {{0.02225, 0.00375, 0.15}};
     vector<PDD> result;
     NetBouncer estimator;
     GetPrecisionRecallParamsFiles(topology_filename, min_start_time_ms, max_finish_time_ms,

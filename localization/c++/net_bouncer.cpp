@@ -10,7 +10,7 @@
 using namespace std;
 
 NetBouncer::NetBouncer(): Estimator() {
-    INPUT_FLOW_TYPE = ACTIVE_FLOWS;
+    //INPUT_FLOW_TYPE = ACTIVE_FLOWS;
     CONSIDER_DEVICE_LINK = false;
 }
 
@@ -190,22 +190,42 @@ void NetBouncer::LocalizeFailures(double min_start_time_ms, double max_finish_ti
         double new_error = ComputeError(active_flows, success_prob, min_start_time_ms, max_finish_time_ms);
         if (VERBOSE){
             cout << "Iteration " << it << " error " << new_error << " finished in "
-                 << GetTimeSinceSeconds(start_iter_time) * 1.0e-3 << endl;
+                 << GetTimeSinceSeconds(start_iter_time) << endl;
         }
-        if (abs(new_error - error) < 1.0e-6) break;
+        if (abs(new_error - error) < 1.0e-8) break;
         error = new_error;
     }
 
     localized_links.clear();
-    for(int link_id=0; link_id<nlinks; link_id++){
-        if (bad_device_links[link_id] or data->IsLinkDevice(link_id)) continue;
-        if (VERBOSE and (1.0 - success_prob[link_id] >= fail_threshold/2)){
-            //cout << "Suspicious link "<< data->inverse_links[link_id] << " "
-            //     << 1.0 - success_prob[link_id] << " " << fail_threshold << endl;
+    for (int d: bad_devices) localized_links.insert(data->GetLinkIdUnsafe(Link(d, d)));
+
+    if(UNION_TOP_HYPOTHESIS){
+        vector<pair<double, int> > success_prob_link;
+        for(int link_id=0; link_id<nlinks; link_id++){
+            if (!bad_device_links[link_id] and !data->IsLinkDevice(link_id))
+                success_prob_link.push_back(pair<double, int>(success_prob[link_id], link_id));
         }
-        if (1.0 - success_prob[link_id] >= fail_threshold){
-            localized_links.insert(link_id);
+        sort(success_prob_link.begin(), success_prob_link.end());
+        for (int ii=0; ii< min((int)success_prob_link.size(), NUM_HYPOTHESIS_FOR_UNION); ii++){
+            if (localized_links.size() < NUM_HYPOTHESIS_FOR_UNION){
+                auto [sprob, link_id] = success_prob_link[ii];
+                localized_links.insert(link_id);
+                cout << "Suspicious link "<< data->inverse_links[link_id] << " "
+                     << 1.0 - sprob << " " << fail_threshold << endl;
+             }
         }
     }
-    for (int d: bad_devices) localized_links.insert(data->GetLinkIdUnsafe(Link(d, d)));
+    else{
+        for(int link_id=0; link_id<nlinks; link_id++){
+            if (!bad_device_links[link_id] and !data->IsLinkDevice(link_id)){
+                if (VERBOSE and (1.0 - success_prob[link_id] >= fail_threshold/2)){
+                    cout << "Suspicious link "<< data->inverse_links[link_id] << " "
+                         << 1.0 - success_prob[link_id] << " " << fail_threshold << endl;
+                }
+                if (1.0 - success_prob[link_id] >= fail_threshold){
+                    localized_links.insert(link_id);
+                }
+            }
+        }
+    }
 }

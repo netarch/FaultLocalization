@@ -32,6 +32,7 @@ private:
     double fail_threshold = 0.001;
     double bad_device_frac_bad_flows_threshold= 0.2;
     const int MAX_ITERATIONS = 100;
+    bool USE_MULTIPLIER = false;
     vector<bool> bad_device_links;
     unordered_set<int> bad_devices;
 };

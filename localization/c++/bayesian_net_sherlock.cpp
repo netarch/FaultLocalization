@@ -165,7 +165,7 @@ void Sherlock::LocalizeFailures(double min_start_time_ms, double max_finish_time
     BinFlowsByLinkId(max_finish_time_ms, nopenmp_threads);
 
     auto start_time = timer_checkpoint = chrono::high_resolution_clock::now();
-    if (!USE_CONDITIONAL){
+    if (INPUT_FLOW_TYPE!=PROBLEMATIC_FLOWS){
         ComputeAndStoreIntermediateValues(nopenmp_threads, max_finish_time_ms);
     }
     if (VERBOSE){

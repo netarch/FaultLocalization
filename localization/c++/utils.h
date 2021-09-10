@@ -18,10 +18,10 @@ using namespace std;
 inline constexpr bool PARALLEL_IO=false;
 const bool CONSIDER_REVERSE_PATH=false;
 
-const bool PATH_KNOWN=false;
 const bool UNION_TOP_HYPOTHESIS = false;
 const int NUM_HYPOTHESIS_FOR_UNION = 5;
 
+extern bool PATH_KNOWN;
 extern bool VERBOSE;
 extern bool CONSIDER_DEVICE_LINK;
 extern bool TRACEROUTE_BAD_FLOWS;
@@ -87,7 +87,7 @@ void GetAllPairShortestPaths(vector<int>& nodes, unordered_set<Link>& links, Log
 void GetLinkMappings(string topology_file, LogData* result, bool compute_paths=false);
 void GetDataFromLogFile(string trace_file, LogData* result);
 void GetCompletePaths(Flow* flow, FlowLines& flow_lines, LogData *data, vector<int>& temp_path,
-                      vector<int>& path_nodes, vector<int>& reverse_path_nodes);
+                      vector<int>& path_nodes, vector<int>& reverse_path_nodes, int srcrack, int destrack);
 void ReadPath(char* path_c, vector<int>& path_nodes, vector<int> &temp_path, LogData* result);
 void ProcessFlowPathLines(vector<char*>& lines, vector<array<int, 10> >& path_nodes_list, int nopenmp_threads);
 void ProcessFlowLines(vector<FlowLines>& all_flow_lines, LogData* result, int nopenmp_threads);
@@ -185,7 +185,8 @@ inline bool GetString(char* &str, string &result){
 }
 
 inline bool GetString(char* &str, char *result){
-    while(*str!=' ') *(result++) = (*(str++));
+    //cout << "GS " << str << " : " << result << " ---> " << endl;
+    while(*str!=' ' and *str!='\0' and *str!='\n') *(result++) = (*(str++));
     *result = '\0';
     return true;
 }

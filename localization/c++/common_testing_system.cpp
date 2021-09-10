@@ -9,7 +9,11 @@
 
 using namespace std;
 
-vector<string> GetFiles();
+extern bool USE_DIFFERENT_TOPOLOGIES; 
+
+extern vector<string> (*GetFiles)();
+
+pair<vector<string>, vector<string> > GetFilesTopologies();
 
 std::atomic<int> total_flows{0};
 
@@ -61,7 +65,7 @@ void GetPrecisionRecallTrendFiles(string topology_file, double min_start_time_ms
     }
     mutex lock;
     int nfiles = trace_files.size();
-    int nthreads1 = min({32, nfiles, nopenmp_threads});
+    int nthreads1 = min({36, nfiles, nopenmp_threads});
     int nthreads2 = 1;
     //int nthreads1 = 1;
     //int nthreads2 = nopenmp_threads;
@@ -131,22 +135,29 @@ void GetPrecisionRecallParamsFile(string topology_file, string trace_file, doubl
 void GetPrecisionRecallParamsFiles(string topology_file, double min_start_time_ms, double max_finish_time_ms, 
                                   vector<vector<double> > &params, vector<PDD> &result,
                                   Estimator* estimator, int nopenmp_threads){
-    vector<string> trace_files = GetFiles();
+    vector<string> topologies, trace_files;
+    if (!USE_DIFFERENT_TOPOLOGIES) trace_files = GetFiles();
+    else{
+        tie(trace_files, topologies) = GetFilesTopologies();
+    }
     result.clear();
     for (int ii=0; ii<params.size(); ii++){
         result.push_back(PDD(0.0, 0.0));
     }
     mutex lock;
     int nfiles = trace_files.size();
-    int nthreads1 = min({32, nfiles, nopenmp_threads});
+    int nthreads1 = min({36, nfiles, nopenmp_threads});
     int nthreads2 = 1;
     //int nthreads1 = 1, nthreads2 = nopenmp_threads;
+    cout << "Numparams " << params.size() << endl;
     cout << nthreads1 << " " << nthreads2 << endl;
     #pragma omp parallel for num_threads(nthreads1)
     for (int ff=0; ff<trace_files.size(); ff++){
         string trace_file = trace_files[ff];
+        string topology_file_thread = topology_file;
+        if (USE_DIFFERENT_TOPOLOGIES) topology_file_thread = topologies[ff];
         vector<PDD> intermediate_result;
-        GetPrecisionRecallParamsFile(topology_file, trace_file, min_start_time_ms, max_finish_time_ms, params,
+        GetPrecisionRecallParamsFile(topology_file_thread, trace_file, min_start_time_ms, max_finish_time_ms, params,
                                     estimator, intermediate_result, nthreads2);
         assert(intermediate_result.size() == result.size()); 
         lock.lock();

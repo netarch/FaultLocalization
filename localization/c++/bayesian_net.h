@@ -9,13 +9,12 @@ class BayesianNet : public Estimator{
                           Hypothesis &localized_links, int nopenmp_threads);
     void LocalizeDeviceFailures(double min_start_time_ms, double max_finish_time_ms,
                                 Hypothesis& localized_devices, int nopenmp_threads);
-    const bool PRINT_SCORES = false;
+    const bool PRINT_SCORES = true;
     const int MAX_FAILS = 20;
     const int NUM_CANDIDATES = max(15, 5 * MAX_FAILS);
-    const int NUM_TOP_HYPOTHESIS_AT_EACH_STAGE = 4; //4;
+    const int NUM_TOP_HYPOTHESIS_AT_EACH_STAGE = 4;
     // For printing purposes
     const int N_MAX_K_LIKELIHOODS = 20;
-    const bool USE_CONDITIONAL = false;
     double PRIOR = -1000.0;
     const int GIBBS_SAMPLING_ITERATIONS = 1000000;
     bool REDUCED_ANALYSIS = false;

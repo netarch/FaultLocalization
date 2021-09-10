@@ -18,6 +18,7 @@ const bool LEAFSPINE_NET_BOUNCER = false; //!HACK
 bool VERBOSE=true;
 bool CONSIDER_DEVICE_LINK=true;
 bool TRACEROUTE_BAD_FLOWS=true;
+bool PATH_KNOWN=true;
 InputFlowType INPUT_FLOW_TYPE = ALL_FLOWS;
 const bool MISCONFIGURED_ACL = false;
 
@@ -327,7 +328,7 @@ void ReadPath(char* path_c, vector<int>& path_nodes, vector<int> &temp_path, Log
 
 
 void GetCompletePaths(Flow* flow, FlowLines& flow_lines, LogData *data, vector<int>& temp_path,
-                      vector<int>& path_nodes, vector<int>& path_nodes_reverse){
+                      vector<int>& path_nodes, vector<int>& path_nodes_reverse, int srcrack, int destrack){
     /*
     if (LEAFSPINE_NET_BOUNCER and (srcrack == src or destrack == dest)){
         //!TODO: implement device link
@@ -371,9 +372,10 @@ void GetCompletePaths(Flow* flow, FlowLines& flow_lines, LogData *data, vector<i
         if(flow_lines.fpt_c != NULL){
             restore_c = flow_lines.fpt_c;
             ReadPath(flow_lines.fpt_c, path_nodes, temp_path, data);
+            if (path_nodes.size() == 0) path_nodes.push_back(srcrack);
             path_nodes.insert(path_nodes.begin(), flow->src);
             path_nodes.push_back(flow->dest);
-            //cout << "path_nodes " << path_nodes[thread_num] << " path-link " << temp_path[thread_num] << endl;
+            //cout << "path_nodes " << path_nodes << " path-link " << temp_path << endl;
             flow_lines.fpt_c = restore_c;
             if (CONSIDER_DEVICE_LINK){
                 if (data->IsNodeSwitch(flow->src)) path_nodes.insert(path_nodes.begin(), flow->src);
@@ -401,6 +403,8 @@ void ProcessFlowLines(vector<FlowLines>& all_flow_lines, LogData* result, int no
     for(int ii=0; ii<all_flow_lines.size(); ii++){
         int thread_num = omp_get_thread_num();
         FlowLines& flow_lines = all_flow_lines[ii];
+
+        //cout << flow_lines.fid_c << flow_lines.fpt_c << flow_lines.ss_c[0] << endl;
         /* FID line */
         int src, dest, srcrack, destrack, nbytes;
         double start_time_ms;
@@ -420,10 +424,12 @@ void ProcessFlowLines(vector<FlowLines>& all_flow_lines, LogData* result, int no
       
         // Set paths taken by flow
         GetCompletePaths(flow, flow_lines, result, temp_path[thread_num],
-                         path_nodes[thread_num], path_nodes_reverse[thread_num]);
+                         path_nodes[thread_num], path_nodes_reverse[thread_num],
+                         srcrack, destrack);
+       
         // Set forward path 
         if (path_nodes[thread_num].size() > 0){
-            //cout << "FPT " << path_nodes[thread_num] << " " << flow->first_link_id << " " << flow->last_link_id << " " << endl;
+            //cout << "FPT " << path_nodes[thread_num] << " " << flow->first_link_id << " " << flow->last_link_id << " " << " " << srcrack << " " << destrack << endl;
             result->GetLinkIdPath(path_nodes[thread_num], flow->first_link_id,
                                   flow->last_link_id, temp_path[thread_num]);
             flow->SetPathTaken(result->GetPointerToPathTaken(srcrack, destrack, temp_path[thread_num], flow));
@@ -584,7 +590,7 @@ void GetDataFromLogFileParallel(string trace_file, string topology_file, LogData
     while(getline_result > 0){
         nlines += 1;
         char *dup_linec = strdup(linec);
-        //cout << "op " << op << " : " << linec << endl;
+        //cout << "op " << op << " : " << linec;
         if (StringEqualTo(op, "SS")){
             assert(curr_flow_lines->fid_c != NULL);
             curr_flow_lines->ss_c.push_back(dup_linec);

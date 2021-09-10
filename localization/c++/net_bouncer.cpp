@@ -10,7 +10,7 @@
 using namespace std;
 
 NetBouncer::NetBouncer(): Estimator() {
-    //INPUT_FLOW_TYPE = ACTIVE_FLOWS;
+    //INPUT_FLOW_TYPE = ACTIVE_FLOWS; USE_MULTIPLIER = false;
     CONSIDER_DEVICE_LINK = false;
 }
 
@@ -97,7 +97,8 @@ double NetBouncer::ComputeError(vector<Flow*>& active_flows, vector<double>& suc
         Path* path_taken = flow->GetPathTaken();
         double x = EstimatedPathSuccessRate(flow, success_prob);
         double y = 1.0 - flow->GetDropRate(max_finish_time_ms);
-        error += (y-x)*(y-x);
+        double multiplier = (USE_MULTIPLIER? flow->GetPacketsSent(max_finish_time_ms) : 1);
+        error += multiplier * (y-x)*(y-x);
         //cout << error << " " << y << " " << x << " " << flow->GetPacketsSent(max_finish_time_ms)
         //     << " " << flow->GetPacketsLost(max_finish_time_ms) << " "
         //     << flow->GetDropRate(max_finish_time_ms) << endl;
@@ -112,17 +113,20 @@ double NetBouncer::ArgMinError(vector<double>& success_prob, int var_link_id,
                                double min_start_time_ms, double max_finish_time_ms){
     double s1=0.0, s2=0.0;
     vector<int> &link_id_flows = (*flows_by_link_id)[var_link_id];
+    //bool verbose = false; Link l(0, 10013); if (data->inverse_links[var_link_id] == l) verbose = true; //no_failure/test_random_0_15
     for(int ff: link_id_flows){
         Flow *flow = data->flows[ff];
-        assert(flow->TracerouteFlow(max_finish_time_ms));
-        Path *path_taken = flow->GetPathTaken();
-        if (path_taken->find(var_link_id)!=path_taken->end() or flow->first_link_id == var_link_id
-           or flow->last_link_id == var_link_id){
+        //assert(flow->TracerouteFlow(max_finish_time_ms));
+        //Path *path_taken = flow->GetPathTaken();
+        //if (path_taken->find(var_link_id)!=path_taken->end() or flow->first_link_id == var_link_id
+        //   or flow->last_link_id == var_link_id){
+           double multiplier = (USE_MULTIPLIER? flow->GetPacketsSent(max_finish_time_ms) : 1);
            double t = EstimatedPathSuccessRate(flow, success_prob)/success_prob[var_link_id];
            double y = 1.0 - flow->GetDropRate(max_finish_time_ms);
-           s1 += t * y;
-           s2 += t * t;
-        }
+           s1 += t * y * multiplier;
+           s2 += t * t * multiplier;
+           //if (verbose) cout << t << " " << y << " " << endl;
+        //}
     }
     return (2 * s1 - regularize_const)/(2 * (s2 - regularize_const));
 }
@@ -130,6 +134,7 @@ double NetBouncer::ArgMinError(vector<double>& success_prob, int var_link_id,
 void NetBouncer::LocalizeFailures(double min_start_time_ms, double max_finish_time_ms,
                                   Hypothesis &localized_links, int nopenmp_threads){
     assert (!CONSIDER_DEVICE_LINK);
+    assert (PATH_KNOWN or INPUT_FLOW_TYPE==ACTIVE_FLOWS);
     BinFlowsByLinkId(max_finish_time_ms, nopenmp_threads);
     assert(data!=NULL);
     localized_links.clear();
@@ -162,7 +167,7 @@ void NetBouncer::LocalizeFailures(double min_start_time_ms, double max_finish_ti
         //cout << ff << " " << flow->GetPacketsSent(max_finish_time_ms) << " " << flow_drop_rate << endl;
         if (flow->GetPacketsSent(max_finish_time_ms) == 0) continue;
         assert(flow->GetPacketsSent(max_finish_time_ms) > 0);
-        double multiplier = 1; //flow->GetPacketsSent(max_finish_time_ms); //1
+        double multiplier = (USE_MULTIPLIER? flow->GetPacketsSent(max_finish_time_ms) : 1);
         success_prob[flow->first_link_id] += flow_success_rate * multiplier; 
         success_prob[flow->last_link_id] += flow_success_rate * multiplier; 
         num_flows_through_link[flow->first_link_id] += multiplier;
@@ -207,8 +212,8 @@ void NetBouncer::LocalizeFailures(double min_start_time_ms, double max_finish_ti
         }
         sort(success_prob_link.begin(), success_prob_link.end());
         for (int ii=0; ii< min((int)success_prob_link.size(), NUM_HYPOTHESIS_FOR_UNION); ii++){
-            if (localized_links.size() < NUM_HYPOTHESIS_FOR_UNION){
-                auto [sprob, link_id] = success_prob_link[ii];
+            auto [sprob, link_id] = success_prob_link[ii];
+            if (localized_links.size() < NUM_HYPOTHESIS_FOR_UNION and (*flows_by_link_id)[link_id].size()>0){
                 localized_links.insert(link_id);
                 cout << "Suspicious link "<< data->inverse_links[link_id] << " "
                      << 1.0 - sprob << " " << fail_threshold << endl;
@@ -218,11 +223,11 @@ void NetBouncer::LocalizeFailures(double min_start_time_ms, double max_finish_ti
     else{
         for(int link_id=0; link_id<nlinks; link_id++){
             if (!bad_device_links[link_id] and !data->IsLinkDevice(link_id)){
-                if (VERBOSE and (1.0 - success_prob[link_id] >= fail_threshold/2)){
+                if (VERBOSE and (1.0 - success_prob[link_id] >= fail_threshold/10)){
                     cout << "Suspicious link "<< data->inverse_links[link_id] << " "
                          << 1.0 - success_prob[link_id] << " " << fail_threshold << endl;
                 }
-                if (1.0 - success_prob[link_id] >= fail_threshold){
+                if (1.0 - success_prob[link_id] >= fail_threshold and (*flows_by_link_id)[link_id].size()>0){
                     localized_links.insert(link_id);
                 }
             }

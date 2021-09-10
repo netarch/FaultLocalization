@@ -19,7 +19,6 @@ using namespace std;
 
 BayesianNet::BayesianNet() : Estimator() {
     CONSIDER_DEVICE_LINK = true;
-    if(USE_CONDITIONAL) INPUT_FLOW_TYPE = PROBLEMATIC_FLOWS;
 }
 
 // Optimization to ensure that extra links in the hypothesis are the optimal ones
@@ -63,7 +62,7 @@ void BayesianNet::SetParams(vector<double>& param) {
     
 void BayesianNet::SetLogData(LogData* data_, double max_finish_time_ms, int nopenmp_threads){
     Estimator::SetLogData(data_, max_finish_time_ms, nopenmp_threads);
-    if(USE_CONDITIONAL){
+    if(INPUT_FLOW_TYPE==PROBLEMATIC_FLOWS){
         data->FilterFlowsForConditional(max_finish_time_ms, nopenmp_threads);
     }
 }
@@ -294,7 +293,7 @@ void BayesianNet::LocalizeFailuresHelper(double min_start_time_ms, double max_fi
     else BinFlowsByLinkId(max_finish_time_ms, nopenmp_threads);
 
     auto start_time = timer_checkpoint = chrono::high_resolution_clock::now();
-    if (!USE_CONDITIONAL){
+    if (INPUT_FLOW_TYPE!=PROBLEMATIC_FLOWS){
         ComputeAndStoreIntermediateValues(nopenmp_threads, max_finish_time_ms);
     }
     if (VERBOSE){
@@ -989,9 +988,9 @@ void BayesianNet::ComputeInitialLikelihoodsHelper(vector<double> &initial_likeli
             double log_likelihood = BnfWeighted(naffected, npaths, naffected_r,
                                                npaths_r, weight.first,
                                                weight.second, intermediate_val);
-            if (log_likelihood > 1.0e6){
+            if (false and log_likelihood > 1.0e6){
                 cout << "Likelihood computation precision bug ";
-                cout << naffected << " " << npaths << " " << naffected_r << " " << npaths_r << " " << weight.first << " " << weight.second << " " << intermediate_val << " " << p1 << " " << p2 << " " << PRIOR << endl;
+                cout << naffected << " " << npaths << " " << naffected_r << " " << npaths_r << " " << weight.first << " " << weight.second << " " << intermediate_val << " " << p1 << " " << p2 << " " << PRIOR << " " << log_likelihood << endl;
                 //!TODO; TODO: TODO
                 assert(false);
             }
@@ -1055,7 +1054,7 @@ void BayesianNet::ComputeLogLikelihood(vector<Hypothesis*> &hypothesis_space,
 
 inline double BayesianNet::BnfWeighted(int naffected, int npaths, int naffected_r,
                               int npaths_r, double weight_good, double weight_bad){
-    if (USE_CONDITIONAL)
+    if (INPUT_FLOW_TYPE==PROBLEMATIC_FLOWS)
         return BnfWeightedConditional(naffected, npaths, naffected_r,
                                       npaths_r, weight_good, weight_bad);
     else
@@ -1066,7 +1065,7 @@ inline double BayesianNet::BnfWeighted(int naffected, int npaths, int naffected_
 inline double BayesianNet::BnfWeighted(int naffected, int npaths, int naffected_r,
                                        int npaths_r, double weight_good,
                                        double weight_bad, long double intermediate_val){
-    if (USE_CONDITIONAL)
+    if (INPUT_FLOW_TYPE==PROBLEMATIC_FLOWS)
         return BnfWeightedConditional(naffected, npaths, naffected_r,
                                       npaths_r, weight_good, weight_bad);
     else
@@ -1112,12 +1111,14 @@ inline double BayesianNet::BnfWeightedUnconditional(int naffected, int npaths,
     // as it can get approximated by a small value, which messes with the log computation
     double a = ((double)(e2e_paths - e2e_failed_paths))/e2e_paths;
     double b = ((double)e2e_failed_paths)/e2e_paths;
-    return log(a + b * pow((long double)((1.0 - p1)/p2), weight_bad) * pow(p1/(1.0-p2), weight_good));
+    double ret = log(a + b * pow((long double)((1.0 - p1)/p2), weight_bad) * pow(p1/(1.0-p2), weight_good));
+    ret = min(ret,  std::numeric_limits<double>::max());
+    return ret;
 }
 
 inline long double BayesianNet::GetBnfWeightedUnconditionalIntermediateValue(Flow *flow, double max_finish_time_ms){
     PII weight = flow->LabelWeightsFunc(max_finish_time_ms);
-    assert (!USE_CONDITIONAL);
+    assert (INPUT_FLOW_TYPE!=PROBLEMATIC_FLOWS);
     // return log((1.0 - a) + a * pow((1.0 - p1)/p2, weight_bad)*pow(p1/(1.0-p2), weight_good));
     //                            <------------------- intermediate_val ---------------------->
     long double ret = pow((long double)((1.0 - p1)/p2), weight.second) * pow(p1/(1.0-p2), weight.first);
@@ -1138,7 +1139,7 @@ inline double BayesianNet::BnfWeightedUnconditionalIntermediate(int naffected, i
 
 bool BayesianNet::DiscardFlow(Flow *flow, double min_start_time_ms, double max_finish_time_ms){
     return (!flow->AnySnapshotBefore(max_finish_time_ms) or flow->start_time_ms < min_start_time_ms or
-           (USE_CONDITIONAL and !flow->TracerouteFlow(max_finish_time_ms)));
+           (INPUT_FLOW_TYPE==PROBLEMATIC_FLOWS and !flow->TracerouteFlow(max_finish_time_ms)));
 }
 
 void BayesianNet::GetRelevantFlows(Hypothesis* hypothesis, Hypothesis* base_hypothesis,

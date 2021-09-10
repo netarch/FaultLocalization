@@ -28,14 +28,14 @@ void BayesianNetContinuous::SetParams(vector<double>& param) {
     
 void BayesianNetContinuous::SetLogData(LogData* data_, double max_finish_time_ms, int nopenmp_threads){
     Estimator::SetLogData(data_, max_finish_time_ms, nopenmp_threads);
-    if(USE_CONDITIONAL){
+    if(INPUT_FLOW_TYPE==PROBLEMATIC_FLOWS){
         data->FilterFlowsForConditional(max_finish_time_ms, nopenmp_threads);
     }
 }
 
 bool BayesianNetContinuous::DiscardFlow(Flow *flow, double min_start_time_ms, double max_finish_time_ms){
     return (flow->start_time_ms<min_start_time_ms or !flow->AnySnapshotBefore(max_finish_time_ms)
-           or (USE_CONDITIONAL and !flow->TracerouteFlow(max_finish_time_ms)));
+           or ((INPUT_FLOW_TYPE==PROBLEMATIC_FLOWS) and !flow->TracerouteFlow(max_finish_time_ms)));
 }
 
 long double BayesianNetContinuous::FlowProbabilityForPath(int weight_good,
@@ -138,7 +138,7 @@ long double BayesianNetContinuous::ComputeLogLikelihood(vector<double> &loss_rat
     assert(loss_rates.size() == nlinks);
     vector<long double> likelihood_threads(nopenmp_threads, 0.0);
     //!TODO implement USE_CONDITIONAL
-    assert(!USE_CONDITIONAL);
+    assert(INPUT_FLOW_TYPE!=PROBLEMATIC_FLOWS);
     #pragma omp parallel for num_threads(nopenmp_threads)
     for (int ff=0; ff<data->flows.size(); ff++){
         Flow* flow = data->flows[ff];
@@ -180,7 +180,7 @@ int BayesianNetContinuous::ComputeGradients(vector<double> &gradients,
     }
     //!TODO implement USE_CONDITIONAL
     vector<int> nflows_threads(nopenmp_threads, 0);
-    assert(!USE_CONDITIONAL);
+    assert(INPUT_FLOW_TYPE!=PROBLEMATIC_FLOWS);
     #pragma omp parallel for num_threads(nopenmp_threads)
     for (int ff=0; ff<data->flows.size(); ff++){
         Flow* flow = data->flows[ff];

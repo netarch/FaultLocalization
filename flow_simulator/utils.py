@@ -413,7 +413,7 @@ class Topology(object):
                     flow_dropped = True
             #if flow.dst in drop_hosts:
                 #print("Flow", flow.src, flow.dst, complete_path)
-            #print(complete_path, flow.src, flow.dst, src_sw, dst_sw, path_taken)
+            #rint(complete_path, flow.src, flow.dst, src_sw, dst_sw, path_taken)
             assert (len(complete_path) > 2)
             print("FID ", flow.src, flow.dst, complete_path[1], complete_path[-2], flow.flowsize, 0.0, file=self.outfile)
             self.PrintPath("FPT", complete_path[1:-1], out=self.outfile)

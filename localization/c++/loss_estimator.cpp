@@ -24,14 +24,16 @@ int main(int argc, char *argv[]){
     LogData data;
     //GetDataFromLogFile(trace_file, &data);
     //DoubleO7 estimator; vector<double> params = {0.0019};
-    //NetBouncer estimator; vector<double> params = {0.016, 0.006, 0.15};
-    //NetBouncer estimator; vector<double> params = {0.006, 0.0015, 0.075}; //INT
+    NetBouncer estimator; vector<double> params = {0.21, 0.001, 0.075};
+    //NetBouncer estimator; vector<double> params = {0.06, 0.00225, 0.06};
+    //NetBouncer estimator; vector<double> params = {0.51, 0.0205, 0.41}; //INT
     //NetBouncer estimator; vector<double> params = {0.31, 0.005, 0.125}; //misconfigured_acl
     //Sherlock estimator; vector<double> params = {1.0-3.0e-3, 2.0e-4, -20.0};
-    BayesianNet estimator; vector<double> params = {1.0-0.002, 0.00045, -10.0}; //INT / A1+A2+P
+    //BayesianNet estimator; vector<double> params = {1.0-0.002, 0.00045, -10.0}; //INT / A1+A2+P
     //BayesianNet estimator; vector<double> params = {1.0-5.0e-3, 1.5e-4, -10.0}; //A1
     //BayesianNet estimator; vector<double> params = {1.0-7e-3, 4.5e-4, -30.0}; //conditional
     //BayesianNet estimator; vector<double> params = {1.0-2.0e-3, 2.0e-4, -185.0}; //misconfigured_acl, conditional
+    //BayesianNet estimator; vector<double> params = {1.0-0.003, 0.0001, -100}; 
     //vector<double> params = {1.0-1.0e-3, 1.0e-4, -20.0};
     estimator.SetParams(params);
 

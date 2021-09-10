@@ -25,7 +25,7 @@ int main(int argc, char *argv[]){
     BayesianNet estimator;
     LogData data;
     GetDataFromLogFileParallel(trace_file, topology_file, &data, nopenmp_threads);
-    if (estimator.USE_CONDITIONAL){
+    if (INPUT_FLOW_TYPE==PROBLEMATIC_FLOWS){
         data.FilterFlowsForConditional(max_finish_time_ms, nopenmp_threads);
     }
     LogData reduced_data;

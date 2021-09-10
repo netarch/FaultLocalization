@@ -12,7 +12,7 @@ using google::dense_hash_map;
 using namespace std;
 
 
-#define MAX_PATH_LENGTH 100
+#define MAX_PATH_LENGTH 10
 //#define MAX_PATH_LENGTH 10
 //#define MAX_PATH_LENGTH 5 //+1 for device level localization
 
@@ -151,8 +151,10 @@ private:
 };
 
 
+/*
 template< class T1, class T2 >
 constexpr bool operator==( const pair<T1,T2>& lhs, const pair<T1,T2>& rhs );
+*/
 
 // C++ template to print pair<> 
 template <typename T, typename S> 

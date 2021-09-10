@@ -12,7 +12,6 @@ class BayesianNetContinuous : public Estimator{
     void SetLogData(LogData *data, double max_finish_time_ms, int nopenmp_threads);
     void SetParams(vector<double>& param);
 
-    const bool USE_CONDITIONAL = false;
     const bool APPLY_PRIOR = false;
 private:
     int ComputeGradients(vector<double> &gradients, vector<double> &loss_rates,

@@ -204,7 +204,7 @@ void NetBouncer::LocalizeFailures(double min_start_time_ms, double max_finish_ti
     localized_links.clear();
     for (int d: bad_devices) localized_links.insert(data->GetLinkIdUnsafe(Link(d, d)));
 
-    if(UNION_TOP_HYPOTHESIS){
+    if(MISCONFIGURED_ACL){
         vector<pair<double, int> > success_prob_link;
         for(int link_id=0; link_id<nlinks; link_id++){
             if (!bad_device_links[link_id] and !data->IsLinkDevice(link_id))

@@ -20,7 +20,13 @@ bool CONSIDER_DEVICE_LINK=true;
 bool TRACEROUTE_BAD_FLOWS=true;
 bool PATH_KNOWN=true;
 InputFlowType INPUT_FLOW_TYPE = ALL_FLOWS;
-const bool MISCONFIGURED_ACL = false;
+
+bool MISCONFIGURED_ACL = false;
+
+
+//!HACK HACK HACK FIX FIX FIX
+bool FLOW_DELAY = false;
+const int FLOW_DELAY_THRESHOLD_US = 10000;
 
 inline bool StringEqualTo(const char* a, const char* b) {
     while ((*b == *a) and (*a!='\0')){
@@ -241,7 +247,13 @@ void GetDataFromLogFile(string trace_file, LogData *result){
             assert (flow != NULL);
             //!HACK- change! change! change!
             //flow->AddSnapshot(snapshot_time_ms, 1, (packets_lost>0), (packets_randomly_lost>0));
-            flow->AddSnapshot(snapshot_time_ms, packets_sent, packets_lost, packets_randomly_lost);
+            if (FLOW_DELAY){
+                //!HACK: interpret packets randomly lost as delay
+                int max_delay_us = packets_randomly_lost;
+                flow->AddSnapshot(snapshot_time_ms, 1, (max_delay_us > FLOW_DELAY_THRESHOLD_US), max_delay_us);
+            }
+            else
+                flow->AddSnapshot(snapshot_time_ms, packets_sent, packets_lost, packets_randomly_lost);
         }
         else if (op == "FID"){
             // Log the previous flow
@@ -454,7 +466,13 @@ void ProcessFlowLines(vector<FlowLines>& all_flow_lines, LogData* result, int no
             assert (flow != NULL);
             //!HACK- change! change! change!
             //flow->AddSnapshot(snapshot_time_ms, 1, (packets_lost>0), (packets_randomly_lost>0));
-            flow->AddSnapshot(snapshot_time_ms, packets_sent, packets_lost, packets_randomly_lost);
+            if (FLOW_DELAY){
+                //!HACK: interpret packets randomly lost as delay
+                int max_delay_us = packets_randomly_lost;
+                flow->AddSnapshot(snapshot_time_ms, 1, (max_delay_us > FLOW_DELAY_THRESHOLD_US), max_delay_us);
+            }
+            else
+                flow->AddSnapshot(snapshot_time_ms, packets_sent, packets_lost, packets_randomly_lost);
         }
         flow->DoneAddingPaths();
     }
@@ -630,6 +648,28 @@ void GetDataFromLogFileParallel(string trace_file, string topology_file, LogData
             << " seconds, numlines " << nlines << ", numflows " << result->flows.size()
             << " numlinks " << result->links_to_ids.size() << endl;
     }
+}
+
+Hypothesis UnidirectionalHypothesis(Hypothesis& h, LogData* data){
+    set<Link> hlinks = data->IdsToLinks(h);
+    set<Link> unidirectional_links;
+    for (Link l: hlinks){
+        int n1 = min(l.first, l.second);
+        int n2 = max(l.first, l.second);
+        Link ul(n1, n2);
+        unidirectional_links.insert(ul);
+    }
+    Hypothesis ret;
+    for (Link l: unidirectional_links)
+        ret.insert(data->GetLinkId(l));
+    return ret;
+}
+
+
+PDD GetPrecisionRecallUnidirectional(Hypothesis& failed_links, Hypothesis& predicted_hypothesis, LogData* data){
+    Hypothesis failed_links_u = UnidirectionalHypothesis(failed_links, data);
+    Hypothesis predicted_hypothesis_u = UnidirectionalHypothesis(predicted_hypothesis, data);
+    return GetPrecisionRecall(failed_links_u, predicted_hypothesis_u, data);
 }
 
 

@@ -18,18 +18,19 @@ using namespace std;
 inline constexpr bool PARALLEL_IO=false;
 const bool CONSIDER_REVERSE_PATH=false;
 
-const bool UNION_TOP_HYPOTHESIS = false;
-const int NUM_HYPOTHESIS_FOR_UNION = 5;
-
 extern bool PATH_KNOWN;
 extern bool VERBOSE;
 extern bool CONSIDER_DEVICE_LINK;
 extern bool TRACEROUTE_BAD_FLOWS;
 enum InputFlowType {ACTIVE_FLOWS, ALL_FLOWS, PROBLEMATIC_FLOWS};
 extern InputFlowType INPUT_FLOW_TYPE;
+
+const bool MACL_UNION_HYPOTHESES = true;
+const int NUM_HYPOTHESIS_FOR_UNION = 5;
+extern bool MISCONFIGURED_ACL;
+
 // All trace files have hosts numbered as host + OFFSET_HOST
 const int OFFSET_HOST = 10000;
-
 
 
 struct MemoizedPaths{
@@ -195,6 +196,8 @@ inline bool StringStartsWith(const string &a, const string &b) {
     return (b.length() <= a.length() && equal(b.begin(), b.end(), a.begin()));
 }
 
+Hypothesis UnidirectionalHypothesis(Hypothesis& h, LogData* data);
+PDD GetPrecisionRecallUnidirectional(Hypothesis& failed_links, Hypothesis& predicted_hypothesis, LogData* data);
 PDD GetPrecisionRecall(Hypothesis& failed_links, Hypothesis& predicted_hypothesis, LogData *data);
 
 #endif

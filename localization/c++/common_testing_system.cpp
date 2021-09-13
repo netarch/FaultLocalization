@@ -10,10 +10,10 @@
 using namespace std;
 
 extern bool USE_DIFFERENT_TOPOLOGIES; 
+extern bool FLOW_DELAY;
 
 extern vector<string> (*GetFiles)();
-
-pair<vector<string>, vector<string> > GetFilesTopologies();
+extern pair<vector<string>, vector<string> > (*GetFilesTopologies)();
 
 std::atomic<int> total_flows{0};
 
@@ -119,7 +119,9 @@ void GetPrecisionRecallParamsFile(string topology_file, string trace_file, doubl
         Hypothesis estimator_hypothesis;
         estimator->LocalizeFailures(min_start_time_ms, max_finish_time_ms,
                                    estimator_hypothesis, nopenmp_threads);
-        PDD precision_recall = GetPrecisionRecall(failed_links_set, estimator_hypothesis, data);
+        PDD precision_recall;
+        if (FLOW_DELAY) precision_recall = GetPrecisionRecallUnidirectional(failed_links_set, estimator_hypothesis, data);
+        else precision_recall = GetPrecisionRecall(failed_links_set, estimator_hypothesis, data);
         result.push_back(precision_recall);
         if (VERBOSE or true) {
             //cout << "Failed links " << failed_links_set << " predicted: " << estimator_hypothesis << " ";

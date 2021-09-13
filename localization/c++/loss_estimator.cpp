@@ -9,6 +9,7 @@
 #include <chrono>
 
 using namespace std;
+extern bool FLOW_DELAY;
 
 int main(int argc, char *argv[]){
     VERBOSE = true;
@@ -24,16 +25,17 @@ int main(int argc, char *argv[]){
     LogData data;
     //GetDataFromLogFile(trace_file, &data);
     //DoubleO7 estimator; vector<double> params = {0.0019};
-    NetBouncer estimator; vector<double> params = {0.21, 0.001, 0.075};
+    //NetBouncer estimator; vector<double> params = {0.21, 0.001, 0.075};
     //NetBouncer estimator; vector<double> params = {0.06, 0.00225, 0.06};
     //NetBouncer estimator; vector<double> params = {0.51, 0.0205, 0.41}; //INT
     //NetBouncer estimator; vector<double> params = {0.31, 0.005, 0.125}; //misconfigured_acl
     //Sherlock estimator; vector<double> params = {1.0-3.0e-3, 2.0e-4, -20.0};
-    //BayesianNet estimator; vector<double> params = {1.0-0.002, 0.00045, -10.0}; //INT / A1+A2+P
+    BayesianNet estimator; vector<double> params = {1.0-0.002, 0.00045, -10.0}; //INT / A1+A2+P
     //BayesianNet estimator; vector<double> params = {1.0-5.0e-3, 1.5e-4, -10.0}; //A1
     //BayesianNet estimator; vector<double> params = {1.0-7e-3, 4.5e-4, -30.0}; //conditional
-    //BayesianNet estimator; vector<double> params = {1.0-2.0e-3, 2.0e-4, -185.0}; //misconfigured_acl, conditional
-    //BayesianNet estimator; vector<double> params = {1.0-0.003, 0.0001, -100}; 
+    //BayesianNet estimator; vector<double> params = {1.0-0.004, 0.0001, -15.0}; 
+    //MISCONFIGURED_ACL = true;
+    //BayesianNet estimator; vector<double> params = {1.0-0.0025, 0.00185, 0.0}; //misconfigured_acl, conditional
     //vector<double> params = {1.0-1.0e-3, 1.0e-4, -20.0};
     estimator.SetParams(params);
 
@@ -47,7 +49,9 @@ int main(int argc, char *argv[]){
     auto start_localization_time = chrono::high_resolution_clock::now();
     estimator.LocalizeFailures(min_start_time_ms, max_finish_time_ms,
                                estimator_hypothesis, nopenmp_threads);
-    PDD precision_recall = GetPrecisionRecall(failed_links_set, estimator_hypothesis, &data);
+    PDD precision_recall;
+    if (FLOW_DELAY) precision_recall = GetPrecisionRecallUnidirectional(failed_links_set, estimator_hypothesis, &data);
+    else precision_recall = GetPrecisionRecall(failed_links_set, estimator_hypothesis, &data);
     cout << "Output Hypothesis: " << data.IdsToLinks(estimator_hypothesis) << " precsion_recall "
          <<precision_recall.first << " " << precision_recall.second<<endl;
     cout << "Finished localization in "<< GetTimeSinceSeconds(start_localization_time) << " seconds" << endl;

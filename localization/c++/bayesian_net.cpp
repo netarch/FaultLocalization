@@ -19,6 +19,7 @@ using namespace std;
 
 BayesianNet::BayesianNet() : Estimator() {
     CONSIDER_DEVICE_LINK = true;
+    //CONSIDER_DEVICE_LINK = false;
 }
 
 // Optimization to ensure that extra links in the hypothesis are the optimal ones
@@ -182,6 +183,14 @@ void BayesianNet::SearchHypothesesJle(double min_start_time_ms, double max_finis
 
     ComputeInitialLikelihoodsHelper(likelihood_scores[0], min_start_time_ms,
                                     max_finish_time_ms, device_level, nopenmp_threads);
+
+    /*
+    for(int link_id=0; link_id<data->inverse_links.size(); link_id++){
+        Link l1 = Link(1, 7), l2 = Link(7, 1);
+        //if (data->inverse_links[link_id]==l1 or data->inverse_links[link_id]==l2)
+            cout << "Initial likelihoods " << data->inverse_links[link_id] << " " << likelihood_scores[0][link_id] << endl;
+    }
+    */
     if (VERBOSE){
         cout << "Finished hypothesis search for 1 failure in "
              << GetTimeSinceSeconds(start_init_time) << " seconds" << endl;
@@ -192,7 +201,7 @@ void BayesianNet::SearchHypothesesJle(double min_start_time_ms, double max_finis
     int nfails=1; // single device failure scores already computed
     double max_likelihood_this_stage = 0; //empty hypothesis
     double max_likelihood_previous_stage = -1.0e10;
-    while(max_likelihood_this_stage > max_likelihood_previous_stage){ // nfails <= MAX_FAILS){
+    while(max_likelihood_this_stage > max_likelihood_previous_stage){
         max_likelihood_previous_stage = max_likelihood_this_stage;
         max_likelihood_this_stage = -1.0e10; //-inf
         auto start_stage_time = chrono::high_resolution_clock::now();
@@ -214,9 +223,11 @@ void BayesianNet::SearchHypothesesJle(double min_start_time_ms, double max_finis
                     Hypothesis *new_hypothesis = new Hypothesis(*base_hypothesis);
                     base_hypothesis->erase(cmp);
                     unique_hypotheses.push_back(new_hypothesis);
-                    double new_likelihood = base_likelihood + likelihood_scores[ii][cmp]
-                                                            + ComputeLogPrior(new_hypothesis)
-                                                            - ComputeLogPrior(base_hypothesis);
+                    double new_likelihood = base_likelihood + likelihood_scores[ii][cmp];
+                                                            //+ ComputeLogPrior(new_hypothesis)
+                                                            //- ComputeLogPrior(base_hypothesis);
+                    //cout << " base_likelihood " << base_likelihood << " new_likelihood "
+                    //     << " base_h " << data->IdsToLinks(*base_hypothesis) << " new_h " << data->IdsToLinks(*new_hypothesis) << endl;
                     max_likelihood_this_stage = max(new_likelihood, max_likelihood_this_stage);
                     nl_nh_bh_s.push_back({new_likelihood, new_hypothesis, base_hypothesis, &likelihood_scores[ii]});
                 }
@@ -279,8 +290,27 @@ void BayesianNet::LocalizeDeviceFailures(double min_start_time_ms, double max_fi
 
 void BayesianNet::LocalizeFailures(double min_start_time_ms, double max_finish_time_ms,
                                    Hypothesis& localized_links, int nopenmp_threads){
-    assert (CONSIDER_DEVICE_LINK);
+    //assert (CONSIDER_DEVICE_LINK);
     LocalizeFailuresHelper(min_start_time_ms, max_finish_time_ms, localized_links, false, nopenmp_threads);
+}
+
+void BayesianNet::SearchHypothesesMisconfiguredACL(double min_start_time_ms, double max_finish_time_ms,
+                                                   unordered_map<Hypothesis*, double>& all_hypotheses,
+                                                   bool device_level, int nopenmp_threads){
+    Hypothesis* no_failure_hypothesis = new Hypothesis();
+    all_hypotheses[no_failure_hypothesis] = 0.0;
+
+    auto start_init_time = chrono::high_resolution_clock::now();
+    vector<double> likelihood_scores;
+    ComputeInitialLikelihoodsHelper(likelihood_scores, min_start_time_ms,
+                                    max_finish_time_ms, device_level, nopenmp_threads);
+    vector<int> top_link_ids; 
+    GetIndicesOfTopK(likelihood_scores, 2 * NUM_HYPOTHESIS_FOR_UNION, top_link_ids, no_failure_hypothesis);
+    for(int link_id: top_link_ids){
+        Hypothesis *h = new Hypothesis();
+        h->insert(link_id);
+        all_hypotheses[h] = likelihood_scores[link_id];
+    }
 }
 
 void BayesianNet::LocalizeFailuresHelper(double min_start_time_ms, double max_finish_time_ms,
@@ -311,7 +341,9 @@ void BayesianNet::LocalizeFailuresHelper(double min_start_time_ms, double max_fi
     unordered_map<Hypothesis*, double> all_hypotheses;
     auto start_search_time = chrono::high_resolution_clock::now();
     //assert(!device_level); SearchHypotheses(min_start_time_ms, max_finish_time_ms, all_hypotheses, nopenmp_threads);
-    SearchHypothesesJle(min_start_time_ms, max_finish_time_ms, all_hypotheses, device_level, nopenmp_threads);
+    if (MISCONFIGURED_ACL and MACL_UNION_HYPOTHESES) SearchHypothesesMisconfiguredACL(min_start_time_ms, max_finish_time_ms,
+                                                   all_hypotheses, device_level, nopenmp_threads);
+    else SearchHypothesesJle(min_start_time_ms, max_finish_time_ms, all_hypotheses, device_level, nopenmp_threads);
     vector<pair<double, Hypothesis*> > likelihood_hypotheses;
     for (auto& it: all_hypotheses){
         likelihood_hypotheses.push_back(make_pair(it.second, it.first));
@@ -339,7 +371,7 @@ void BayesianNet::LocalizeFailuresHelper(double min_start_time_ms, double max_fi
     // If multiple hypothesis have highest likelihoods, then return common elements in all hypothesis
     HypothesesIntersection(candidate_hypothesis, localized_components);
 
-    if (UNION_TOP_HYPOTHESIS) UnionTopHypothesis(likelihood_hypotheses, NUM_HYPOTHESIS_FOR_UNION,
+    if (MISCONFIGURED_ACL and MACL_UNION_HYPOTHESES) UnionTopHypothesis(likelihood_hypotheses, NUM_HYPOTHESIS_FOR_UNION,
                                                  localized_components);
     
     if (VERBOSE){
@@ -464,7 +496,6 @@ void BayesianNet::AddContributionsFromThreads(vector<double> *contributions, vec
     }
 }
 
-// Return value for logging purposes
 int BayesianNet::UpdateScores(vector<double> &likelihood_scores, Hypothesis* hypothesis,
                                     Hypothesis* base_hypothesis, double min_start_time_ms,
                                     double max_finish_time_ms, int nopenmp_threads){
@@ -1001,6 +1032,10 @@ void BayesianNet::ComputeInitialLikelihoodsHelper(vector<double> &initial_likeli
 
     initial_likelihoods.resize(ncomponents, 0.0);
     AddContributionsFromThreads(likelihoods, initial_likelihoods, nopenmp_threads);
+    #pragma omp parallel for num_threads(nopenmp_threads)
+    for(int cmp=0; cmp<ncomponents; cmp++){
+        initial_likelihoods[cmp] += ComputeLogPrior(cmp);
+    }
 }
 
 void BayesianNet::ComputeSingleLinkLogLikelihood(vector<pair<double, Hypothesis*> > &result,
@@ -1395,24 +1430,20 @@ double BayesianNet::ComputeLogLikelihoodDevice(Hypothesis* hypothesis, Hypothesi
                                       true, nopenmp_threads);
 }
 
-double BayesianNet::ComputeLogPrior(Hypothesis* hypothesis){
-    if (REDUCED_ANALYSIS){
-        double log_prior = 0.0;
-        for (int link_id: *hypothesis){
-            log_prior += log(num_reduced_links_map->at(link_id)) + PRIOR;
-        }
-        return log_prior;
-    }
+double BayesianNet::ComputeLogPrior(int link_id){
+    if (REDUCED_ANALYSIS) return log(num_reduced_links_map->at(link_id)) + PRIOR;
     else if (CONSIDER_DEVICE_LINK){
-        double log_prior = 0.0;
-        for (int link_id: *hypothesis){
-            int multiplier = (data->IsLinkDevice(link_id)? 2 : 1);
-            log_prior += multiplier * PRIOR;
-        }
-        return log_prior;
+        int multiplier = (data->IsLinkDevice(link_id)? 5 : 1);
+        return multiplier * PRIOR;
     }
-    else{
-        return hypothesis->size() * PRIOR;
+    else return PRIOR;
+}
+
+double BayesianNet::ComputeLogPrior(Hypothesis* hypothesis){
+    double log_prior = 0.0;
+    for (int link_id: *hypothesis){
+        log_prior += ComputeLogPrior(link_id);
     }
+    return log_prior;
 }
 

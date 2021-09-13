@@ -285,6 +285,13 @@ long double Flow::GetCachedIntermediateValue(){
 }
 
 bool Flow::DiscardFlow(){
+    double drop_rate = ((double)GetLatestPacketsLost()) / max(1, GetLatestPacketsSent());
+    /*
+    if(drop_rate > 0.1){
+        //cout << " ******* Discarding flow ***** " << GetLatestPacketsLost() << " " << GetLatestPacketsSent() << endl;
+        return true;
+    }
+    */
     switch(INPUT_FLOW_TYPE) {
         case ALL_FLOWS:
             return false;
@@ -298,8 +305,6 @@ bool Flow::DiscardFlow(){
         default:
             return false;
     }
-    //double drop_rate = GetLatestPacketsLost() / GetLatestPacketsSent();
-    //return (drop_rate > 0.3);
     //return (GetLatestPacketsSent() < 100);
     //return (src < OFFSET_HOST  or  dest < OFFSET_HOST or GetLatestPacketsSent() < 0);
 }

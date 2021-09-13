@@ -40,11 +40,14 @@ protected:
                             int K, Hypothesis &result);
 
     void SearchHypotheses(double min_start_time_ms, double max_finish_time_ms,
-                          unordered_map<Hypothesis*, double> &all_hypothesis,
+                          unordered_map<Hypothesis*, double> &all_hypotheses,
                           int nopenmp_threads);
     void SearchHypothesesJle(double min_start_time_ms, double max_finish_time_ms,
-                          unordered_map<Hypothesis*, double> &all_hypothesis,
+                          unordered_map<Hypothesis*, double> &all_hypotheses,
                           bool device_level, int nopenmp_threads);
+    void SearchHypothesesMisconfiguredACL(double min_start_time_ms, double max_finish_time_ms,
+                                          unordered_map<Hypothesis*, double> &all_hypotheses,
+                                          bool device_level, int nopenmp_threads);
 
     void SearchHypothesesGibbsSampling(double min_start_time_ms, double max_finish_time_ms,
                           unordered_map<Hypothesis*, double> &all_hypothesis,
@@ -146,6 +149,7 @@ protected:
                          int naffected_r, int npaths_r, long double intermediate_val);
 
     double ComputeLogPrior(Hypothesis *hypothesis);
+    double ComputeLogPrior(int link_id);
     void SortCandidatesWrtNumRelevantFlows(vector<int> &candidates);
     void CleanUpAfterLocalization(unordered_map<Hypothesis*, double> &all_hypothesis);
     

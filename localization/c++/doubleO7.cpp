@@ -105,7 +105,8 @@ void DoubleO7::LocalizeLinkFailures(double min_start_time_ms, double max_finish_
     }
     return;
     */
-    while (max_votes >= fail_threshold * sum_votes and max_votes > 0){
+    while ((MISCONFIGURED_ACL and localized_links.size() < NUM_HYPOTHESIS_FOR_UNION)
+           or (max_votes >= fail_threshold * sum_votes and max_votes > 0)){
         int faulty_link_id = distance(votes.begin(), max_element(votes.begin(), votes.end()));
         localized_links.insert(faulty_link_id);
         if(ADJUST_VOTES){

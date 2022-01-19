@@ -147,7 +147,7 @@ int main(int argc, char *argv[]){
     uint64_t delay_us = 2.5; //microseconds
 
     //topology.ChooseFailedDevice(nfails, fail_param);
-    double silent_drop_rate = 0;
+    //double silent_drop_rate = 0;
 
     // Fail some links, by setting loss rates
     double silent_drop_rate = fail_param;

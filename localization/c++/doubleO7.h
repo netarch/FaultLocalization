@@ -3,6 +3,7 @@
 #include "estimator.h"
 
 const bool USE_BUGGY_007 = false; //to match matlab script
+extern bool DEVICE_ANALYSIS_007;
 
 class DoubleO7: public Estimator{
  public:
@@ -33,7 +34,6 @@ private:
     // Noise parameters
     double fail_threshold = 0.0025;
     const bool ADJUST_VOTES = true;
-    const bool DEVICE_ANALYSIS = false;
     const bool FILTER_NOISY_DROPS = false;
 };
 

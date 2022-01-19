@@ -9,6 +9,8 @@
 
 using namespace std;
 
+bool DEVICE_ANALYSIS_007 = false;
+
 DoubleO7::DoubleO7(): Estimator() {
     CONSIDER_DEVICE_LINK = false;
     TRACEROUTE_BAD_FLOWS = true;
@@ -69,7 +71,7 @@ PDD DoubleO7::ComputeVotes(vector<Flow*>& bad_flows, vector<double>& votes,
 
 void DoubleO7::LocalizeFailures(double min_start_time_ms, double max_finish_time_ms,
                                 Hypothesis &localized_components, int nopenmp_threads){
-    if (DEVICE_ANALYSIS)
+    if (DEVICE_ANALYSIS_007)
         LocalizeDeviceFailures(min_start_time_ms, max_finish_time_ms,
                                localized_components, nopenmp_threads);
     else

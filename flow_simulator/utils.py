@@ -222,7 +222,7 @@ class Topology(object):
         print("Drop racks", drop_racks)
         print("Drop hosts", drop_hosts)
         switches = [v for v in self.G.nodes() if v < HOST_OFFSET and v not in self.racks]
-        print("switches", switches)
+        #print("switches", switches)
         random.shuffle(switches)
         failed_switches = switches[:nfailures]
         for failed_sw in failed_switches:
@@ -394,6 +394,8 @@ class Topology(object):
         drop_racks = list(set([self.host_rack_map[host] for host in drop_hosts]))
         print("drop_racks", drop_racks, failed_switches)
         for fsw in failed_switches:
+            first_hops = set.union(*[set([path[1] for path in all_sw_pair_paths[fsw][drop_rack]]) for drop_rack in drop_racks])
+            print("Failed switch", fsw, "Drop racks", drop_racks, "First_hops", first_hops)
             npaths = sum([len(set([path[1] for path in all_sw_pair_paths[fsw][drop_rack]])) for drop_rack in drop_racks])
             assert (npaths > 0)
             if npaths == 1:

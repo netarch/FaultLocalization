@@ -344,6 +344,7 @@ void BayesianNet::LocalizeFailuresHelper(double min_start_time_ms, double max_fi
     if (MISCONFIGURED_ACL and MACL_UNION_HYPOTHESES) SearchHypothesesMisconfiguredACL(min_start_time_ms, max_finish_time_ms,
                                                    all_hypotheses, device_level, nopenmp_threads);
     else SearchHypothesesJle(min_start_time_ms, max_finish_time_ms, all_hypotheses, device_level, nopenmp_threads);
+    //else SearchHypotheses(min_start_time_ms, max_finish_time_ms, all_hypotheses, nopenmp_threads);
     vector<pair<double, Hypothesis*> > likelihood_hypotheses;
     for (auto& it: all_hypotheses){
         likelihood_hypotheses.push_back(make_pair(it.second, it.first));
@@ -925,7 +926,7 @@ void BayesianNet::PrintScores(double min_start_time_ms, double max_finish_time_m
     sort(idx.begin(), idx.end(), [this](int i1, int i2) {
                                  return (abs(drops_per_component[i1] - drops_per_component[i2]) < 1.0e-6? 
                                     false: (drops_per_component[i1] < drops_per_component[i2]));});
-    for (int ii = max(0, (int)idx.size()-25); ii<idx.size(); ii++){
+    for (int ii = max(0, (int)idx.size()-50); ii<idx.size(); ii++){
         int cmp = idx[ii];
         auto [score2, score1] = GetScore(cmp);
         if (flows_per_component[cmp] > 0){
@@ -1050,7 +1051,7 @@ void BayesianNet::ComputeSingleLinkLogLikelihood(vector<pair<double, Hypothesis*
         Hypothesis* h = new Hypothesis();
         h->insert(link_id);
         double likelihood = initial_likelihoods[link_id];
-        likelihood += ComputeLogPrior(h);
+        //likelihood += ComputeLogPrior(h);
         result[link_id] = make_pair(likelihood, h);
     }
 }
@@ -1066,24 +1067,25 @@ void BayesianNet::ComputeLogLikelihood(vector<Hypothesis*> &hypothesis_space,
     relevant_flows.resize(hypothesis_space.size());
     #pragma omp parallel for num_threads(nopenmp_threads)
     for(int i=0; i<hypothesis_space.size(); i++){
-        if (i%10000 == 0) cout << "Finished relevant flows population " << i << endl;
+        //if (i%10000 == 0) cout << "Finished relevant flows population " << i << endl;
         Hypothesis* h = hypothesis_space[i];
         auto& base = base_hypothesis_likelihood[i];
         GetRelevantFlows(h, base.first, min_start_time_ms, max_finish_time_ms, relevant_flows[i]);
     }
-    cout << "Finished populating relevant flows in " << GetTimeSinceSeconds(start_time) << " seconds" << endl;
+    //cout << "Finished populating relevant flows in " << GetTimeSinceSeconds(start_time) << " seconds" << endl;
     int total_flows_analyzed = 0;
     for(int i=0; i<hypothesis_space.size(); i++){
-        if (i%10000 == 0) cout << "Finished hypothesis space " << i << " after " << GetTimeSinceSeconds(start_time) << " sconds" << endl;
+        //if (i%10000 == 0) cout << "Finished hypothesis space " << i << " after " << GetTimeSinceSeconds(start_time) << " sconds" << endl;
         Hypothesis* h = hypothesis_space[i];
         auto& base = base_hypothesis_likelihood[i];
         result[i] = pair<double, Hypothesis*>(ComputeLogLikelihood(h, base.first, base.second,
                 min_start_time_ms, max_finish_time_ms, relevant_flows[i], nopenmp_threads), h);
         total_flows_analyzed += relevant_flows[i].size();
     }
-    cout << "Finished computing log likelihood in " << GetTimeSinceSeconds(start_time) << endl;
     if (VERBOSE) {
-        cout << "Total flows analyzed "<< total_flows_analyzed << " ";
+        //cout << "Finished computing log likelihood in " << GetTimeSinceSeconds(start_time) 
+        //     << " numhypo " << hypothesis_space.size() << endl;
+        //cout << "Total flows analyzed "<< total_flows_analyzed << " ";
     }
 }
 

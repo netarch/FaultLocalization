@@ -302,6 +302,9 @@ bool Flow::DiscardFlow(){
         case PROBLEMATIC_FLOWS:
             return IsFlowActive();
             break;
+        case APPLICATION_FLOWS:
+            return IsFlowActive();
+            break;
         default:
             return false;
     }

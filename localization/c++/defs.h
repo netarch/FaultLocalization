@@ -12,8 +12,8 @@ using google::dense_hash_map;
 using namespace std;
 
 
-#define MAX_PATH_LENGTH 10
 //#define MAX_PATH_LENGTH 10
+#define MAX_PATH_LENGTH 10 //for irregular
 //#define MAX_PATH_LENGTH 5 //+1 for device level localization
 
 template <typename T>

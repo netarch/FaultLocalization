@@ -48,7 +48,7 @@ class Topology{
     void Toplogy() {}
     void ReadFlowsFromFile(string tm_filename);
     void ReadTopologyFromFile(string topology_filename);
-    void ChooseFailedLinks(int nfails);
+    void ChooseFailedLinks(int nfails, bool network_links_only=false);
     void ChooseFailedDevice(int nfails, double frac_links_failed);
 
     char* GetFlowSrcIpAddress(Flow &flow);

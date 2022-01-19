@@ -305,6 +305,25 @@ vector<string> GetFilesDevice40G(){
     return files;
 }
 
+pair<vector<string>, vector<string> > GetFilesMisconfiguredAclIrreg(){
+    string file_prefix = "/home/vharsh2/Flock/flow_simulator/logs/irreg/plog_macl";
+    string topo_prefix = "/home/vharsh2/Flock/flow_simulator/logs/irreg/topologies/ns3ft_o100_deg10_sw125_svr250_os3";
+    vector<PII> ignore_files = {};
+    vector<string> files, topologies;
+    for(int f=1; f<=2; f++){
+    //for (int f: vector<int>({8})){ // {1-8}
+        for(int s=1; s<=32; s++){ //1,2,3,4,5,6,7,8})){ // {1-2}
+            if (CROSS_VALIDATION and (s+(int)TRAINING_SET)%2==0) continue;
+            if(find(ignore_files.begin(), ignore_files.end(),  PII(f, s)) == ignore_files.end()){
+                files.push_back(file_prefix + "_f" + to_string(f) + "_0_s" + to_string(s)); 
+                topologies.push_back(topo_prefix + "_fail" + to_string(f) + "_seed" + to_string(s) + ".edgelist");
+                cout << "adding file for analaysis " <<files.back() << endl;
+            }
+        }
+    }
+    return {files, topologies};
+}
+
 vector<string> GetFilesMisconfiguredAcl(){
     string file_prefix = "/home/vharsh2/Flock/flow_simulator/logs/macl/plog_macl";
     vector<PII> ignore_files = {};
@@ -343,11 +362,12 @@ vector<string> GetFilesMixed40G(){
 vector<string> GetFilesMixed(){
     //string file_prefix = "/home/vharsh2/Flock/ns3/topology/hw_ls_6_2/traffic_files/plog";
     string file_prefix = "/home/vharsh2/ns-allinone-3.24.1/ns-3.24.1/ns3/topology/ft_k10_os3/traffic_files_nb/plog_nb";
+    //string file_prefix = "/home/vharsh2/ns-allinone-3.24.1/ns-3.24.1/ns3/topology/rrg_sw125_svr250_os3/logs/plog";
     vector<PII> ignore_files = {};
     vector<string> files;
     for(int f=1; f<=8; f++){
     //for (int f: vector<int>({8})){ // {1-8}
-        for(int s: vector<int>({5,6,7,8})){ //1,2,3,4,5,6,7,8})){ // {1-2}
+        for(int s: vector<int>({1,2})){ //1,2,3,4,5,6,7,8})){ // {1-2}
             if(find(ignore_files.begin(), ignore_files.end(),  PII(f, s)) == ignore_files.end()){
                 files.push_back(file_prefix + "_" + to_string(f) + "_0_" + to_string(s)); 
                 cout << "adding file for analaysis " <<files.back() << endl;
@@ -358,20 +378,22 @@ vector<string> GetFilesMixed(){
     return files;
 }
 
+// need to increase max path length for this experiment
+int NLINKS_OMMITTED_IRREGULAR = 100;
 pair<vector<string>, vector<string> > GetFilesRRG(){
     //string file_prefix = "/home/vharsh2/ns-allinone-3.24.1/ns-3.24.1/flow_simulator/logs/irregular_topology/plog";
     string file_prefix = "/home/vharsh2/ns-allinone-3.24.1/ns-3.24.1/ns3/topology/ft_k10_os3/ommitted/logs/new/plog";
-    int nlinks_ommitted = 100;
     string topo_prefix = "/home/vharsh2/ns-allinone-3.24.1/ns-3.24.1/ns3/topology/ft_k10_os3/ommitted/topologies/ns3ft_o"
-                         + to_string(nlinks_ommitted) + "_deg10_sw125_svr250_os3";
+                         + to_string(NLINKS_OMMITTED_IRREGULAR) + "_deg10_sw125_svr250_os3";
     typedef array<int, 3> AI3;
     vector<AI3> ignore_files = {};
     vector<string> files, topologies;
     //for(int s: vector<int>({1,7})){ // {1-2}
-    for(int s: vector<int>({2,3,4,5,6})){ // {1-2}
-        for(int f=1; f<=8; f++){
-            if(find(ignore_files.begin(), ignore_files.end(),  AI3({nlinks_ommitted, f, s})) == ignore_files.end()){
-                files.push_back(file_prefix + "_o" + to_string(nlinks_ommitted) + "_" + to_string(f) + "_0_" + to_string(s));
+    for(int s: vector<int>({1,2,3,4,5,6,7})){ // {1-2}
+        for(int f=1; f<=4; f++){ //{1-8}
+            if (CROSS_VALIDATION and (s+TRAINING_SET)%2==0) continue;
+            if(find(ignore_files.begin(), ignore_files.end(),  AI3({NLINKS_OMMITTED_IRREGULAR, f, s})) == ignore_files.end()){
+                files.push_back(file_prefix + "_o" + to_string(NLINKS_OMMITTED_IRREGULAR) + "_" + to_string(f) + "_0_" + to_string(s));
                 topologies.push_back(topo_prefix + "_fail" + to_string(f) + "_seed" + to_string(s) + ".edgelist");
                 cout << "adding file for analaysis " <<files.back() << " " << topologies.back() << endl;
             }
@@ -552,8 +574,9 @@ void GetPrecisionRecallTrendBayesianNet(string topology_filename, double min_sta
                            double max_finish_time_ms, double step_ms, int nopenmp_threads){
     vector<PDD> result;
     BayesianNet estimator;
-    vector<double> param = {1.0-5.0e-3, 2.0e-4, -25.0};
-    //vector<double> param = {1.0-2.0e-3, 0.8e-4};
+    //vector<double> param = {1.0-5.0e-3, 2.0e-4, -25.0};
+    //vector<double> param = {1.0-1e-2, 1e-4, -10.0}; //{1.0-10.0e-3, 8e-4, -100.0};
+    vector<double> param = {1.0-10.0e-3, 8e-4, -100.0};
     /*
     if (INPUT_FLOW_TYPE==PROBLEMATIC_FLOWS){
         estimator.PRIOR = -15.0;
@@ -586,11 +609,11 @@ vector<ParamType> GetBayesianNetParams(){
         }
     }
     else if (MISCONFIGURED_ACL){
-        for (double p1c = 0.25e-2; p1c <=5.0e-2+eps; p1c += 0.25e-2){
-            for (double p2 = 0.5e-4; p2 <=20.0e-4+eps; p2 += 2.0e-4){
+        for (double p1c = 0.125e-2; p1c <=10.0e-2+eps; p1c += 0.5e-2){
+            for (double p2 = 0.1e-4; p2 <=2e-4+eps; p2 += 0.1e-4){
                 if (p2 >= p1c - 0.5e-4) continue;
                 //for (double nprior: {250, 500, 750, 1000, 1250, 1500})
-                double nprior = 0.0;
+                for (double nprior: {2.5, 5.0, 10.0, 20.0, 100.0})
                     params.push_back(vector<double> {1.0 - p1c, p2, -nprior});
             }
         }
@@ -601,6 +624,16 @@ vector<ParamType> GetBayesianNetParams(){
             for (double p2 = 0.25e-4; p2 <=8.0e-4+eps;p2 += 0.5e-4){
                 if (p2 >= p1c - 0.5e-5) continue;
                 for(double nprior=0.0; nprior<=20.0+eps; nprior+=2.0) // priors don't have to be too high
+                    params.push_back(vector<double> {1.0 - p1c, p2, -nprior});
+            }
+        }
+    }
+    else if (GetFiles == GetFilesMixed40G){
+        for (double p1c = 2.0e-3; p1c <=10.0e-3+eps; p1c += 1.0e-3){
+            for (double p2 = 1.0e-4; p2 <=8.0e-4+eps; p2 += 1.0e-4){
+                if (p2 >= p1c - 0.5e-4) continue;
+                //for (double nprior: {5.0, 10.0, 25.0, 50.0})
+                for (double nprior: {5, 10, 20, 30, 50, 100, 200})
                     params.push_back(vector<double> {1.0 - p1c, p2, -nprior});
             }
         }
@@ -622,23 +655,15 @@ vector<tuple<ParamType, PDD> > SweepParamsBayesianNet(string topology_filename,
                                             double min_start_time_ms, double max_finish_time_ms,
                                             int nopenmp_threads){
     vector<ParamType> params = GetBayesianNetParams();
+    params = {{1.0 - 1.0e-2, 8e-4, -100}};
 
-    //device level
+    // for softness experiments/device
     /*
-    if (INPUT_FLOW_TYPE == ALL_FLOWS and PATH_KNOWN) params = {{1.0 - 0.002, 0.0004, -10.0}};
-    else if (INPUT_FLOW_TYPE == ALL_FLOWS and !PATH_KNOWN and TRACEROUTE_BAD_FLOWS) params = {{1.0 - 0.002, 0.0004, -10.0}};
-    else if (INPUT_FLOW_TYPE == ALL_FLOWS and !PATH_KNOWN and !TRACEROUTE_BAD_FLOWS) params = {{1.0 - 0.005, 0.0002, -10.0}, {1.0- 0.005, 0.0002, -10.0}};
-    else if (INPUT_FLOW_TYPE == ACTIVE_FLOWS) params = {{1.0 - 0.0025, 0.000375, -6.0}};
-    else if (INPUT_FLOW_TYPE == PROBLEMATIC_FLOWS and !PATH_KNOWN) params = {{1.0 - 0.003, 0.0007, -25.0}};
-    else assert(false);
-    */
-
-    /* for softness experiments
-    if (INPUT_FLOW_TYPE == ALL_FLOWS and PATH_KNOWN) params = {{1.0 - 0.003, 0.0003, -10.0}};
-    else if (INPUT_FLOW_TYPE == ALL_FLOWS and !PATH_KNOWN and TRACEROUTE_BAD_FLOWS) params = {{1.0 - 0.003, 0.0003, -10.0}};
-    else if (INPUT_FLOW_TYPE == ALL_FLOWS and !PATH_KNOWN and !TRACEROUTE_BAD_FLOWS) params = {{1.0 - 0.003, 0.0004, -10.0}};
-    else if (INPUT_FLOW_TYPE == ACTIVE_FLOWS) params = {{1.0 - 0.0045, 0.000625, -4.0}};
-    else if (INPUT_FLOW_TYPE == PROBLEMATIC_FLOWS and !PATH_KNOWN) params = {{1.0 - 0.006, 0.0003, -35.0}};
+    if (INPUT_FLOW_TYPE == ALL_FLOWS and PATH_KNOWN) params = {{1.0 - 0.003, 0.0002, -15.0}};
+    else if (INPUT_FLOW_TYPE == ALL_FLOWS and !PATH_KNOWN and TRACEROUTE_BAD_FLOWS) params = {{1.0 - 0.002, 0.0003, -15.0}};
+    else if (INPUT_FLOW_TYPE == ALL_FLOWS and !PATH_KNOWN and !TRACEROUTE_BAD_FLOWS) params = {{1.0 - 0.006, 0.0003, -5.0}};
+    else if (INPUT_FLOW_TYPE == ACTIVE_FLOWS) params = {{1.0 - 0.0005, 0.000175, -4.0}};
+    else if (INPUT_FLOW_TYPE == PROBLEMATIC_FLOWS and !PATH_KNOWN) params = {{1.0 - 0.007, 0.0003, -35.0}};
     else assert(false);
     */
 
@@ -686,6 +711,7 @@ vector<tuple<ParamType, PDD> > SweepParams007(string topology_filename, double m
                 fail_threshold < max_fail_threshold; fail_threshold += step){
         params.push_back(vector<double> {fail_threshold});
     }
+
     //params = {{0.0083}}; //skewed
     //params = {{0.0023}}; // random
 
@@ -757,24 +783,13 @@ vector<ParamType> GetParamsNetBouncer(){
 
 vector<tuple<ParamType, PDD> > SweepParamsNetBouncer(string topology_filename, double min_start_time_ms, double max_finish_time_ms, int nopenmp_threads){
     vector<ParamType> params = GetParamsNetBouncer();
-    //device
+    // softness/device
     /*
-    if (INPUT_FLOW_TYPE == ALL_FLOWS and PATH_KNOWN) params = {{0.001, 0.001, 0.125}};
-    else if (INPUT_FLOW_TYPE == ACTIVE_FLOWS) params = {{0.0235, 0.004, 0.125}};
-    else assert(false);
-    auto temp_params = params;
-    params.clear();
-    for (auto param: temp_params){
-        for (double device_threshold: {0.05, 0.075, 0.125, 0.175}){
-            params.push_back(vector<double> {param[0], param[1], device_threshold});
-        }
-    }
-    */
-    /* softness
-    if (INPUT_FLOW_TYPE == ALL_FLOWS and PATH_KNOWN) params = {{0.021, 0.0015, 0.075}};
-    else if (INPUT_FLOW_TYPE == ACTIVE_FLOWS) params = {{0.016, 0.007, 0.075}};
+    if (INPUT_FLOW_TYPE == ALL_FLOWS and PATH_KNOWN) params = {{0.011, 0.002, 0.075}};
+    else if (INPUT_FLOW_TYPE == ACTIVE_FLOWS) params = {{0.001, 0.007, 0.125}};
     else assert(false);
     */
+
     vector<PDD> result;
     NetBouncer estimator;
     GetPrecisionRecallParamsFiles(topology_filename, min_start_time_ms, max_finish_time_ms,
@@ -809,8 +824,13 @@ void SweepParamsSchemes(vector<string> &schemes, string topology_filename, strin
             res = SweepParamsBayesianNet(topology_filename, min_start_time_ms,
                                          max_finish_time_ms, nopenmp_threads);
         }
-        else if (scheme == "bnet_a1_a2_p" or scheme == "bnet_a2_p"){
+        else if (scheme == "bnet_a1_a2_p"){
             PATH_KNOWN = false; INPUT_FLOW_TYPE = ALL_FLOWS; TRACEROUTE_BAD_FLOWS = true;
+            res = SweepParamsBayesianNet(topology_filename, min_start_time_ms,
+                                         max_finish_time_ms, nopenmp_threads);
+        }
+        else if (scheme == "bnet_a2_p"){
+            PATH_KNOWN = false; INPUT_FLOW_TYPE = APPLICATION_FLOWS; TRACEROUTE_BAD_FLOWS = true;
             res = SweepParamsBayesianNet(topology_filename, min_start_time_ms,
                                          max_finish_time_ms, nopenmp_threads);
         }
@@ -826,6 +846,11 @@ void SweepParamsSchemes(vector<string> &schemes, string topology_filename, strin
         }
         else if (scheme == "bnet_a1"){
             PATH_KNOWN = false; INPUT_FLOW_TYPE = ACTIVE_FLOWS;
+            res = SweepParamsBayesianNet(topology_filename, min_start_time_ms,
+                                         max_finish_time_ms, nopenmp_threads);
+        }
+        else if (scheme == "bnet_p"){
+            PATH_KNOWN = false; INPUT_FLOW_TYPE = APPLICATION_FLOWS; TRACEROUTE_BAD_FLOWS = false;
             res = SweepParamsBayesianNet(topology_filename, min_start_time_ms,
                                          max_finish_time_ms, nopenmp_threads);
         }
@@ -937,6 +962,25 @@ void SimulatorMixedTracesExperiments(string topology_filename, double min_start_
     SweepParamsSchemes(schemes, topology_filename, base_dir, min_start_time_ms, max_finish_time_ms, nopenmp_threads);
 }
 
+void SimulatorMisconfiguredAclIrreg(string topology_filename, double min_start_time_ms,
+                                    double max_finish_time_ms, int nopenmp_threads){
+    USE_DIFFERENT_TOPOLOGIES = true;
+    CROSS_VALIDATION = true;
+    MISCONFIGURED_ACL = true;
+    GetFilesTopologies = GetFilesMisconfiguredAclIrreg;
+
+    //vector<string> schemes = {"bnet_p", "nb_int", "007_a2"};
+    vector<string> schemes = {"bnet_p"};
+
+    TRAINING_SET = true;
+    string base_dir = "/home/vharsh2/Flock/localization/c++/results/nsdi2022/macl/irreg/train_";
+    SweepParamsSchemes(schemes, topology_filename, base_dir, min_start_time_ms, max_finish_time_ms, nopenmp_threads);
+
+    TRAINING_SET = false;
+    base_dir = "/home/vharsh2/Flock/localization/c++/results/nsdi2022/macl/irreg/test_";
+    SweepParamsSchemes(schemes, topology_filename, base_dir, min_start_time_ms, max_finish_time_ms, nopenmp_threads);
+}
+
 
 void SimulatorMisconfiguredAcl(string topology_filename, double min_start_time_ms,
                                double max_finish_time_ms, int nopenmp_threads){
@@ -945,7 +989,8 @@ void SimulatorMisconfiguredAcl(string topology_filename, double min_start_time_m
     MISCONFIGURED_ACL = true;
     GetFiles = GetFilesMisconfiguredAcl;
 
-    vector<string> schemes = {"bnet_int", "bnet_a1_a2_p", "bnet_a2", "bnet_a1_p", "bnet_a1", "nb_int", "nb_a1", "007_a2"};
+    //vector<string> schemes = {"bnet_int", "bnet_a1_a2_p", "bnet_a2", "bnet_a1_p", "bnet_a1", "nb_int", "nb_a1", "007_a2"};
+    vector<string> schemes = {"bnet_p"};
 
     TRAINING_SET = true;
     string base_dir = "/home/vharsh2/Flock/localization/c++/results/nsdi2022/macl/train_";
@@ -961,6 +1006,7 @@ void SimulatorDeviceExperiments(string topology_filename, double min_start_time_
     USE_DIFFERENT_TOPOLOGIES = false;
     CROSS_VALIDATION = true;
     GetFiles = GetFilesDevice40G;
+    DEVICE_ANALYSIS_007 = true;
 
     TRAINING_SET = true;
 
@@ -971,9 +1017,8 @@ void SimulatorDeviceExperiments(string topology_filename, double min_start_time_
     else if (max_finish_time_ms - min_start_time_ms > 250.0) monitoring_period = "tdot25";
     cout << "Monitoring period " << monitoring_period << endl;
 
-    //vector<string> schemes = {"nb_int", "nb_a1", "007_a2"};
-    vector<string> schemes = {"bnet_a1_a2_p", "bnet_a2", "bnet_a1_p", "bnet_a1"};
-    //vector<string> schemes = {"bnet_int", "bnet_a1_a2_p", "bnet_a2", "bnet_a1_p", "bnet_a1", "nb_int", "nb_a1", "007_a2"};
+    //vector<string> schemes = {"nb_int", "nb_a1"};
+    vector<string> schemes = {"007_a2"};
     cout << "(D) Training for " << schemes << endl;
     string base_dir = "/home/vharsh2/Flock/localization/c++/results/nsdi2022/device/" + monitoring_period + "_train_";
     SweepParamsSchemes(schemes, topology_filename, base_dir, min_start_time_ms, max_finish_time_ms, nopenmp_threads);
@@ -983,20 +1028,22 @@ void SimulatorDeviceExperiments(string topology_filename, double min_start_time_
     schemes = {};
     cout << "(D) Testing for " << schemes << endl;
     SweepParamsSchemes(schemes, topology_filename, base_dir, min_start_time_ms, max_finish_time_ms, nopenmp_threads);
+
+    DEVICE_ANALYSIS_007 = false;
 }
 
 void SoftnessExperiments(string topology_filename, double min_start_time_ms,
                          double max_finish_time_ms, int nopenmp_threads){
     CROSS_VALIDATION = false;
-    vector<string> loss_rate_strings = {"0.002", "0.004", "0.006", "0.01", "0.014", "0.018"};
 
     string file_prefix, base_dir;
     vector<pair<string, int> > ignore_files;
     GetFiles = GetFilesSoftness;
 
-    vector<string> schemes = {"bnet_int", "bnet_a1_a2_p", "bnet_a2", "bnet_a1_p", "bnet_a1", "nb_int", "nb_a1", "007_a2"};
+    vector<string> schemes = {"bnet_int", "bnet_a1_a2_p", "bnet_a2", "bnet_a1_p", "bnet_a1", "nb_int", "nb_a1"};
 
     file_prefix = "/home/vharsh2/Flock/ns3/topology/ft_k10_os3/logs/40G/softness/plog_nb_random";
+    vector<string> loss_rate_strings = {"0.002", "0.004", "0.006", "0.01", "0.014", "0.018"};
     for (string& loss_rate_string: loss_rate_strings){
         SOFTNESS_FILE_PREFIX = file_prefix + "_" + loss_rate_string;
         base_dir = "/home/vharsh2/Flock/localization/c++/results/nsdi2022/softness/random_" + loss_rate_string + "_";
@@ -1004,9 +1051,34 @@ void SoftnessExperiments(string topology_filename, double min_start_time_ms,
     }
 
     file_prefix = "/home/vharsh2/Flock/ns3/topology/ft_k10_os3/logs/40G/softness/plog_nb_skewed";
+    loss_rate_strings = {"0.002", "0.004", "0.006", "0.01", "0.014", "0.018"};
     for (string& loss_rate_string: loss_rate_strings){
         SOFTNESS_FILE_PREFIX = file_prefix + "_" + loss_rate_string;
         base_dir = "/home/vharsh2/Flock/localization/c++/results/nsdi2022/softness/skewed_" + loss_rate_string + "_";
+        SweepParamsSchemes(schemes, topology_filename, base_dir, min_start_time_ms, max_finish_time_ms, nopenmp_threads);
+    }
+}
+
+void IrregularTopology(string topology_filename, double min_start_time_ms,
+                       double max_finish_time_ms, int nopenmp_threads){
+    CROSS_VALIDATION = true;
+    USE_DIFFERENT_TOPOLOGIES = true;
+    GetFilesTopologies = GetFilesRRG;
+
+    TRAINING_SET = true;
+    vector<string> schemes = {"bnet_int", "bnet_a2_p", "bnet_a2", "bnet_p", "nb_int", "007_a2"};
+    vector<int> nomit_links = {0, 3, 6, 9, 12};
+    //nomit_links = {0, 25, 50, 75, 100};
+    for (int nomit: nomit_links){
+        NLINKS_OMMITTED_IRREGULAR = nomit;
+        string base_dir = "/home/vharsh2/Flock/localization/c++/results/nsdi2022/irregular/train_" + to_string(NLINKS_OMMITTED_IRREGULAR) + "_";
+        //SweepParamsSchemes(schemes, topology_filename, base_dir, min_start_time_ms, max_finish_time_ms, nopenmp_threads);
+    }
+
+    TRAINING_SET = false;
+    for (int nomit: nomit_links){
+        NLINKS_OMMITTED_IRREGULAR = nomit;
+        string base_dir = "/home/vharsh2/Flock/localization/c++/results/nsdi2022/irregular/test_" + to_string(NLINKS_OMMITTED_IRREGULAR) + "_";
         SweepParamsSchemes(schemes, topology_filename, base_dir, min_start_time_ms, max_finish_time_ms, nopenmp_threads);
     }
 }
@@ -1022,19 +1094,20 @@ int main(int argc, char *argv[]){
     cout << "Using " << nopenmp_threads << " openmp threads"<<endl;
     cout << "sizeof(Flow) " << sizeof(Flow) << " bytes" << endl;
     cout << "Analysis from time(ms) " << min_start_time_ms  << " --> " << max_finish_time_ms << endl;
-    /*
-    GetFiles = GetFilesSoftnessAll;
-    INPUT_FLOW_TYPE = PROBLEMATIC_FLOWS; TRACEROUTE_BAD_FLOWS = true; PATH_KNOWN = false;
-    SweepParams007(topology_filename, min_start_time_ms, max_finish_time_ms, nopenmp_threads);
-    */
-    //GetPrecisionRecallTrendSherlock(topology_filename, min_start_time_ms, 
-                                    //max_finish_time_ms, step_ms, nopenmp_threads);
+    GetFiles = GetFilesMixed;
+    INPUT_FLOW_TYPE = APPLICATION_FLOWS; TRACEROUTE_BAD_FLOWS = false; PATH_KNOWN = false;
+    GetPrecisionRecallTrendBayesianNet(topology_filename, min_start_time_ms, 
+                                       max_finish_time_ms, step_ms, nopenmp_threads);
+    //SweepParamsBayesianNet(topology_filename, min_start_time_ms, max_finish_time_ms, nopenmp_threads);
+    //SweepParams007(topology_filename, min_start_time_ms, max_finish_time_ms, nopenmp_threads);
     //SweepParamsNetBouncer(topology_filename, min_start_time_ms, max_finish_time_ms, nopenmp_threads);
     //TestbedCrossValidataion(topology_filename, min_start_time_ms, max_finish_time_ms, nopenmp_threads);
     //TestbedHybridCalibration(topology_filename, min_start_time_ms, max_finish_time_ms, nopenmp_threads);
     //SimulatorMixedTracesExperiments(topology_filename, min_start_time_ms, max_finish_time_ms, nopenmp_threads);
     //SoftnessExperiments(topology_filename, min_start_time_ms, max_finish_time_ms, nopenmp_threads);
-    SimulatorDeviceExperiments(topology_filename, min_start_time_ms, max_finish_time_ms, nopenmp_threads);
+    //SimulatorDeviceExperiments(topology_filename, min_start_time_ms, max_finish_time_ms, nopenmp_threads);
+    //IrregularTopology(topology_filename, min_start_time_ms, max_finish_time_ms, nopenmp_threads);
     //SimulatorMisconfiguredAcl(topology_filename, min_start_time_ms, max_finish_time_ms, nopenmp_threads);
+    //SimulatorMisconfiguredAclIrreg(topology_filename, min_start_time_ms, max_finish_time_ms, nopenmp_threads);
     return 0;
 }

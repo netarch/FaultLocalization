@@ -146,12 +146,13 @@ int main(int argc, char *argv[]){
     char dataRate [] = "40Gbps"; //"1Gbps"; //"10Gbps";
     uint64_t delay_us = 2.5; //microseconds
 
-    topology.ChooseFailedDevice(nfails, fail_param);
+    //topology.ChooseFailedDevice(nfails, fail_param);
     double silent_drop_rate = 0;
 
     // Fail some links, by setting loss rates
-    //double silent_drop_rate = fail_param;
-    //topology.ChooseFailedLinks(nfails);
+    double silent_drop_rate = fail_param;
+    bool network_links_only = true;
+    topology.ChooseFailedLinks(nfails, network_links_only);
 
     cout << "Total number of hosts =  "<< topology.total_host<<"\n";
 

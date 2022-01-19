@@ -19,10 +19,10 @@ void GetPrecisionRecallTrendFiles(string topology_file, double min_start_time_ms
 
 void GetPrecisionRecallParamsFile(string topology_file, string trace_file, double min_start_time_ms,
                                 double max_finish_time_ms, vector<vector<double> > &params,
-                                Estimator* base_estimator, vector<PDD> &result,
+                                Estimator* estimator, vector<PDD> &result,
                                 int nopenmp_threads);
 
 void GetPrecisionRecallParamsFiles(string topology_file, double min_start_time_ms, double max_finish_time_ms, 
                                   vector<vector<double> > &params, vector<PDD> &result,
-                                  Estimator* estimator, int nopenmp_threads);
+                                  Estimator* base_estimator, int nopenmp_threads);
 #endif

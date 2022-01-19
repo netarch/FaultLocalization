@@ -94,13 +94,12 @@ void GetPrecisionRecallTrendFiles(string topology_file, double min_start_time_ms
 
 void GetPrecisionRecallParamsFile(string topology_file, string trace_file, double min_start_time_ms,
                                 double max_finish_time_ms, vector<vector<double> > &params,
-                                Estimator* base_estimator, vector<PDD> &result,
+                                Estimator* estimator, vector<PDD> &result,
                                 int nopenmp_threads){
     assert (result.size() == 0);
     LogData *data = new LogData();
     GetDataFromLogFileParallel(trace_file, topology_file, data, nopenmp_threads);
-
-    Estimator* estimator = base_estimator->CreateObject();
+    data->FilterFlowsBeforeTime(max_finish_time_ms, nopenmp_threads);
 
     const bool REDUCED_ANALYSIS  = false;
     if constexpr (REDUCED_ANALYSIS) {
@@ -136,7 +135,7 @@ void GetPrecisionRecallParamsFile(string topology_file, string trace_file, doubl
 
 void GetPrecisionRecallParamsFiles(string topology_file, double min_start_time_ms, double max_finish_time_ms, 
                                   vector<vector<double> > &params, vector<PDD> &result,
-                                  Estimator* estimator, int nopenmp_threads){
+                                  Estimator* base_estimator, int nopenmp_threads){
     vector<string> topologies, trace_files;
     if (!USE_DIFFERENT_TOPOLOGIES) trace_files = GetFiles();
     else{
@@ -159,6 +158,9 @@ void GetPrecisionRecallParamsFiles(string topology_file, double min_start_time_m
         string topology_file_thread = topology_file;
         if (USE_DIFFERENT_TOPOLOGIES) topology_file_thread = topologies[ff];
         vector<PDD> intermediate_result;
+        lock.lock();
+        Estimator* estimator = base_estimator->CreateObject();
+        lock.unlock();
         GetPrecisionRecallParamsFile(topology_file_thread, trace_file, min_start_time_ms, max_finish_time_ms, params,
                                     estimator, intermediate_result, nthreads2);
         assert(intermediate_result.size() == result.size()); 

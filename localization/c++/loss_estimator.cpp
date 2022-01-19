@@ -30,17 +30,23 @@ int main(int argc, char *argv[]){
     //NetBouncer estimator; vector<double> params = {0.51, 0.0205, 0.41}; //INT
     //NetBouncer estimator; vector<double> params = {0.31, 0.005, 0.125}; //misconfigured_acl
     //Sherlock estimator; vector<double> params = {1.0-3.0e-3, 2.0e-4, -20.0};
-    BayesianNet estimator; vector<double> params = {1.0-0.002, 0.00045, -10.0}; //INT / A1+A2+P
+    //BayesianNet estimator; vector<double> params = {1.0-0.002, 0.00045, -10.0}; //INT / A1+A2+P
+
     //BayesianNet estimator; vector<double> params = {1.0-5.0e-3, 1.5e-4, -10.0}; //A1
     //BayesianNet estimator; vector<double> params = {1.0-7e-3, 4.5e-4, -30.0}; //conditional
-    //BayesianNet estimator; vector<double> params = {1.0-0.004, 0.0001, -15.0}; 
+    PATH_KNOWN = false;
+    TRACEROUTE_BAD_FLOWS = false;
+    INPUT_FLOW_TYPE = ALL_FLOWS;
+    //Sherlock estimator; vector<double> params = {1.0-0.004, 0.0001, -15.0}; 
+    BayesianNet estimator; vector<double> params = {1.0-0.01, 0.0008, -100.0}; 
     //MISCONFIGURED_ACL = true;
-    //BayesianNet estimator; vector<double> params = {1.0-0.0025, 0.00185, 0.0}; //misconfigured_acl, conditional
+    //BayesianNet estimator; vector<double> params = {1.0-0.02, 0.00002, -50.0}; //misconfigured_acl, conditional
     //vector<double> params = {1.0-1.0e-3, 1.0e-4, -20.0};
     estimator.SetParams(params);
 
     // should go after declaring estimator
     GetDataFromLogFileParallel(trace_file, topology_file, &data, nopenmp_threads);
+    //cout << "Num flows "<< data.flows.size() << endl;
     Hypothesis failed_links_set;
     data.GetFailedLinkIds(failed_links_set);
     estimator.SetLogData(&data, max_finish_time_ms, nopenmp_threads);

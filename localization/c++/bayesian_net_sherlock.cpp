@@ -22,6 +22,7 @@ Sherlock* Sherlock::CreateObject(){
     return ret;
 }
 
+int num_hypothesis_finished = 0;
 void Sherlock::ExploreTopNode(double min_start_time_ms, double max_finish_time_ms,
                               unordered_map<Hypothesis*, double> &all_hypothesis, int nopenmp_threads, stack<PHS> &hstack){
         auto[base_hypothesis, base_scores] = hstack.top();
@@ -44,7 +45,7 @@ void Sherlock::ExploreTopNode(double min_start_time_ms, double max_finish_time_m
                 all_hypothesis[new_hypothesis] = new_likelihood;
                 hstack.push(PHS(new_hypothesis, new_scores));
                 ExploreTopNode(min_start_time_ms, max_finish_time_ms, all_hypothesis, nopenmp_threads, hstack);
-                if (link_id % 5000 == 0) cout << "pushing to stack " << *new_hypothesis << endl;
+                if (++num_hypothesis_finished % 5000 == 0) cout << "Finished " << num_hypothesis_finished << " hypothesis in " << GetTimeSinceSeconds(timer_checkpoint) << " seconds " << endl;
             }
             //else cout << "new_hypothesis " << *new_hypothesis << " " << new_likelihood << " " << *base_hypothesis << " " << base_likelihood << endl;
         }
@@ -136,7 +137,7 @@ void Sherlock::SearchHypotheses(double min_start_time_ms, double max_finish_time
                 delete result[curr].second;
                 curr++;
             }
-            if (++ctr % 250 == 0)
+            if (++ctr % 5 == 0)
             cout << "Finished hypothesis search across "<<hypothesis_analyzed<<" Hypothesis for " << nfails
                  <<" failures in "<< GetTimeSinceSeconds(start_stage_time) << " seconds" << endl;
         }
@@ -181,7 +182,7 @@ void Sherlock::LocalizeFailures(double min_start_time_ms, double max_finish_time
 
     unordered_map<Hypothesis*, double> all_hypothesis;
     auto start_search_time = chrono::high_resolution_clock::now();
-    SearchHypothesesFlock(min_start_time_ms, max_finish_time_ms, all_hypothesis, nopenmp_threads);
+    SearchHypotheses(min_start_time_ms, max_finish_time_ms, all_hypothesis, nopenmp_threads);
     vector<pair<double, Hypothesis*> > likelihood_hypothesis;
     for (auto& it: all_hypothesis){
         likelihood_hypothesis.push_back(make_pair(it.second, it.first));

@@ -182,18 +182,20 @@ void Topology::ChooseFailedDevice(int nfails, double frac_links_failed){
     }
 }
 
-void Topology::ChooseFailedLinks(int nfails){
+void Topology::ChooseFailedLinks(int nfails, bool network_links_only){
     vector<pair<int, int> > edges_list;
     for(int s=0; s<network_links.size(); s++){
         for(int ind=0; ind<network_links[s].size(); ind++){
             edges_list.push_back(pair<int, int>(s, network_links[s][ind]));
         }
     }
-    for(int t=0; t<num_tor; t++){ 
-        for(int h=0; h<hosts_in_tor[t].size(); h++){
-            int host = hosts_in_tor[t][h];
-            edges_list.push_back(pair<int, int>(t, host));
-            edges_list.push_back(pair<int, int>(host, t));
+    if (!network_links_only){
+        for(int t=0; t<num_tor; t++){ 
+            for(int h=0; h<hosts_in_tor[t].size(); h++){
+                int host = hosts_in_tor[t][h];
+                edges_list.push_back(pair<int, int>(t, host));
+                edges_list.push_back(pair<int, int>(host, t));
+            }
         }
     }
     failed_links.clear();

@@ -6,7 +6,7 @@ INCLUDE = -Isparsehash/include
 
 ESTIMATOR_OBJS = bayesian_net.o bayesian_net_continuous.o doubleO7.o score.o net_bouncer.o bayesian_net_sherlock.o
 
-ESTIMATOR_MAINS = black_hole_estimator loss_estimator misconfigured_acl
+ESTIMATOR_MAINS = black_hole_estimator loss_estimator misconfigured_acl equivalence_class
 
 OBJS = flow.o logdata.o utils.o $(ESTIMATOR_OBJS)
 

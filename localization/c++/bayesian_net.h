@@ -12,7 +12,7 @@ class BayesianNet : public Estimator{
     const bool PRINT_SCORES = true;
     const int MAX_FAILS = 20;
     const int NUM_CANDIDATES = max(15, 5 * MAX_FAILS);
-    const int NUM_TOP_HYPOTHESIS_AT_EACH_STAGE = 4;
+    const int NUM_TOP_HYPOTHESIS_AT_EACH_STAGE = 10; //4;
     // For printing purposes
     const int N_MAX_K_LIKELIHOODS = 20;
     double PRIOR = -1000.0;

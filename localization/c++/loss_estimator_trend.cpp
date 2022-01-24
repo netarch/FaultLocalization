@@ -389,7 +389,7 @@ pair<vector<string>, vector<string> > GetFilesRRG(){
     vector<AI3> ignore_files = {};
     vector<string> files, topologies;
     //for(int s: vector<int>({1,7})){ // {1-2}
-    for(int s: vector<int>({1,2,3,4,5,6,7})){ // {1-2}
+    for(int s: vector<int>({1,2,3,4,5,6,7,8})){ // {1-2}
         for(int f=1; f<=4; f++){ //{1-8}
             if (CROSS_VALIDATION and (s+TRAINING_SET)%2==0) continue;
             if(find(ignore_files.begin(), ignore_files.end(),  AI3({NLINKS_OMMITTED_IRREGULAR, f, s})) == ignore_files.end()){
@@ -655,7 +655,7 @@ vector<tuple<ParamType, PDD> > SweepParamsBayesianNet(string topology_filename,
                                             double min_start_time_ms, double max_finish_time_ms,
                                             int nopenmp_threads){
     vector<ParamType> params = GetBayesianNetParams();
-    params = {{1.0 - 1.0e-2, 8e-4, -100}};
+    //params = {{1.0 - 1.0e-2, 8e-4, -100}};
 
     // for softness experiments/device
     /*
@@ -1059,15 +1059,22 @@ void SoftnessExperiments(string topology_filename, double min_start_time_ms,
     }
 }
 
+
+int GetOmitLinksFromTopologyFilename(string topology_filename){
+    return stoi(topology_filename);
+}
+
 void IrregularTopology(string topology_filename, double min_start_time_ms,
                        double max_finish_time_ms, int nopenmp_threads){
-    CROSS_VALIDATION = true;
+    CROSS_VALIDATION = false; //true;
     USE_DIFFERENT_TOPOLOGIES = true;
     GetFilesTopologies = GetFilesRRG;
 
     TRAINING_SET = true;
-    vector<string> schemes = {"bnet_int", "bnet_a2_p", "bnet_a2", "bnet_p", "nb_int", "007_a2"};
-    vector<int> nomit_links = {0, 3, 6, 9, 12};
+    vector<string> schemes = {"bnet_p"}; //{"bnet_int", "bnet_a2_p", "bnet_a2", "bnet_p", "nb_int", "007_a2"};
+    //vector<int> nomit_links = {10}; //{0, 3, 6, 9, 12};
+    vector<int> nomit_links = {GetOmitLinksFromTopologyFilename(topology_filename)};
+    cout << "nomit_links: " << nomit_links << endl;
     //nomit_links = {0, 25, 50, 75, 100};
     for (int nomit: nomit_links){
         NLINKS_OMMITTED_IRREGULAR = nomit;
@@ -1078,7 +1085,8 @@ void IrregularTopology(string topology_filename, double min_start_time_ms,
     TRAINING_SET = false;
     for (int nomit: nomit_links){
         NLINKS_OMMITTED_IRREGULAR = nomit;
-        string base_dir = "/home/vharsh2/Flock/localization/c++/results/nsdi2022/irregular/test_" + to_string(NLINKS_OMMITTED_IRREGULAR) + "_";
+        //string base_dir = "/home/vharsh2/Flock/localization/c++/results/nsdi2022/irregular/test_" + to_string(NLINKS_OMMITTED_IRREGULAR) + "_";
+        string base_dir = "/home/vharsh2/Flock/localization/c++/results/asymmetric_clos/test_" + to_string(NLINKS_OMMITTED_IRREGULAR) + "_";
         SweepParamsSchemes(schemes, topology_filename, base_dir, min_start_time_ms, max_finish_time_ms, nopenmp_threads);
     }
 }
@@ -1096,8 +1104,8 @@ int main(int argc, char *argv[]){
     cout << "Analysis from time(ms) " << min_start_time_ms  << " --> " << max_finish_time_ms << endl;
     GetFiles = GetFilesMixed;
     INPUT_FLOW_TYPE = APPLICATION_FLOWS; TRACEROUTE_BAD_FLOWS = false; PATH_KNOWN = false;
-    GetPrecisionRecallTrendBayesianNet(topology_filename, min_start_time_ms, 
-                                       max_finish_time_ms, step_ms, nopenmp_threads);
+    //GetPrecisionRecallTrendBayesianNet(topology_filename, min_start_time_ms, 
+    //                                   max_finish_time_ms, step_ms, nopenmp_threads);
     //SweepParamsBayesianNet(topology_filename, min_start_time_ms, max_finish_time_ms, nopenmp_threads);
     //SweepParams007(topology_filename, min_start_time_ms, max_finish_time_ms, nopenmp_threads);
     //SweepParamsNetBouncer(topology_filename, min_start_time_ms, max_finish_time_ms, nopenmp_threads);
@@ -1106,7 +1114,7 @@ int main(int argc, char *argv[]){
     //SimulatorMixedTracesExperiments(topology_filename, min_start_time_ms, max_finish_time_ms, nopenmp_threads);
     //SoftnessExperiments(topology_filename, min_start_time_ms, max_finish_time_ms, nopenmp_threads);
     //SimulatorDeviceExperiments(topology_filename, min_start_time_ms, max_finish_time_ms, nopenmp_threads);
-    //IrregularTopology(topology_filename, min_start_time_ms, max_finish_time_ms, nopenmp_threads);
+    IrregularTopology(topology_filename, min_start_time_ms, max_finish_time_ms, nopenmp_threads);
     //SimulatorMisconfiguredAcl(topology_filename, min_start_time_ms, max_finish_time_ms, nopenmp_threads);
     //SimulatorMisconfiguredAclIrreg(topology_filename, min_start_time_ms, max_finish_time_ms, nopenmp_threads);
     return 0;

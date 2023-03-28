@@ -1,7 +1,7 @@
 import sys
 from heapq import heappush, heappop
 from multiprocessing import Process, Queue
-import pyximport; pyximport.install()
+#import pyximport; pyximport.install()
 import math
 import time
 import random
@@ -72,6 +72,9 @@ def process_logfile(filename, min_start_time_ms, max_start_time_ms, outfilename)
             elif "hop_taken" in line:
                 srcip = tokens[1]
                 destip = tokens[2]
+                if not tokens[3].isnumeric() or not tokens[4].isnumeric():
+                    print(tokens)
+                    continue
                 srcport = int(tokens[3])
                 destport = int(tokens[4])
                 if srcport > 1000000 or destport > 10000000 or "102.102.102.102" in srcip or "102.102.102.102" in destip:

@@ -402,8 +402,8 @@ double Topology::GetDropRateLinkUniform(double min_drop_rate, double max_drop_ra
 
 double Topology::GetDropRateFailedLink(){
     //if (drand48() <= 0.5){
-        double min_drop_rate_failed_link = 0.001;
-        double max_drop_rate_failed_link = 0.01;
+        double min_drop_rate_failed_link = 0.0025;
+        double max_drop_rate_failed_link = 0.0250;
        return GetDropRateLinkUniform(min_drop_rate_failed_link, max_drop_rate_failed_link);
     //}
     //else{

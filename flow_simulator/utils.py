@@ -434,6 +434,7 @@ class Topology(object):
             flows = self.GetFlowsUniform(nflows)
         else:
             flows = self.ReadFlowsFromFile(flows_file)
+            nflows = len(flows)
         all_sw_pair_paths = self.GetAllSwitchPairPaths2()
         self.PrintPaths(all_sw_pair_paths)     
         packetsize = 1500 #bytes

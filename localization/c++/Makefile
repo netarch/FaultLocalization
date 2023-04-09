@@ -1,14 +1,14 @@
 CC = g++
-CFLAGS = -std=c++17 -O3 -fopenmp -ffast-math -w -Wall -Wno-deprecated -Wno-unused-variable
-#CFLAGS = -g -std=c++17 -fopenmp -ffast-math -w -Wall -Wno-deprecated -Wno-unused-variable
+#CFLAGS = -std=c++17 -O3 -fopenmp -ffast-math -w -Wall -Wno-deprecated -Wno-unused-variable
+CFLAGS = -g -std=c++17 -fopenmp -ffast-math -w -Wall -Wno-deprecated -Wno-unused-variable
 LIBDIR = -Lsparsehash/libs
 INCLUDE = -Isparsehash/include
 
 ESTIMATOR_OBJS = bayesian_net.o bayesian_net_continuous.o doubleO7.o score.o net_bouncer.o bayesian_net_sherlock.o
 
-ESTIMATOR_MAINS = black_hole_estimator loss_estimator misconfigured_acl equivalence_class
+ESTIMATOR_MAINS = black_hole_estimator black_hole_estimator_agg loss_estimator misconfigured_acl equivalence_class
 
-OBJS = flow.o logdata.o utils.o $(ESTIMATOR_OBJS)
+OBJS = flow.o logdata.o utils.o black_hole_utils.o $(ESTIMATOR_OBJS)
 
 all: $(ESTIMATOR_MAINS) loss_estimator_trend reduced_estimator
 
@@ -39,7 +39,10 @@ common_testing_system.o: common_testing_system.cpp common_testing_system.h utils
 reduced_utils.o: reduced_utils.cpp reduced_utils.h bayesian_net.h flow.h defs.h utils.h utils.cpp
 	$(CC) $(INCLUDE) $(CFLAGS) -c reduced_utils.cpp
 
-$(ESTIMATOR_OBJS): %.o: %.cpp %.h estimator.h flow.h utils.h logdata.h defs.h utils.h utils.cpp
+black_hole_utils.o: black_hole_utils.cpp black_hole_utils.h flow.h defs.h utils.h utils.cpp
+	$(CC) $(INCLUDE) $(CFLAGS) -c black_hole_utils.cpp
+
+$(ESTIMATOR_OBJS): %.o: %.cpp %.h estimator.h flow.h utils.h logdata.h defs.h utils.h utils.cpp black_hole_utils.h black_hole_utils.cpp
 	$(CC) $(INCLUDE) $(CFLAGS) -c $< $(LIBDIR) -o $@ 
 
 clean:	

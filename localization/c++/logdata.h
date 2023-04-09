@@ -81,6 +81,7 @@ class LogData {
 
     void GetRacksList(vector<int> &result);
     set<Link> IdsToLinks(Hypothesis &h);
+    int GetReverseLinkId(int link_id);
 
     int GetMaxDevicePlus1();
 

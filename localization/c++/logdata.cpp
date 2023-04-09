@@ -774,6 +774,13 @@ int LogData::NumLinksOfDevice(int device) {
     return num_links;
 }
 
+int LogData::GetReverseLinkId(int link_id){
+    Link link = inverse_links[link_id];
+    Link rlink = Link(link.second, link.first);
+    int rlink_id = links_to_ids[rlink];
+    return rlink_id;
+}
+
 int GetReducedLinkId(int link_id, unordered_map<Link, Link> &reduced_graph_map,
                      LogData &data, LogData &reduced_data) {
     Link l = data.inverse_links[link_id];

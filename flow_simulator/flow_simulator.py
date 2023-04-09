@@ -7,15 +7,27 @@ import random
 import math
 import numpy as np
 import networkx as nx
+import argparse
 from utils import *
 
-nargs = 4
-if not len(sys.argv) == nargs + 1:
-    print("Required number of arguments:", nargs, ".", len(sys.argv) - 1, "provided")
-    print("Arguments: <network_file> <nfailures> <flowsfile> <outfile> ")
-    sys.exit()
+parser = argparse.ArgumentParser()
+
+parser.add_argument('--network_file', type=str, required=True)
+parser.add_argument('--nfailures', type=int, default=0)
+parser.add_argument('--flows_file', type=str, required=True)
+parser.add_argument('--outfile', type=str, required=True)
+parser.add_argument('--fail_file', type=str)
+parser.add_argument('--fails_from_file', action='store_true', default=False)
+parser.add_argument('--failed_flows_only', action='store_true', default=False)
+
+args = parser.parse_args()
+
 
 HOST_OFFSET = 10000
+BLACK_HOLE = True
+
+#random.seed(42)
+#np.random.seed(42)
 
 print("Random witness", random.randint(1, 100000))
 
@@ -23,19 +35,20 @@ print("Random witness", random.randint(1, 100000))
 # tuple2 = (1573, 1029, 10390, 10650)
 # print(TupleHash(tuple1), TupleHash(tuple1)%25, TupleHash(tuple2), TupleHash(tuple2)%25)
 
-network_file = sys.argv[1]
-nfailures = int(sys.argv[2])
-flows_file = sys.argv[3]
-outfile = sys.argv[4]
-fail_file = outfile + ".fails"
+if args.fail_file is None:
+    args.fail_file = args.outfile + ".fails"
 
 topo = Topology()
-topo.ReadGraphFromFile(network_file)
-outfile = open(outfile, "w+")
+topo.ReadGraphFromFile(args.network_file)
+
+outfile = open(args.outfile, "w+")
 topo.SetOutFile(outfile)
-fail_file = open(fail_file, "w+")
-nflows, sumflowsize = topo.PrintLogsBlackHole(nfailures, fail_file)
-# nflows, sumflowsize = topo.PrintLogsMisconfiguredACL(nfailures, fail_file, flows_file)
-# nflows, sumflowsize = topo.PrintLogsSilentDrop(nfailures, flows_file)
+nflows = None
+sumflowsize = None
+if BLACK_HOLE:
+    nflows, sumflowsize = topo.PrintLogsBlackHole(args)
+else:
+    # nflows, sumflowsize = topo.PrintLogsMisconfiguredACL(args.nfailures, args.fail_file, args.flows_file)
+    nflows, sumflowsize = topo.PrintLogsSilentDrop(args.nfailures, args.flows_file)
 
 print("Sum flow size: ", sumflowsize, "Numflows", nflows)

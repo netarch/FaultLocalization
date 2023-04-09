@@ -94,10 +94,10 @@ void SetInputForReduced(BayesianNet &estimator, LogData *data,
 }
 
 //! TODO: take a vector of (start_time_ms, end_time_ms, remove_link)
-void RemoveLinksPassiveOnly(BayesianNet &estimator, LogData *data,
-                            double start_time_ms, double end_time_ms,
-                            double max_finish_time_ms, int remove_link_id,
-                            int nopenmp_threads) {
+LogData* RemoveLinksPassiveOnly(BayesianNet &estimator, LogData *data,
+                                double start_time_ms, double end_time_ms,
+                                double max_finish_time_ms, int remove_link_id,
+                                int nopenmp_threads) {
 
     LogData *data_after_remove = new LogData();
     data_after_remove->failed_links = data->failed_links;
@@ -127,4 +127,5 @@ void RemoveLinksPassiveOnly(BayesianNet &estimator, LogData *data,
         assert(mpaths_new->paths.size() > 0);
         data_after_remove->memoized_paths[src_dst] = mpaths_new;
     }
+    return data_after_remove;
 }

@@ -22,6 +22,7 @@ void SetInputForReduced(BayesianNet &estimator, LogData *data,
                         LogData *reduced_data, string reduced_map_file,
                         double max_finish_time_ms, int nopenmp_threads);
 
-void RemoveLinksForReduced(BayesianNet &estimator, LogData *data,
-                           LogData *reduced_data, string topology_file,
-                           double max_finish_time_ms, int nopenmp_threads);
+LogData* RemoveLinksPassiveOnly(BayesianNet &estimator, LogData *data,
+                                double start_time_ms, double end_time_ms,
+                                double max_finish_time_ms, int remove_link_id,
+                                int nopenmp_threads);

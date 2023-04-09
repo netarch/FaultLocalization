@@ -70,7 +70,7 @@ struct MemoizedPaths {
         if (ret == NULL) {
             ret = new Path(vi_path);
             paths.push_back(ret);
-            // cout << "Path not found " << vi_path << endl;
+            cout << "Path not found " << vi_path << endl;
             assert(vi_path.size() == 0);
         }
         if constexpr (PARALLEL_IO)

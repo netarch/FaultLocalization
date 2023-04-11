@@ -18,7 +18,7 @@ extern bool FLOW_DELAY;
 
 vector<string> GetFilesLinkFlap() {
     string file_prefix =
-        "/home/vharsh2/Flock/hw_traces/link_flap_traces/plog_skewed";
+        "../../hw_traces/link_flap_traces/plog_skewed";
     vector<PII> ignore_files = {};
     vector<string> files;
     for (int f = 0; f <= 1; f++) {
@@ -36,7 +36,7 @@ vector<string> GetFilesLinkFlap() {
         }
     }
     ignore_files = {};
-    file_prefix = "/home/vharsh2/Flock/hw_traces/link_flap_traces/plog_random";
+    file_prefix = "../../hw_traces/link_flap_traces/plog_random";
     for (int f = 0; f <= 1; f++) {
         for (int s = 0; s < 25; s++) {
             if (CROSS_VALIDATION and (s + (int)TRAINING_SET) % 2 == 0)
@@ -154,13 +154,13 @@ vector<string> GetFilesPacketCorruption() {
 
 vector<string> GetFilesWred() {
     // string file_prefix =
-    // "/home/vharsh2/Flock/ns3/topology/hw_ls_6_2/optical_fault/plog_testbed";
+    // "../../ns3/topology/hw_ls_6_2/optical_fault/plog_testbed";
     // string file_prefix = "collector/logs/ls_6_2_minus_h39/t30s/plog_testbed";
     // string file_prefix = "collector/logs/ls_6_2/hw_logs/plog_testbed";
     vector<PII> ignore_files = {{1, 6}};
     vector<string> files;
     string file_prefix =
-        "/home/vharsh2/Flock/hw_traces/wred_traces/plog_skewed";
+        "../../hw_traces/wred_traces/plog_skewed";
     for (int f = 0; f <= 2; f++) {
         // for (int f: vector<int>({8})){ // {1-8}
         // for(int s: vector<int>({1,2,3,4,5,6,7,8})){ // {1-2}
@@ -177,7 +177,7 @@ vector<string> GetFilesWred() {
         }
     }
     ignore_files = {};
-    file_prefix = "/home/vharsh2/Flock/hw_traces/wred_traces/plog_random";
+    file_prefix = "../../hw_traces/wred_traces/plog_random";
     for (int f = 0; f <= 2; f++) {
         int smin = (f == 0 and !CROSS_VALIDATION ? 14 : 0);
         for (int s = smin; s < 30; s++) {
@@ -195,9 +195,9 @@ vector<string> GetFilesWred() {
 }
 
 pair<vector<string>, vector<string>> GetFilesHwCalibrationWred() {
-    string file_prefix = "/home/vharsh2/Flock/ns3/topology/hw_ls_6_2/"
+    string file_prefix = "../../ns3/topology/hw_ls_6_2/"
                          "calibration/wred_logs/plog_nb";
-    string topology = "/home/vharsh2/Flock/ns3/topology/hw_ls_6_2/calibration/"
+    string topology = "../../ns3/topology/hw_ls_6_2/calibration/"
                       "ns3ls_x6_y2_i1.edgelist";
     vector<PII> ignore_files = {};
     vector<string> files, topologies;
@@ -214,9 +214,9 @@ pair<vector<string>, vector<string>> GetFilesHwCalibrationWred() {
             }
         }
     }
-    topology = "/home/vharsh2/Flock/hw_traces/wred_traces/ls_6_2.edgelist";
+    topology = "../../hw_traces/wred_traces/ls_6_2.edgelist";
     ignore_files = {{1, 6}};
-    file_prefix = "/home/vharsh2/Flock/hw_traces/wred_traces/plog_skewed";
+    file_prefix = "../../hw_traces/wred_traces/plog_skewed";
     for (int f = 0; f <= 0; f++) {
         for (int s = 0; s < 14; s++) {
             if (find(ignore_files.begin(), ignore_files.end(), PII(f, s)) ==
@@ -229,7 +229,7 @@ pair<vector<string>, vector<string>> GetFilesHwCalibrationWred() {
         }
     }
     ignore_files = {};
-    file_prefix = "/home/vharsh2/Flock/hw_traces/wred_traces/plog_random";
+    file_prefix = "../../hw_traces/wred_traces/plog_random";
     for (int f = 0; f <= 0; f++) {
         for (int s = 0; s < 14; s++) {
             if (find(ignore_files.begin(), ignore_files.end(), PII(f, s)) ==
@@ -245,9 +245,9 @@ pair<vector<string>, vector<string>> GetFilesHwCalibrationWred() {
 }
 
 pair<vector<string>, vector<string>> GetFilesHwCalibrationPacor() {
-    string file_prefix = "/home/vharsh2/Flock/ns3/topology/hw_ls_6_2/"
+    string file_prefix = "../../ns3/topology/hw_ls_6_2/"
                          "calibration/packet_corruption_logs/t60/plog_nb";
-    string topology = "/home/vharsh2/Flock/ns3/topology/hw_ls_6_2/calibration/"
+    string topology = "../../ns3/topology/hw_ls_6_2/calibration/"
                       "ns3ls_x6_y2_i1.edgelist";
     vector<PII> ignore_files = {};
     vector<string> files, topologies;
@@ -299,8 +299,8 @@ vector<string> GetFilesHwCalibration() {
     // string file_prefix =
     // "/home/vharsh2/flock/ns3/topology/hw_ls_6_2/optical_fault/plog_testbed";
     // string file_prefix =
-    // "/home/vharsh2/Flock/ns3/topology/hw_ls_6_2/calibration/wred_logs/plog_nb";
-    string file_prefix = "/home/vharsh2/Flock/ns3/topology/hw_ls_6_2/"
+    // "../../ns3/topology/hw_ls_6_2/calibration/wred_logs/plog_nb";
+    string file_prefix = "../../ns3/topology/hw_ls_6_2/"
                          "calibration/packet_corruption_logs/t60/plog_nb";
     vector<PII> ignore_files = {};
     vector<string> files;
@@ -323,7 +323,7 @@ vector<string> GetFilesHwCalibration() {
 vector<string> GetFilesHw() {
     // string file_prefix =
     // "/home/vharsh2/flock/ns3/topology/hw_ls_6_2/optical_fault/plog_testbed";
-    string file_prefix = "/home/vharsh2/Flock/hw_traces/wred/plog";
+    string file_prefix = "../../hw_traces/wred/plog";
     vector<PII> ignore_files = {};
     vector<string> files;
     for (int f = 0; f <= 2; f++) {
@@ -344,7 +344,7 @@ vector<string> GetFilesHw() {
 
 vector<string> GetFilesDevice40G() {
     string file_dir =
-        "/home/vharsh2/Flock/ns3/topology/ft_k10_os3/logs/40G/device";
+        "../../ns3/topology/ft_k10_os3/logs/40G/device";
     vector<PII> ignore_files = {};
     vector<string> files;
     for (string frac : vector<string>({"0.25", "0.5", "0.75", "1"})) {
@@ -369,8 +369,8 @@ vector<string> GetFilesDevice40G() {
 
 pair<vector<string>, vector<string>> GetFilesMisconfiguredAclIrreg() {
     string file_prefix =
-        "/home/vharsh2/Flock/flow_simulator/logs/irreg/plog_macl";
-    string topo_prefix = "/home/vharsh2/Flock/flow_simulator/logs/irreg/"
+        "../../flow_simulator/logs/irreg/plog_macl";
+    string topo_prefix = "../../flow_simulator/logs/irreg/"
                          "topologies/ns3ft_o100_deg10_sw125_svr250_os3";
     vector<PII> ignore_files = {};
     vector<string> files, topologies;
@@ -394,7 +394,7 @@ pair<vector<string>, vector<string>> GetFilesMisconfiguredAclIrreg() {
 
 vector<string> GetFilesMisconfiguredAcl() {
     string file_prefix =
-        "/home/vharsh2/Flock/flow_simulator/logs/macl/plog_macl";
+        "../../flow_simulator/logs/macl/plog_macl";
     vector<PII> ignore_files = {};
     vector<string> files;
     for (int f = 1; f <= 2; f++) {
@@ -416,7 +416,7 @@ vector<string> GetFilesMisconfiguredAcl() {
 vector<string> GetFilesMixed40G() {
     assert(CROSS_VALIDATION);
     string file_prefix =
-        "/home/vharsh2/Flock/ns3/topology/ft_k10_os3/logs/40G/plog_nb";
+        "../../ns3/topology/ft_k10_os3/logs/40G/plog_nb";
     vector<PII> ignore_files = {PII(8, 3)};
     vector<string> files;
     for (int f = 1; f <= 8; f++) {
@@ -438,7 +438,7 @@ vector<string> GetFilesMixed40G() {
 
 vector<string> GetFilesMixed() {
     // string file_prefix =
-    // "/home/vharsh2/Flock/ns3/topology/hw_ls_6_2/traffic_files/plog";
+    // "../../ns3/topology/hw_ls_6_2/traffic_files/plog";
     string file_prefix = "/home/vharsh2/ns-allinone-3.24.1/ns-3.24.1/ns3/"
                          "topology/ft_k10_os3/traffic_files_nb/plog_nb";
     // string file_prefix =
@@ -579,7 +579,7 @@ vector<string> GetFilesSoftnessAll() {
     vector<pair<string, int>> ignore_files;
     vector<string> files;
 
-    file_prefix = "/home/vharsh2/Flock/ns3/topology/ft_k10_os3/logs/40G/"
+    file_prefix = "../../ns3/topology/ft_k10_os3/logs/40G/"
                   "softness/plog_nb_random";
     loss_rate_strings = {"0.002", "0.004", "0.006", "0.01", "0.014", "0.018"};
     // loss_rate_strings = {"0.01"};
@@ -596,7 +596,7 @@ vector<string> GetFilesSoftnessAll() {
             }
         }
     }
-    file_prefix = "/home/vharsh2/Flock/ns3/topology/ft_k10_os3/logs/40G/"
+    file_prefix = "../../ns3/topology/ft_k10_os3/logs/40G/"
                   "softness/plog_nb_skewed";
     loss_rate_strings = {"0.002", "0.004", "0.006", "0.01", "0.014", "0.018"};
     ignore_files = {
@@ -809,23 +809,31 @@ vector<tuple<ParamType, PDD>> SweepParamsBayesianNet(string topology_filename,
                                                      double max_finish_time_ms,
                                                      int nopenmp_threads) {
     vector<ParamType> params = GetBayesianNetParams();
+    //params = {{1.0 - 3.0e-3, 2.0e-4, -100}};
     /*
     params = {};
     for (double nprior: {5, 10, 15, 20, 25, 35, 45, 50, 100, 200})
         params.push_back(vector<double> {0, 0, -nprior});
     //params = {{0, 0, -25}};
-    params = {{1.0 - 3.0e-3, 2.0e-4, -100}};
-
-    // for softness experiments/device
-    if (INPUT_FLOW_TYPE == ALL_FLOWS and PATH_KNOWN) params = {{1.0 - 0.003,
-    0.0002, -15.0}}; else if (INPUT_FLOW_TYPE == ALL_FLOWS and !PATH_KNOWN and
-    TRACEROUTE_BAD_FLOWS) params = {{1.0 - 0.002, 0.0003, -15.0}}; else if
-    (INPUT_FLOW_TYPE == ALL_FLOWS and !PATH_KNOWN and !TRACEROUTE_BAD_FLOWS)
-    params = {{1.0 - 0.006, 0.0003, -5.0}}; else if (INPUT_FLOW_TYPE ==
-    ACTIVE_FLOWS) params = {{1.0 - 0.0005, 0.000175, -4.0}}; else if
-    (INPUT_FLOW_TYPE == PROBLEMATIC_FLOWS and !PATH_KNOWN) params = {{1.0 -
-    0.007, 0.0003, -35.0}}; else assert(false);
     */
+
+    // for softness experiments/device (parameters chosen)
+    if (INPUT_FLOW_TYPE == ALL_FLOWS and PATH_KNOWN)
+        params = {{1.0 - 0.003, 0.0002, -15.0}};
+    else if (INPUT_FLOW_TYPE == ALL_FLOWS and !PATH_KNOWN and
+    TRACEROUTE_BAD_FLOWS)
+        params = {{1.0 - 0.002, 0.0003, -15.0}};
+    else if (INPUT_FLOW_TYPE == ALL_FLOWS and !PATH_KNOWN and !TRACEROUTE_BAD_FLOWS)
+        params = {{1.0 - 0.006, 0.0003, -5.0}};
+    else if (INPUT_FLOW_TYPE == ACTIVE_FLOWS)
+        params = {{1.0 - 0.0005, 0.000175, -4.0}};
+    else if (INPUT_FLOW_TYPE == PROBLEMATIC_FLOWS and !PATH_KNOWN)
+        params = {{1.0 - 0.007, 0.0003, -35.0}};
+    else if (INPUT_FLOW_TYPE == APPLICATION_FLOWS and !PATH_KNOWN and TRACEROUTE_BAD_FLOWS)
+        params = {{1.0 - 0.002, 0.0003, -15.0}};
+    else{
+        assert(false);
+    }
 
     vector<PDD> result;
     BayesianNet estimator;
@@ -879,7 +887,9 @@ vector<tuple<ParamType, PDD>> SweepParams007(string topology_filename,
     }
 
     // params = {{0.0083}}; //skewed
-    // params = {{0.0023}}; // random
+    params = {{0.0023}}; // random
+
+    if (DEVICE_ANALYSIS_007) params = {{0.0145}};
 
     vector<PDD> result;
     DoubleO7 estimator;
@@ -931,7 +941,11 @@ vector<ParamType> GetParamsNetBouncer() {
             }
         }
     } else {
-        params.push_back(vector<double>{0.001, 0.001, 0.075});
+        if (INPUT_FLOW_TYPE == ALL_FLOWS and PATH_KNOWN)
+            params = {{0.011, 0.002, 0.075}};
+        else if (INPUT_FLOW_TYPE == ACTIVE_FLOWS)
+            params = {{0.001, 0.007, 0.125}};
+        else assert (false);
         /* hw
         for (double bad_device_threshold = 0.01; bad_device_threshold <= 0.52;
         bad_device_threshold += 0.10){ for (double regularize_c = 0.001;
@@ -1098,17 +1112,16 @@ void TestbedCrossValidataion(string topology_filename, double min_start_time_ms,
     if (scenario == "pacor")
         scenario += "/remove_bad_flow";
 
-    // vector<string> schemes = {"bnet_int", "bnet_a2_p", "bnet_a2", "nb_int",
-    // "007_a2"};
-    vector<string> schemes = {"nb_int"};
+    vector<string> schemes = {"bnet_int", "bnet_a2_p", "bnet_a2", "nb_int", "007_a2"};
+    // vector<string> schemes = {"nb_int"};
 
-    string base_dir = "/home/vharsh2/Flock/localization/c++/results/hw/" +
+    string base_dir = "../../localization/c++/results/conext2023/hw/" +
                       scenario + "/train_";
     SweepParamsSchemes(schemes, topology_filename, base_dir, min_start_time_ms,
                        max_finish_time_ms, nopenmp_threads);
 
     TRAINING_SET = false;
-    base_dir = "/home/vharsh2/Flock/localization/c++/results/hw/" + scenario +
+    base_dir = "../../localization/c++/results/conext2023/hw/" + scenario +
                "/test_";
     SweepParamsSchemes(schemes, topology_filename, base_dir, min_start_time_ms,
                        max_finish_time_ms, nopenmp_threads);
@@ -1130,13 +1143,13 @@ void TestbedHybridCalibration(string topology_filename,
                               "007_a2"};
 
     string base_dir =
-        "/home/vharsh2/Flock/localization/c++/results/conext2023/hw/" +
+        "../../localization/c++/results/conext2023/hw/" +
         scenario + "/cal_";
     SweepParamsSchemes(schemes, topology_filename, base_dir, min_start_time_ms,
                        max_finish_time_ms, nopenmp_threads);
 
     USE_DIFFERENT_TOPOLOGIES = false;
-    base_dir = "/home/vharsh2/Flock/localization/c++/results/conext2023/hw/" +
+    base_dir = "../../localization/c++/results/conext2023/hw/" +
                scenario + "/cal_hw_";
     SweepParamsSchemes(schemes, topology_filename, base_dir, min_start_time_ms,
                        max_finish_time_ms, nopenmp_threads);
@@ -1161,7 +1174,7 @@ void SimulatorMixedTracesExperiments(string topology_filename,
     cout << "Monitoring period " << monitoring_period << endl;
 
     string base_dir =
-        "/home/vharsh2/Flock/localization/c++/results/conext2023/mixed/" +
+        "../../localization/c++/results/conext2023/mixed/" +
         monitoring_period + "_train_";
     // vector<string> schemes = {"bnet_int", "bnet_a1_a2_p", "bnet_a2",
     // "bnet_a1_p", "bnet_a1", "nb_int", "nb_a1", "007_a2"};
@@ -1174,7 +1187,7 @@ void SimulatorMixedTracesExperiments(string topology_filename,
 
     TRAINING_SET = false;
     base_dir =
-        "/home/vharsh2/Flock/localization/c++/results/conext2023/mixed/" +
+        "../../localization/c++/results/conext2023/mixed/" +
         monitoring_period + "_test_";
     // schemes = {"bnet_int", "bnet_a1"};
     cout << "Testing for " << schemes << endl;
@@ -1195,13 +1208,13 @@ void SimulatorMisconfiguredAclIrreg(string topology_filename,
     vector<string> schemes = {"bnet_p"};
 
     TRAINING_SET = true;
-    string base_dir = "/home/vharsh2/Flock/localization/c++/results/conext2023/"
+    string base_dir = "../../localization/c++/results/conext2023/"
                       "macl/irreg/train_";
     SweepParamsSchemes(schemes, topology_filename, base_dir, min_start_time_ms,
                        max_finish_time_ms, nopenmp_threads);
 
     TRAINING_SET = false;
-    base_dir = "/home/vharsh2/Flock/localization/c++/results/conext2023/macl/"
+    base_dir = "../../localization/c++/results/conext2023/macl/"
                "irreg/test_";
     SweepParamsSchemes(schemes, topology_filename, base_dir, min_start_time_ms,
                        max_finish_time_ms, nopenmp_threads);
@@ -1221,13 +1234,13 @@ void SimulatorMisconfiguredAcl(string topology_filename,
 
     TRAINING_SET = true;
     string base_dir =
-        "/home/vharsh2/Flock/localization/c++/results/conext2023/macl/train_";
+        "../../localization/c++/results/conext2023/macl/train_";
     SweepParamsSchemes(schemes, topology_filename, base_dir, min_start_time_ms,
                        max_finish_time_ms, nopenmp_threads);
 
     TRAINING_SET = false;
     base_dir =
-        "/home/vharsh2/Flock/localization/c++/results/conext2023/macl/test_";
+        "../../localization/c++/results/conext2023/macl/test_";
     SweepParamsSchemes(schemes, topology_filename, base_dir, min_start_time_ms,
                        max_finish_time_ms, nopenmp_threads);
 }
@@ -1254,20 +1267,22 @@ void SimulatorDeviceExperiments(string topology_filename,
         monitoring_period = "tdot25";
     cout << "Monitoring period " << monitoring_period << endl;
 
-    // vector<string> schemes = {"nb_int", "nb_a1"};
-    vector<string> schemes = {"007_a2"};
+    vector<string> schemes = {"nb_int", "nb_a1", "007_a2", "bnet_a1"};
+    // vector<string> schemes = {"007_a2"};
+    // vector<string> schemes = {"bnet_int", "bnet_a1_a2_p", "bnet_a2",
+    //            "bnet_a1_p", "bnet_a1", "nb_int", "nb_a1", "007_a2"};
     cout << "(D) Training for " << schemes << endl;
     string base_dir =
-        "/home/vharsh2/Flock/localization/c++/results/conext2023/device/" +
+        "../../localization/c++/results/conext2023/device/" +
         monitoring_period + "_train_";
-    SweepParamsSchemes(schemes, topology_filename, base_dir, min_start_time_ms,
-                       max_finish_time_ms, nopenmp_threads);
+    //SweepParamsSchemes(schemes, topology_filename, base_dir, min_start_time_ms,
+    //                   max_finish_time_ms, nopenmp_threads);
 
     TRAINING_SET = false;
     base_dir =
-        "/home/vharsh2/Flock/localization/c++/results/conext2023/device/" +
+        "../../localization/c++/results/conext2023/device/" +
         monitoring_period + "_test_";
-    schemes = {};
+    //schemes = {};
     cout << "(D) Testing for " << schemes << endl;
     SweepParamsSchemes(schemes, topology_filename, base_dir, min_start_time_ms,
                        max_finish_time_ms, nopenmp_threads);
@@ -1283,29 +1298,29 @@ void SoftnessExperiments(string topology_filename, double min_start_time_ms,
     vector<pair<string, int>> ignore_files;
     GetFiles = GetFilesSoftness;
 
-    // vector<string> schemes = {"bnet_int", "bnet_a1_a2_p", "bnet_a2",
-    // "bnet_a1_p", "bnet_a1", "nb_int", "nb_a1"}; vector<string> schemes =
+    //vector<string> schemes = {"bnet_int", "bnet_a1_a2_p", "bnet_a2",
+    //            "bnet_a1_p", "bnet_a1", "nb_int", "nb_a1", "007_a2"};
+    // vector<string> schemes =
     // {"bnet_int", "bnet_a1_a2_p", "bnet_a2", "bnet_a1_p", "bnet_a1"};
-    vector<string> schemes = {"bnet_a2", "007_a2", "bnet_int", "nb_int"};
+    vector<string> schemes = {"007_a2", "nb_int", "nb_a1"};
 
-    file_prefix = "/home/vharsh2/Flock/ns3/topology/ft_k10_os3/logs/40G/"
+    file_prefix = "../../ns3/topology/ft_k10_os3/logs/40G/"
                   "softness/plog_nb_random";
-    // vector<string> loss_rate_strings = {"0.002", "0.004", "0.006", "0.01",
-    // "0.014", "0.018"};
-
-    vector<string> loss_rate_strings = {"0.018", "0.004"};
+    vector<string> loss_rate_strings = {"0.002", "0.004", "0.006", "0.01",
+                                        "0.014", "0.018"};
+    // vector<string> loss_rate_strings = {"0.002", "0.006", "0.01", "0.014"};
     CROSS_VALIDATION = true;
     for (string &loss_rate_string : loss_rate_strings) {
         SOFTNESS_FILE_PREFIX = file_prefix + "_" + loss_rate_string;
         if (CROSS_VALIDATION) {
-            base_dir = "/home/vharsh2/Flock/localization/c++/results/"
+            base_dir = "../../localization/c++/results/"
                        "conext2023/softness/train_random_" +
                        loss_rate_string + "_";
             TRAINING_SET = true;
             SweepParamsSchemes(schemes, topology_filename, base_dir,
                                min_start_time_ms, max_finish_time_ms,
                                nopenmp_threads);
-            base_dir = "/home/vharsh2/Flock/localization/c++/results/"
+            base_dir = "../../localization/c++/results/"
                        "conext2023/softness/test_random_" +
                        loss_rate_string + "_";
             TRAINING_SET = false;
@@ -1313,7 +1328,7 @@ void SoftnessExperiments(string topology_filename, double min_start_time_ms,
                                min_start_time_ms, max_finish_time_ms,
                                nopenmp_threads);
         } else {
-            base_dir = "/home/vharsh2/Flock/localization/c++/results/"
+            base_dir = "../../localization/c++/results/"
                        "conext2023/softness/random_" +
                        loss_rate_string + "_";
             SweepParamsSchemes(schemes, topology_filename, base_dir,
@@ -1322,22 +1337,23 @@ void SoftnessExperiments(string topology_filename, double min_start_time_ms,
         }
     }
 
+    //!TODO: remove comment to generate skewed results
     return;
 
-    file_prefix = "/home/vharsh2/Flock/ns3/topology/ft_k10_os3/logs/40G/"
+    file_prefix = "../../ns3/topology/ft_k10_os3/logs/40G/"
                   "softness/plog_nb_skewed";
     loss_rate_strings = {"0.002", "0.004", "0.006", "0.01", "0.014", "0.018"};
     for (string &loss_rate_string : loss_rate_strings) {
         SOFTNESS_FILE_PREFIX = file_prefix + "_" + loss_rate_string;
         if (CROSS_VALIDATION) {
-            base_dir = "/home/vharsh2/Flock/localization/c++/results/"
+            base_dir = "../../localization/c++/results/"
                        "conext2023/softness/train_skewed_" +
                        loss_rate_string + "_";
             TRAINING_SET = true;
             SweepParamsSchemes(schemes, topology_filename, base_dir,
                                min_start_time_ms, max_finish_time_ms,
                                nopenmp_threads);
-            base_dir = "/home/vharsh2/Flock/localization/c++/results/"
+            base_dir = "../../localization/c++/results/"
                        "conext2023/softness/test_skewed_" +
                        loss_rate_string + "_";
             TRAINING_SET = false;
@@ -1345,7 +1361,7 @@ void SoftnessExperiments(string topology_filename, double min_start_time_ms,
                                min_start_time_ms, max_finish_time_ms,
                                nopenmp_threads);
         } else {
-            base_dir = "/home/vharsh2/Flock/localization/c++/results/"
+            base_dir = "../../localization/c++/results/"
                        "conext2023/softness/skewed_" +
                        loss_rate_string + "_";
             SweepParamsSchemes(schemes, topology_filename, base_dir,
@@ -1375,7 +1391,7 @@ void IrregularTopology(string topology_filename, double min_start_time_ms,
     // nomit_links = {0, 25, 50, 75, 100};
     for (int nomit : nomit_links) {
         NLINKS_OMMITTED_IRREGULAR = nomit;
-        string base_dir = "/home/vharsh2/Flock/localization/c++/results/"
+        string base_dir = "../../localization/c++/results/"
                           "conext2023/irregular/train_" +
                           to_string(NLINKS_OMMITTED_IRREGULAR) + "_";
         SweepParamsSchemes(schemes, topology_filename, base_dir,
@@ -1386,11 +1402,11 @@ void IrregularTopology(string topology_filename, double min_start_time_ms,
     TRAINING_SET = false;
     for (int nomit : nomit_links) {
         NLINKS_OMMITTED_IRREGULAR = nomit;
-        string base_dir = "/home/vharsh2/Flock/localization/c++/results/"
+        string base_dir = "../../localization/c++/results/"
                           "conext2023/irregular/test_" +
                           to_string(NLINKS_OMMITTED_IRREGULAR) + "_";
         // string base_dir =
-        // "/home/vharsh2/Flock/localization/c++/results/asymmetric_clos/test_"
+        // "../../localization/c++/results/asymmetric_clos/test_"
         // + to_string(NLINKS_OMMITTED_IRREGULAR) + "_";
         SweepParamsSchemes(schemes, topology_filename, base_dir,
                            min_start_time_ms, max_finish_time_ms,
@@ -1400,44 +1416,58 @@ void IrregularTopology(string topology_filename, double min_start_time_ms,
 
 int main(int argc, char *argv[]) {
     VERBOSE = false;
-    assert(argc == 6);
+    assert(argc == 7);
     string topology_filename(argv[1]);
     cout << "Reading topology from file " << topology_filename << endl;
     double min_start_time_ms = atof(argv[2]) * 1000.0,
            max_finish_time_ms = atof(argv[3]) * 1000.0;
     double step_ms = atof(argv[4]) * 1000.0;
     int nopenmp_threads = atoi(argv[5]);
+    string test(argv[6]);
     cout << "Using " << nopenmp_threads << " openmp threads" << endl;
     cout << "sizeof(Flow) " << sizeof(Flow) << " bytes" << endl;
     cout << "Analysis from time(ms) " << min_start_time_ms << " --> "
          << max_finish_time_ms << endl;
+    cout << "Running test " << test << endl;
     GetFiles = GetFilesMixed;
     INPUT_FLOW_TYPE = ALL_FLOWS;
     TRACEROUTE_BAD_FLOWS = true;
     PATH_KNOWN = false;
-    // GetPrecisionRecallTrendBayesianNet(topology_filename, min_start_time_ms,
-    //                                   max_finish_time_ms, step_ms,
-    //                                   nopenmp_threads);
-    // SweepParamsBayesianNet(topology_filename, min_start_time_ms,
-    // max_finish_time_ms, nopenmp_threads); SweepParams007(topology_filename,
-    // min_start_time_ms, max_finish_time_ms, nopenmp_threads);
-    // SweepParamsNetBouncer(topology_filename, min_start_time_ms,
-    // max_finish_time_ms, nopenmp_threads);
-    TestbedCrossValidataion(topology_filename, min_start_time_ms,
+    if (test == "testbed"){
+        TestbedCrossValidataion(topology_filename, min_start_time_ms,
+                                max_finish_time_ms, nopenmp_threads);
+        // TestbedHybridCalibration(topology_filename, min_start_time_ms,
+        //                        max_finish_time_ms, nopenmp_threads);
+    }
+    else if (test == "device"){
+        SimulatorDeviceExperiments(topology_filename, min_start_time_ms,
+                                   max_finish_time_ms, nopenmp_threads);
+    }
+    else if (test == "softfail"){
+        SoftnessExperiments(topology_filename, min_start_time_ms,
                             max_finish_time_ms, nopenmp_threads);
-    // TestbedHybridCalibration(topology_filename, min_start_time_ms,
-    // max_finish_time_ms, nopenmp_threads);
-    // SimulatorMixedTracesExperiments(topology_filename, min_start_time_ms,
-    // max_finish_time_ms, nopenmp_threads);
-    // SoftnessExperiments(topology_filename, min_start_time_ms,
-    // max_finish_time_ms, nopenmp_threads);
-    // SimulatorDeviceExperiments(topology_filename, min_start_time_ms,
-    // max_finish_time_ms, nopenmp_threads);
-    // IrregularTopology(topology_filename, min_start_time_ms,
-    // max_finish_time_ms, nopenmp_threads);
-    // SimulatorMisconfiguredAcl(topology_filename, min_start_time_ms,
-    // max_finish_time_ms, nopenmp_threads);
-    // SimulatorMisconfiguredAclIrreg(topology_filename, min_start_time_ms,
-    // max_finish_time_ms, nopenmp_threads);
+    }
+    else if (test == "mixed"){
+        SimulatorMixedTracesExperiments(topology_filename, min_start_time_ms,
+                                        max_finish_time_ms, nopenmp_threads);
+    }
+    else if (test == "irregular"){
+        IrregularTopology(topology_filename, min_start_time_ms,
+                          max_finish_time_ms, nopenmp_threads);
+    }
+    else {
+        // GetPrecisionRecallTrendBayesianNet(topology_filename, min_start_time_ms,
+        //                                   max_finish_time_ms, step_ms,
+        //                                   nopenmp_threads);
+        // SweepParamsBayesianNet(topology_filename, min_start_time_ms,
+        // max_finish_time_ms, nopenmp_threads); SweepParams007(topology_filename,
+        // min_start_time_ms, max_finish_time_ms, nopenmp_threads);
+        // SweepParamsNetBouncer(topology_filename, min_start_time_ms,
+        // max_finish_time_ms, nopenmp_threads);
+        // SimulatorMisconfiguredAcl(topology_filename, min_start_time_ms,
+        // max_finish_time_ms, nopenmp_threads);
+        // SimulatorMisconfiguredAclIrreg(topology_filename, min_start_time_ms,
+        // max_finish_time_ms, nopenmp_threads);
+    }
     return 0;
 }

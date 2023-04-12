@@ -152,7 +152,7 @@ def plot_lines(xs, ys, yerrs, labels, xlabel, ylabel, outfile):
     bbox_x, bbox_y = 0.4, 0.80
     if SKEWED:
         bbox_x, bbox_y = 0.4, 0.8
-    leg = ax.legend(bbox_to_anchor=(bbox_x, bbox_y), borderaxespad=0, loc=2, numpoints=2, handlelength=3, prop=gs_font, fontsize=label_fontsize)
+    #leg = ax.legend(bbox_to_anchor=(bbox_x, bbox_y), borderaxespad=0, loc=2, numpoints=2, handlelength=3, prop=gs_font, fontsize=label_fontsize)
     #leg.get_frame().set_linewidth(0.0)
     ax.set_xlabel(xlabel, fontproperties=gs_font, fontsize=label_fontsize)
     ax.set_ylabel(ylabel, fontproperties=gs_font, fontsize=label_fontsize)
@@ -230,7 +230,7 @@ def GetParamsFromFile(pfile):
     return params_acc
 
 ## Random traffic
-drop_rate_strs = ["0.002", "0.004", "0.006", "0.01"] #, "0.014"]# , 0.018, 0.022]
+drop_rate_strs = ["0.002", "0.004", "0.006", "0.01", "0.014"]# , 0.018, 0.022]
 drop_rates = [100 * float(x) for x in drop_rate_strs]
 
 

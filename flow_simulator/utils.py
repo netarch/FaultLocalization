@@ -232,9 +232,8 @@ class Topology(object):
         edges += [(v, u) for (u, v) in edges]
         src_dst_pairs = [(flow.src, flow.dst) for flow in flows]
         random.shuffle(src_dst_pairs)
-        failed_src_dst_pairs = src_dst_pairs[:args.nfailures]
-        self.failed_src_dst_pairs = set(failed_src_dst_pairs)
-        for src, dst in failed_src_dst_pairs:
+        self.failed_src_dst_pairs = set()
+        for src, dst in src_dst_pairs:
             src_rack = self.host_rack_map[src]
             dst_rack = self.host_rack_map[dst]
             all_paths = all_rack_pair_paths[src_rack][dst_rack]
@@ -246,11 +245,17 @@ class Topology(object):
             # print(src, dst, "links:", links, "devices:", devices)
             # failed_link = random.choice(list(links))
             # failed_component = (failed_link, src, dst)
-            failed_device = random.choice(list(devices))
-            failed_component = (failed_device, src, dst)
-            print("Failing:", failed_component)
-            self.failed_components.append(failed_component)
-            fail_prob[failed_component] = 1.0 #random.uniform(0.5, 1.0)  # 0.05, 0.1)
+            # !TODO
+            devices = [d for d in devices if d >= 100]
+            if len(devices) > 0:
+                failed_device = random.choice(list(devices))
+                failed_component = (failed_device, src, dst)
+                print("Failing:", failed_component)
+                self.failed_components.append(failed_component)
+                fail_prob[failed_component] = 1.0 #random.uniform(0.5, 1.0)  # 0.05, 0.1)
+                self.failed_src_dst_pairs.add((src, dst))
+                if len(self.failed_components) == args.nfailures:
+                    break
         fail_file = open(args.fail_file, "w+")
         for device, src, dst in fail_prob:
             print(

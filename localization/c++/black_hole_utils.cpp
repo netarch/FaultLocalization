@@ -1,10 +1,10 @@
+#include "black_hole_utils.h"
 #include "bayesian_net.h"
 #include "bayesian_net_continuous.h"
 #include "bayesian_net_sherlock.h"
 #include "doubleO7.h"
 #include "net_bouncer.h"
 #include "utils.h"
-#include "black_hole_utils.h"
 #include <assert.h>
 #include <bits/stdc++.h>
 #include <chrono>
@@ -69,7 +69,7 @@ int GetExplanationEdges(LogData &data, double max_finish_time_ms,
     return GetExplanationEdgesFromMap(flows_by_device);
 }
 
-int GetExplanationEdgesFromMap(map<int, set<Flow *>> &flows_by_device){
+int GetExplanationEdgesFromMap(map<int, set<Flow *>> &flows_by_device) {
     vector<pair<int, set<Flow *>>> sorted_map(flows_by_device.begin(),
                                               flows_by_device.end());
     sort(sorted_map.begin(), sorted_map.end(), SortByValueSize);
@@ -84,112 +84,169 @@ int GetExplanationEdgesFromMap(map<int, set<Flow *>> &flows_by_device){
 }
 
 map<int, set<Flow *>> BinFlowsByDeviceAgg(LogData *data,
-                         vector<Flow*> *dropped_flows,
-                         int ntraces,
-                         set<Link> removed_links,
-                         double max_finish_time_ms, int nopenmp_threads) {
+                                          vector<Flow *> *dropped_flows,
+                                          int ntraces, set<Link> removed_links,
+                                          double max_finish_time_ms,
+                                          int nopenmp_threads) {
     map<int, set<Flow *>> flows_by_device;
-    for(int ii=0; ii < ntraces; ii++){
+    for (int ii = 0; ii < ntraces; ii++) {
         Hypothesis removed_links_hyp;
-        for (Link l: removed_links){
+        for (Link l : removed_links) {
             if (data[ii].links_to_ids.find(l) != data[ii].links_to_ids.end())
                 removed_links_hyp.insert(data[ii].links_to_ids[l]);
         }
-        BinFlowsByDevice(data[ii], max_finish_time_ms, dropped_flows[ii], removed_links_hyp,
-                         flows_by_device);
+        BinFlowsByDevice(data[ii], max_finish_time_ms, dropped_flows[ii],
+                         removed_links_hyp, flows_by_device);
     }
     return flows_by_device;
 }
 
-set<int> GetEquivalentDevices(map<int, set<Flow*>> &flows_by_device){
+set<int> GetEquivalentDevices(map<int, set<Flow *>> &flows_by_device) {
     set<int> ret;
     vector<pair<int, set<Flow *>>> sorted_map(flows_by_device.begin(),
                                               flows_by_device.end());
     sort(sorted_map.begin(), sorted_map.end(), SortByValueSize);
     int maxedges = sorted_map[0].second.size();
-    int ntotal = 0;
     for (auto &[device, flows] : sorted_map) {
-        if (flows.size() < maxedges) break;
-        cout << "Eq Device " << device << " explains " << flows.size() << " drops"
-             << endl;
+        if (flows.size() < maxedges)
+            break;
+        cout << "Eq device " << device << " explains " << flows.size()
+             << " drops" << endl;
         ret.insert(device);
     }
     return ret;
 }
 
 void LocalizeScoreAgg(vector<pair<string, string>> &in_topo_traces,
-                  double max_finish_time_ms, int nopenmp_threads) {
+                      double max_finish_time_ms, int nopenmp_threads) {
     int ntraces = in_topo_traces.size();
     vector<Flow *> dropped_flows[ntraces];
     LogData data[ntraces];
-    for (int ii=0; ii < ntraces; ii++){
+    for (int ii = 0; ii < ntraces; ii++) {
         string topo_f = in_topo_traces[ii].first;
         string trace_f = in_topo_traces[ii].second;
-        cout << "calling GetDataFromLogFileParallel on " << topo_f << ", " << trace_f << endl;
+        cout << "calling GetDataFromLogFileParallel on " << topo_f << ", "
+             << trace_f << endl;
         GetDataFromLogFileParallel(trace_f, topo_f, &data[ii], nopenmp_threads);
         GetDroppedFlows(data[ii], dropped_flows[ii]);
     }
 
     set<Link> removed_links;
-    auto flows_by_device_agg = BinFlowsByDeviceAgg(data, dropped_flows, ntraces, removed_links, max_finish_time_ms, nopenmp_threads);
+    auto flows_by_device_agg =
+        BinFlowsByDeviceAgg(data, dropped_flows, ntraces, removed_links,
+                            max_finish_time_ms, nopenmp_threads);
     set<int> equivalent_devices = GetEquivalentDevices(flows_by_device_agg);
     cout << "equivalent devices " << equivalent_devices << endl;
 
     GetExplanationEdgesFromMap(flows_by_device_agg);
     cout << "Explaining drops" << endl;
 
-    //TODO: remove
+    for (int device: equivalent_devices){
+        Link link = GetMostUsedLink(data, dropped_flows, ntraces, device, max_finish_time_ms, nopenmp_threads);
+        cout << "Best link to remove " << link
+             << " removed_links "
+             << removed_links << endl;
+        removed_links.insert(link);
+        Link rlink(link.second, link.first);
+        removed_links.insert(rlink);
+    }
+
+    // TODO: remove
     return;
 
     int old_expl_edges = int(1.0e9), curr_expl_edges = int(1.0e9);
+    //!TODO
     int max_iter = 10;
     while (1) {
-        auto [best_link_to_remove, expl_edges] = GetBestLinkToRemoveAgg(data, dropped_flows, ntraces, equivalent_devices, removed_links,
-                         max_finish_time_ms, nopenmp_threads);
+        auto [best_link_to_remove, expl_edges] = GetBestLinkToRemoveAgg(
+            data, dropped_flows, ntraces, equivalent_devices, removed_links,
+            max_finish_time_ms, nopenmp_threads);
         old_expl_edges = curr_expl_edges;
         curr_expl_edges = expl_edges;
-        cout << "Best link to remove "
-             << best_link_to_remove
-             << " nexplanation edges " << expl_edges 
-             << " removed_links " << removed_links << endl;
+        cout << "Best link to remove " << best_link_to_remove
+             << " nexplanation edges " << expl_edges << " removed_links "
+             << removed_links << endl;
         if (old_expl_edges - curr_expl_edges < 10 or max_iter == 0)
             break;
         max_iter--;
         removed_links.insert(best_link_to_remove);
-        Link rlink (best_link_to_remove.second, best_link_to_remove.first);
+        Link rlink(best_link_to_remove.second, best_link_to_remove.first);
         removed_links.insert(rlink);
     }
 }
 
-pair<Link, int> GetBestLinkToRemoveAgg(LogData *data, vector<Flow*> *dropped_flows, int ntraces,
-                                       set<int> &equivalent_devices,
-                                       set<Link> &prev_removed_links,
-                                       double max_finish_time_ms, int nopenmp_threads) {
-    cout << "Equivalent devices " << equivalent_devices << endl;
+Link GetMostUsedLink(LogData *data, vector<Flow *> *dropped_flows,
+                       int ntraces, int device, double max_finish_time_ms,
+                       int nopenmp_threads) {
+    map<Link, int> link_ctrs;
+    for (int tt=0; tt<ntraces; tt++){
+        //cout << "Done with trace " << tt << endl;
+        for (Flow *flow : dropped_flows[tt]) {
+            //cout << "Done with flow " << flow << endl;
+            vector<Path *> *flow_paths = flow->GetPaths(max_finish_time_ms);
+            for (Path *link_path : *flow_paths) {
+                Path device_path;
+                data[tt].GetDeviceLevelPath(flow, *link_path, device_path);
+                for (int ii=1; ii<device_path.size(); ii++){
+                    if ((device_path[ii-1] == device or device_path[ii] == device) and (device_path[ii-1] != device_path[ii])){
+                        Link l(device_path[ii-1], device_path[ii]);
+                        link_ctrs[l]++;
+                    }
+                }
+            }
+        }
+    }
+    Link most_used_link;
+    int largest_ctr=0;
+    for (auto [link, ctr]: link_ctrs){
+        if (ctr > largest_ctr){
+            most_used_link = link;
+            largest_ctr = ctr;
+        }
+    }
+    return most_used_link;
+}
+
+pair<Link, int>
+GetBestLinkToRemoveAgg(LogData *data, vector<Flow *> *dropped_flows,
+                       int ntraces, set<int> &equivalent_devices,
+                       set<Link> &prev_removed_links, double max_finish_time_ms,
+                       int nopenmp_threads) {
     set<Link> removed_links;
-    int total_expl_edges = GetExplanationEdgesAgg(
-        data, dropped_flows, ntraces, equivalent_devices, removed_links, max_finish_time_ms);
+    int total_expl_edges =
+        GetExplanationEdgesAgg(data, dropped_flows, ntraces, equivalent_devices,
+                               removed_links, max_finish_time_ms);
+    cout << "Equivalent devices " << equivalent_devices << " total expl edges " << total_expl_edges << endl;
     int min_expl_edges = int(1e9);
     Link best_link_to_remove = Link(-1, -1);
-    for (Link link: data[0].inverse_links) {
+    for (Link link : data[0].inverse_links) {
+        //!TODO
+        //if (link != Link(90,43) and link != Link(70,100)) continue;
         int link_id = data[0].links_to_ids[link];
         Link rlink = Link(link.second, link.first);
-        if (data[0].IsNodeSwitch(link.first) and data[0].IsNodeSwitch(link.second) and
+        if (data[0].IsNodeSwitch(link.first) and
+            data[0].IsNodeSwitch(link.second) and
             !data[0].IsLinkDevice(link_id)) {
             removed_links = prev_removed_links;
             removed_links.insert(link);
             removed_links.insert(rlink);
             cout << "Removing link " << link << endl;
-            for (int ii=0; ii < ntraces; ii++){
+            for (int ii = 0; ii < ntraces; ii++) {
                 int link_id_ii = data[ii].links_to_ids[link];
-                CheckShortestPathExists(data[ii], max_finish_time_ms, dropped_flows[ii],
-                                        link_id_ii);
+                CheckShortestPathExists(data[ii], max_finish_time_ms,
+                                        dropped_flows[ii], link_id_ii);
             }
 
             int expl_edges = GetExplanationEdgesAgg(
-                data, dropped_flows, ntraces, equivalent_devices, removed_links, max_finish_time_ms);
-            expl_edges = max(expl_edges, total_expl_edges - expl_edges);
-            if (expl_edges < min_expl_edges) {
+                data, dropped_flows, ntraces, equivalent_devices, removed_links,
+                max_finish_time_ms);
+            //expl_edges = max(expl_edges, total_expl_edges - expl_edges);
+            if (expl_edges < min_expl_edges or
+                (expl_edges == min_expl_edges and
+                 (equivalent_devices.find(link.first) !=
+                      equivalent_devices.end() or
+                  equivalent_devices.find(link.second) !=
+                      equivalent_devices.end()))) {
                 min_expl_edges = expl_edges;
                 best_link_to_remove = link;
             }
@@ -198,24 +255,57 @@ pair<Link, int> GetBestLinkToRemoveAgg(LogData *data, vector<Flow*> *dropped_flo
     return pair<Link, int>(best_link_to_remove, min_expl_edges);
 }
 
-int GetExplanationEdgesAgg(LogData *data, 
-                           vector<Flow *> *dropped_flows,
-                           int ntraces,
-                           set<int> &equivalent_devices,
+int GetExplanationEdgesAgg(LogData *data, vector<Flow *> *dropped_flows,
+                           int ntraces, set<int> &equivalent_devices,
                            set<Link> &removed_links,
-                           double max_finish_time_ms){
+                           double max_finish_time_ms) {
     map<int, set<Flow *>> flows_by_device;
-    for (int ii=0; ii < ntraces; ii++){
+    for (int ii = 0; ii < ntraces; ii++) {
         Hypothesis removed_links_hyp;
-        for (Link l: removed_links){
+        for (Link l : removed_links) {
             if (data[ii].links_to_ids.find(l) != data[ii].links_to_ids.end())
                 removed_links_hyp.insert(data[ii].links_to_ids[l]);
         }
-        BinFlowsByDevice(data[ii], max_finish_time_ms, dropped_flows[ii], removed_links_hyp,
-                         flows_by_device);
+        BinFlowsByDevice(data[ii], max_finish_time_ms, dropped_flows[ii],
+                         removed_links_hyp, flows_by_device);
+    }
+    set<int> new_eq_devices;
+    vector<pair<int, set<Flow *>>> sorted_map(flows_by_device.begin(),
+                                              flows_by_device.end());
+    sort(sorted_map.begin(), sorted_map.end(), SortByValueSize);
+    int maxedges = sorted_map[0].second.size();
+    int nextedges = maxedges;
+    for (auto &[device, flows] : sorted_map) {
+        cout << "Device " << device << " explains " << flows.size() << " drops"
+             << endl;
+        if (flows.size() < maxedges){
+            nextedges = flows.size();
+            break;
+        }
+        new_eq_devices.insert(device);
+    }
+    int ret = new_eq_devices.size() * 10000000 + 100 - (maxedges - nextedges);
+    cout << "Total explanation edges " << ret << endl;
+    return ret;
+}
+
+int GetExplanationEdgesAgg2(LogData *data, vector<Flow *> *dropped_flows,
+                           int ntraces, set<int> &equivalent_devices,
+                           set<Link> &removed_links,
+                           double max_finish_time_ms) {
+    map<int, set<Flow *>> flows_by_device;
+    for (int ii = 0; ii < ntraces; ii++) {
+        Hypothesis removed_links_hyp;
+        for (Link l : removed_links) {
+            if (data[ii].links_to_ids.find(l) != data[ii].links_to_ids.end())
+                removed_links_hyp.insert(data[ii].links_to_ids[l]);
+        }
+        BinFlowsByDevice(data[ii], max_finish_time_ms, dropped_flows[ii],
+                         removed_links_hyp, flows_by_device);
     }
     int ntotal = 0;
-    for (int device: equivalent_devices){
+    for (int device : equivalent_devices) {
+        cout << "Flows for device " << device << " " << flows_by_device[device].size() << endl;
         ntotal += flows_by_device[device].size();
     }
     cout << "Total explanation edges " << ntotal << endl;

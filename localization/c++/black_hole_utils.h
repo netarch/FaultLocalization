@@ -60,4 +60,15 @@ int GetExplanationEdgesAgg(LogData *data,
                            set<int> &equivalent_devices,
                            set<Link> &removed_links,
                            double max_finish_time_ms);
+
+int GetExplanationEdgesAgg2(LogData *data, 
+                           vector<Flow *> *dropped_flows,
+                           int ntraces,
+                           set<int> &equivalent_devices,
+                           set<Link> &removed_links,
+                           double max_finish_time_ms);
+
+Link GetMostUsedLink(LogData *data, vector<Flow *> *dropped_flows,
+                       int ntraces, int device, double max_finish_time_ms,
+                       int nopenmp_threads);
 #endif

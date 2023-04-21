@@ -63,20 +63,20 @@ Link GetMostUsedLink(LogData *data, vector<Flow *> *dropped_flows,
   Coloring based scheme
   Uses information theoretic measure of sets to identify best link removal sequence
 */
-void LocalizeScoreCA(vector<pair<string, string>> &in_topo_traces,
+void LocalizeScoreITA(vector<pair<string, string>> &in_topo_traces,
                      double max_finish_time_ms, int nopenmp_threads);
 
-void GetEqDeviceSetsCA(LogData *data, vector<Flow *> *dropped_flows,
+void GetEqDeviceSetsITA(LogData *data, vector<Flow *> *dropped_flows,
                        int ntraces, set<int> &equivalent_devices,
                        Link removed_link, double max_finish_time_ms,
                        set<set<int>> &result);
 
-double GetEqDeviceSetsMeasureCA(LogData *data, vector<Flow *> *dropped_flows,
+double GetEqDeviceSetsMeasureITA(LogData *data, vector<Flow *> *dropped_flows,
                                 int ntraces, set<int> &equivalent_devices,
                                 Link removed_link, double max_finish_time_ms,
                                 set<set<int>> &eq_device_sets);
 
-pair<Link, double> GetBestLinkToRemoveCA(LogData *data,
+pair<Link, double> GetBestLinkToRemoveITA(LogData *data,
                                          vector<Flow *> *dropped_flows,
                                          int ntraces,
                                          set<int> &equivalent_devices,

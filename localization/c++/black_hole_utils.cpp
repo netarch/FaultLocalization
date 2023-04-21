@@ -89,7 +89,7 @@ set<int> GetEquivalentDevices(map<int, set<Flow *>> &flows_by_device) {
     return ret;
 }
 
-void LocalizeScoreCA(vector<pair<string, string>> &in_topo_traces,
+void LocalizeScoreITA(vector<pair<string, string>> &in_topo_traces,
                      double max_finish_time_ms, int nopenmp_threads) {
     int ntraces = in_topo_traces.size();
     vector<Flow *> dropped_flows[ntraces];
@@ -118,7 +118,7 @@ void LocalizeScoreCA(vector<pair<string, string>> &in_topo_traces,
     double last_information = 0.0;
     set<set<int>> eq_device_sets ({equivalent_devices});
     while (1) {
-        auto [best_link_to_remove, information] = GetBestLinkToRemoveCA(
+        auto [best_link_to_remove, information] = GetBestLinkToRemoveITA(
             data, dropped_flows, ntraces, equivalent_devices, eq_device_sets,
             max_finish_time_ms, nopenmp_threads);
         cout << "Best link to remove " << best_link_to_remove
@@ -290,8 +290,8 @@ void GetEqDevicesInFlowPaths(LogData &data, Flow *flow,
     }
 }
 
-// CA: coloring algorithm
-void GetEqDeviceSetsCA(LogData *data, vector<Flow *> *dropped_flows,
+// ITA: information theoretic algorithm
+void GetEqDeviceSetsITA(LogData *data, vector<Flow *> *dropped_flows,
                        int ntraces, set<int> &equivalent_devices,
                        Link removed_link, double max_finish_time_ms,
                        set<set<int>> &result) {
@@ -311,14 +311,14 @@ void GetEqDeviceSetsCA(LogData *data, vector<Flow *> *dropped_flows,
     }
 }
 
-// CA: coloring algorithm
+// ITA: information theoretic algorithm
 // Replacement of GetExplanationEdgesAgg
 // eq_device_sets should at least have the entire equivalent_devices set
-double GetEqDeviceSetsMeasureCA(LogData *data, vector<Flow *> *dropped_flows,
+double GetEqDeviceSetsMeasureITA(LogData *data, vector<Flow *> *dropped_flows,
                                 int ntraces, set<int> &equivalent_devices,
                                 Link removed_link, double max_finish_time_ms,
                                 set<set<int>> &eq_device_sets) {
-    GetEqDeviceSetsCA(data, dropped_flows, ntraces, equivalent_devices,
+    GetEqDeviceSetsITA(data, dropped_flows, ntraces, equivalent_devices,
                       removed_link, max_finish_time_ms, eq_device_sets);
 
     /*
@@ -358,8 +358,8 @@ double GetEqDeviceSetsMeasureCA(LogData *data, vector<Flow *> *dropped_flows,
     return information;
 }
 
-// CA: coloring algorithm
-pair<Link, double> GetBestLinkToRemoveCA(LogData *data,
+// ITA: information theoretic algorithm
+pair<Link, double> GetBestLinkToRemoveITA(LogData *data,
                                          vector<Flow *> *dropped_flows,
                                          int ntraces,
                                          set<int> &equivalent_devices,
@@ -381,7 +381,7 @@ pair<Link, double> GetBestLinkToRemoveCA(LogData *data,
                                         dropped_flows[ii], link_id_ii);
             }
             set<set<int>> &eq_device_sets_copy = eq_device_sets;
-            double information = GetEqDeviceSetsMeasureCA(
+            double information = GetEqDeviceSetsMeasureITA(
                 data, dropped_flows, ntraces, equivalent_devices, link,
                 max_finish_time_ms, eq_device_sets_copy);
             if (information > max_information) {
@@ -391,7 +391,7 @@ pair<Link, double> GetBestLinkToRemoveCA(LogData *data,
         }
     }
     // Do again for the best link to populate eq_device_sets
-    GetEqDeviceSetsMeasureCA(data, dropped_flows, ntraces, equivalent_devices,
+    GetEqDeviceSetsMeasureITA(data, dropped_flows, ntraces, equivalent_devices,
                              best_link_to_remove, max_finish_time_ms,
                              eq_device_sets);
     return pair<Link, double>(best_link_to_remove, max_information);

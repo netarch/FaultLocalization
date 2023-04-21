@@ -21,24 +21,9 @@ void BinFlowsByDevice(LogData &data, double max_finish_time_ms,
                       vector<Flow *> &dropped_flows, Hypothesis &removed_links,
                       map<int, set<Flow *>> &flows_by_device);
 
-int GetExplanationEdges(LogData &data, double max_finish_time_ms,
-                        vector<Flow *> &dropped_flows,
-                        Hypothesis &removed_links, Hypothesis &result);
-
 int GetExplanationEdgesFromMap(map<int, set<Flow *>> &flows_by_device);
 
-PII GetBestLinkToRemove(LogData &data, double max_finish_time_ms,
-                        Hypothesis &prev_removed_links,
-                        vector<Flow *> &dropped_flows);
-
-void LocalizeScore(LogData &data, double max_finish_time_ms);
-
 map<PII, pair<int, double>> ReadFailuresBlackHole(string fail_file);
-
-void LocalizeProbAnalysis(LogData &data,
-                          map<PII, pair<int, double>> &failed_components,
-                          double min_start_time_ms, double max_finish_time_ms,
-                          int nopenmp_threads);
 
 set<int> GetEquivalentDevices(map<int, set<Flow*>> &flows_by_device);
 
@@ -48,11 +33,13 @@ void LocalizeScoreAgg(vector<pair<string, string>> &in_topo_traces,
 pair<Link, int> GetBestLinkToRemoveAgg(LogData *data, vector<Flow*> *dropped_flows, int ntraces, set<int> &equivalent_devices,
                                        set<Link> &prev_removed_links,
                                        double max_finish_time_ms, int nopenmp_threads);
-map<int, set<Flow *>> BinFlowsByDeviceAgg(LogData *data,
+
+void BinFlowsByDeviceAgg(LogData *data,
                          vector<Flow*> *dropped_flows,
                          int ntraces,
-                         set<Link> removed_links,
-                         double max_finish_time_ms, int nopenmp_threads);
+                         set<Link> &removed_links,
+                         map<int, set<Flow *>> &flows_by_device,
+                         double max_finish_time_ms);
 
 int GetExplanationEdgesAgg(LogData *data, 
                            vector<Flow *> *dropped_flows,
@@ -71,4 +58,34 @@ int GetExplanationEdgesAgg2(LogData *data,
 Link GetMostUsedLink(LogData *data, vector<Flow *> *dropped_flows,
                        int ntraces, int device, double max_finish_time_ms,
                        int nopenmp_threads);
+
+/* 
+  Coloring based scheme
+  Uses information theoretic measure of sets to identify best link removal sequence
+*/
+void LocalizeScoreCA(vector<pair<string, string>> &in_topo_traces,
+                     double max_finish_time_ms, int nopenmp_threads);
+
+void GetEqDeviceSetsCA(LogData *data, vector<Flow *> *dropped_flows,
+                       int ntraces, set<int> &equivalent_devices,
+                       Link removed_link, double max_finish_time_ms,
+                       set<set<int>> &result);
+
+double GetEqDeviceSetsMeasureCA(LogData *data, vector<Flow *> *dropped_flows,
+                                int ntraces, set<int> &equivalent_devices,
+                                Link removed_link, double max_finish_time_ms,
+                                set<set<int>> &eq_device_sets);
+
+pair<Link, double> GetBestLinkToRemoveCA(LogData *data,
+                                         vector<Flow *> *dropped_flows,
+                                         int ntraces,
+                                         set<int> &equivalent_devices,
+                                         set<set<int>> &eq_device_sets,
+                                         double max_finish_time_ms,
+                                         int nopenmp_threads);
+
+void GetEqDevicesInFlowPaths(LogData &data, Flow *flow,
+                             set<int> &equivalent_devices,
+                             Hypothesis &removed_links,
+                             double max_finish_time_ms, set<int> &result);
 #endif

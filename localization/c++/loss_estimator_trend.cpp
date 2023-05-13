@@ -1302,13 +1302,14 @@ void SoftnessExperiments(string topology_filename, double min_start_time_ms,
                 "bnet_a1_p", "bnet_a1", "nb_int", "nb_a1", "007_a2"};
     // vector<string> schemes =
     // {"bnet_int", "bnet_a1_a2_p", "bnet_a2", "bnet_a1_p", "bnet_a1"};
-    // vector<string> schemes = {"007_a2", "nb_int", "nb_a1"};
+    // vector<string> schemes = {"007_a2"};
 
     file_prefix = "../../ns3/topology/ft_k10_os3/logs/40G/"
                   "softness/plog_nb_random";
-    vector<string> loss_rate_strings = {"0.002", "0.004", "0.006", "0.01",
-                                        "0.014"};
-    // vector<string> loss_rate_strings = {"0.002", "0.006", "0.01", "0.014"};
+    //vector<string> loss_rate_strings = {"0.002", "0.004", "0.006", "0.01",
+    //                                    "0.014"};
+    vector<string> loss_rate_strings = {"0.014", "0.01", "0.006", "0.004", "0.002"};
+    //vector<string> loss_rate_strings = {"0.01", "0.014"};
     CROSS_VALIDATION = true;
     for (string &loss_rate_string : loss_rate_strings) {
         SOFTNESS_FILE_PREFIX = file_prefix + "_" + loss_rate_string;

@@ -19,6 +19,8 @@ bool VERBOSE = true;
 bool CONSIDER_DEVICE_LINK = true;
 bool TRACEROUTE_BAD_FLOWS = true;
 bool PATH_KNOWN = true;
+
+pthread_mutex_t mutex_getline = PTHREAD_MUTEX_INITIALIZER;
 InputFlowType INPUT_FLOW_TYPE = ALL_FLOWS;
 
 bool MISCONFIGURED_ACL = false;
@@ -610,14 +612,19 @@ void GetDataFromLogFileParallel(string trace_file, string topology_file,
     auto start_time = chrono::high_resolution_clock::now();
     GetLinkMappings(topology_file, result);
 
+    pthread_mutex_lock(&mutex_getline);
+    const char *trace_file_c = trace_file.c_str();
     FILE *infile = fopen(trace_file.c_str(), "r");
+    pthread_mutex_unlock(&mutex_getline);
     char *linec = new char[100];
     char *restore_c = linec;
     size_t max_line_size = 0;
     char *op = new char[30];
     int nlines = 0;
 
+    // pthread_mutex_lock(&mutex_getline);
     auto getline_result = getline(&linec, &max_line_size, infile);
+    // pthread_mutex_unlock(&mutex_getline);
     GetString(linec, op);
     while (getline_result > 0 and StringEqualTo(op, "Failing_link")) {
         nlines += 1;
@@ -632,7 +639,9 @@ void GetDataFromLogFileParallel(string trace_file, string topology_file,
                  << endl;
         }
         linec = restore_c;
+        // pthread_mutex_lock(&mutex_getline);
         getline_result = getline(&linec, &max_line_size, infile);
+        // pthread_mutex_unlock(&mutex_getline);
         GetString(linec, op);
     }
 
@@ -711,6 +720,7 @@ void GetDataFromLogFileParallel(string trace_file, string topology_file,
              << result->flows.size() << " numlinks "
              << result->links_to_ids.size() << endl;
     }
+    fclose(infile);
 }
 
 Hypothesis UnidirectionalHypothesis(Hypothesis &h, LogData *data) {

@@ -616,11 +616,13 @@ void GetDataFromLogFileParallel(string trace_file, string topology_file,
     const char *trace_file_c = trace_file.c_str();
     FILE *infile = fopen(trace_file.c_str(), "r");
     pthread_mutex_unlock(&mutex_getline);
-    char *linec = new char[100];
+    size_t linec_size = 100;
+    char *linec = new char[linec_size];
     char *restore_c = linec;
-    size_t max_line_size = 0;
+    size_t max_line_size = linec_size;
     char *op = new char[30];
     int nlines = 0;
+
 
     // pthread_mutex_lock(&mutex_getline);
     auto getline_result = getline(&linec, &max_line_size, infile);
@@ -639,6 +641,7 @@ void GetDataFromLogFileParallel(string trace_file, string topology_file,
                  << endl;
         }
         linec = restore_c;
+        max_line_size = linec_size;
         // pthread_mutex_lock(&mutex_getline);
         getline_result = getline(&linec, &max_line_size, infile);
         // pthread_mutex_unlock(&mutex_getline);
@@ -656,6 +659,7 @@ void GetDataFromLogFileParallel(string trace_file, string topology_file,
         buffered_lines.push_back(strdup(linec));
         nlines += 1;
         linec = restore_c;
+        max_line_size = linec_size;
         getline_result = getline(&linec, &max_line_size, infile);
         GetString(linec, op);
     }
@@ -701,6 +705,7 @@ void GetDataFromLogFileParallel(string trace_file, string topology_file,
             curr_flow_lines->fprt_c = dup_linec;
         }
         linec = restore_c;
+        max_line_size = linec_size;
         getline_result = getline(&linec, &max_line_size, infile);
         GetString(linec, op);
     }

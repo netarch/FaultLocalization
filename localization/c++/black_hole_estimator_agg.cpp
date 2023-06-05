@@ -36,8 +36,9 @@ int main(int argc, char *argv[]) {
     PATH_KNOWN = false;
     TRACEROUTE_BAD_FLOWS = false;
     INPUT_FLOW_TYPE = APPLICATION_FLOWS;
+    VERBOSE = true;
 
     // GetExplanationEdges(in_topo_traces, max_finish_time_ms, nopenmp_threads);
-    LocalizeScoreAgg(in_topo_traces, max_finish_time_ms, nopenmp_threads);
+    LocalizeScoreITA(in_topo_traces, max_finish_time_ms, nopenmp_threads);
     return 0;
 }

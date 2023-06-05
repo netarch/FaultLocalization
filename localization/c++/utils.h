@@ -53,6 +53,7 @@ struct MemoizedPaths {
     void AddPath(Path *path) {
         if constexpr (PARALLEL_IO)
             lock.lock();
+        assert (path->size() >= 0);
         paths.push_back(path);
         if constexpr (PARALLEL_IO)
             lock.unlock();
@@ -71,7 +72,7 @@ struct MemoizedPaths {
             ret = new Path(vi_path);
             paths.push_back(ret);
             cout << "Path not found " << vi_path << endl;
-            assert(vi_path.size() == 0);
+            assert(vi_path.size() == 0 and ret->size()==0);
         }
         if constexpr (PARALLEL_IO)
             lock.unlock();

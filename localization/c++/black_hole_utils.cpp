@@ -89,8 +89,66 @@ set<int> GetEquivalentDevices(map<int, set<Flow *>> &flows_by_device) {
     return ret;
 }
 
+void AggLogData(LogData *data, int ntraces, LogData &result,
+                int nopenmp_threads) {
+    result.memoized_paths.clear();
+    for (int ii = 0; ii < ntraces; ii++) {
+        typedef vector<Path *> PathVec;
+        unordered_map<Path *, Path *> path_mapping;
+        unordered_map<PathVec *, PathVec *> pathvec_mapping;
+        for (auto &[src_dst, mpaths] : data[ii].memoized_paths) {
+            vector<Path *> *new_paths = new vector<Path *>();
+            for (Path *path : mpaths->paths) {
+                Path *new_path = new Path();
+                // cout << "Pathh " << *path << " " << ii << " "
+                // << src_dst << " " << (int)path->size() << endl;
+                for (int link_id : *path) {
+                    Link link = data[ii].inverse_links[link_id];
+                    new_path->push_back(data[0].links_to_ids[link]);
+                }
+                path_mapping[path] = new_path;
+                new_paths->push_back(new_path);
+            }
+            pathvec_mapping[&mpaths->paths] = new_paths;
+        }
+        cout << "Done mapping paths " << ii << endl;
+        for (Flow *f : data[ii].flows) {
+            Flow *fnew = new Flow(f->src, f->srcport, f->dest, f->destport,
+                                  f->nbytes, f->start_time_ms);
+            for (FlowSnapshot* fs: f->snapshots)
+                fnew->snapshots.push_back(new FlowSnapshot(*fs));
+
+            // !TODO: add paths
+            if (f->paths != NULL) {
+                assert(f->paths->size() > 1);
+                fnew->paths = pathvec_mapping[f->paths];
+            }
+            if (f->reverse_paths != NULL) {
+                assert(f->reverse_paths->size() > 1);
+                fnew->reverse_paths = pathvec_mapping[f->reverse_paths];
+            }
+
+            assert(f->path_taken_vector.size() == 1);
+            fnew->path_taken_vector.push_back(
+                path_mapping[f->path_taken_vector[0]]);
+
+            if (f->reverse_path_taken_vector.size() != 1) {
+                // cout << f->paths->size() << " "
+                //      << f->path_taken_vector.size() << " "
+                //      << f->reverse_path_taken_vector.size() << endl;
+                // assert (f->reverse_path_taken_vector.size() == 1);
+            } else {
+                fnew->reverse_path_taken_vector.push_back(
+                    path_mapping[f->reverse_path_taken_vector[0]]);
+            }
+
+            result.flows.push_back(fnew);
+        }
+    }
+}
+
 void LocalizeScoreITA(vector<pair<string, string>> &in_topo_traces,
-                     double max_finish_time_ms, int nopenmp_threads) {
+                      double max_finish_time_ms, int nopenmp_threads) {
     int ntraces = in_topo_traces.size();
     vector<Flow *> dropped_flows[ntraces];
     LogData data[ntraces];
@@ -102,6 +160,10 @@ void LocalizeScoreITA(vector<pair<string, string>> &in_topo_traces,
         GetDataFromLogFileParallel(trace_f, topo_f, &data[ii], nopenmp_threads);
         GetDroppedFlows(data[ii], dropped_flows[ii]);
     }
+
+    LogData agg;
+    AggLogData(data, ntraces, agg, nopenmp_threads);
+    return;
 
     set<Link> removed_links;
     map<int, set<Flow *>> flows_by_device_agg;
@@ -116,16 +178,15 @@ void LocalizeScoreITA(vector<pair<string, string>> &in_topo_traces,
 
     int max_iter = 10;
     double last_information = 0.0;
-    set<set<int>> eq_device_sets ({equivalent_devices});
+    set<set<int>> eq_device_sets({equivalent_devices});
     while (1) {
         auto [best_link_to_remove, information] = GetBestLinkToRemoveITA(
             data, dropped_flows, ntraces, equivalent_devices, eq_device_sets,
             max_finish_time_ms, nopenmp_threads);
-        cout << "Best link to remove " << best_link_to_remove
-             << " information " << information << " removed_links "
-             << removed_links << endl;
         if (information - last_information < 1.0e-3 or max_iter == 0)
             break;
+        cout << "Best link to remove " << best_link_to_remove << " information "
+             << information << " removed_links " << removed_links << endl;
         last_information = information;
         max_iter--;
         removed_links.insert(best_link_to_remove);
@@ -133,6 +194,7 @@ void LocalizeScoreITA(vector<pair<string, string>> &in_topo_traces,
         removed_links.insert(rlink);
     }
 }
+
 void LocalizeScoreAgg(vector<pair<string, string>> &in_topo_traces,
                       double max_finish_time_ms, int nopenmp_threads) {
     int ntraces = in_topo_traces.size();
@@ -292,9 +354,9 @@ void GetEqDevicesInFlowPaths(LogData &data, Flow *flow,
 
 // ITA: information theoretic algorithm
 void GetEqDeviceSetsITA(LogData *data, vector<Flow *> *dropped_flows,
-                       int ntraces, set<int> &equivalent_devices,
-                       Link removed_link, double max_finish_time_ms,
-                       set<set<int>> &result) {
+                        int ntraces, set<int> &equivalent_devices,
+                        Link removed_link, double max_finish_time_ms,
+                        set<set<int>> &result) {
     int link_id = data[0].links_to_ids[removed_link];
     int rlink_id = data[0].GetReverseLinkId(link_id);
     Hypothesis removed_links({link_id, rlink_id});
@@ -309,17 +371,23 @@ void GetEqDeviceSetsITA(LogData *data, vector<Flow *> *dropped_flows,
             result.insert(flow_eq_devices);
         }
     }
+    if (VERBOSE) {
+        cout << "Printing eq device sets" << endl;
+        for (auto &s : result)
+            cout << "Eq device set " << s << endl;
+        cout << "Done printing eq device sets " << result.size() << endl;
+    }
 }
 
 // ITA: information theoretic algorithm
 // Replacement of GetExplanationEdgesAgg
 // eq_device_sets should at least have the entire equivalent_devices set
 double GetEqDeviceSetsMeasureITA(LogData *data, vector<Flow *> *dropped_flows,
-                                int ntraces, set<int> &equivalent_devices,
-                                Link removed_link, double max_finish_time_ms,
-                                set<set<int>> &eq_device_sets) {
+                                 int ntraces, set<int> &equivalent_devices,
+                                 Link removed_link, double max_finish_time_ms,
+                                 set<set<int>> &eq_device_sets) {
     GetEqDeviceSetsITA(data, dropped_flows, ntraces, equivalent_devices,
-                      removed_link, max_finish_time_ms, eq_device_sets);
+                       removed_link, max_finish_time_ms, eq_device_sets);
 
     /*
         Use a coloring algorithm to find all possible intersection sets
@@ -340,32 +408,33 @@ double GetEqDeviceSetsMeasureITA(LogData *data, vector<Flow *> *dropped_flows,
             assert(device_colors.find(d) != device_colors.end());
             int c = device_colors[d];
             if (col_newcol.find(c) == col_newcol.end()) {
-                col_newcol[c] = curr_color++;
+                col_newcol[c] = ++curr_color;
             }
             device_colors[d] = col_newcol[c];
         }
     }
 
     map<int, int> col_cnts;
-    for (auto [d, c] : device_colors)
+    for (auto [d, c] : device_colors) {
+        // cout << "Device color " << d << " " << c << endl;
         col_cnts[c]++;
+    }
 
     double information = 0.0;
     for (auto [c, cnt] : col_cnts) {
-        double p = cnt / equivalent_devices.size();
+        // cout << "Device color cnt " << c << " " << cnt << endl;
+        double p = cnt / (double)equivalent_devices.size();
         information += -p * log(p);
     }
     return information;
 }
 
 // ITA: information theoretic algorithm
-pair<Link, double> GetBestLinkToRemoveITA(LogData *data,
-                                         vector<Flow *> *dropped_flows,
-                                         int ntraces,
-                                         set<int> &equivalent_devices,
-                                         set<set<int>> &eq_device_sets,
-                                         double max_finish_time_ms,
-                                         int nopenmp_threads) {
+pair<Link, double>
+GetBestLinkToRemoveITA(LogData *data, vector<Flow *> *dropped_flows,
+                       int ntraces, set<int> &equivalent_devices,
+                       set<set<int>> &eq_device_sets, double max_finish_time_ms,
+                       int nopenmp_threads) {
     double max_information = 0.0;
     Link best_link_to_remove = Link(-1, -1);
     for (Link link : data[0].inverse_links) {
@@ -374,16 +443,17 @@ pair<Link, double> GetBestLinkToRemoveITA(LogData *data,
         if (data[0].IsNodeSwitch(link.first) and
             data[0].IsNodeSwitch(link.second) and
             !data[0].IsLinkDevice(link_id)) {
-            cout << "Removing link " << link << endl;
             for (int ii = 0; ii < ntraces; ii++) {
                 int link_id_ii = data[ii].links_to_ids[link];
                 CheckShortestPathExists(data[ii], max_finish_time_ms,
                                         dropped_flows[ii], link_id_ii);
             }
-            set<set<int>> &eq_device_sets_copy = eq_device_sets;
+            set<set<int>> eq_device_sets_copy = eq_device_sets;
             double information = GetEqDeviceSetsMeasureITA(
                 data, dropped_flows, ntraces, equivalent_devices, link,
                 max_finish_time_ms, eq_device_sets_copy);
+            cout << "Removing link " << link << " information " << information
+                 << endl;
             if (information > max_information) {
                 best_link_to_remove = link;
                 max_information = information;
@@ -392,8 +462,8 @@ pair<Link, double> GetBestLinkToRemoveITA(LogData *data,
     }
     // Do again for the best link to populate eq_device_sets
     GetEqDeviceSetsMeasureITA(data, dropped_flows, ntraces, equivalent_devices,
-                             best_link_to_remove, max_finish_time_ms,
-                             eq_device_sets);
+                              best_link_to_remove, max_finish_time_ms,
+                              eq_device_sets);
     return pair<Link, double>(best_link_to_remove, max_information);
 }
 

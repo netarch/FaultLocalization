@@ -12,13 +12,13 @@ using google::dense_hash_map;
 using namespace std;
 
 //#define MAX_PATH_LENGTH 10
-#define MAX_PATH_LENGTH 10 // for irregular
+#define MAX_PATH_LENGTH 20 // for irregular
 //#define MAX_PATH_LENGTH 5 //+1 for device level localization
 
 template <typename T> struct SmallVector {
     T arr[MAX_PATH_LENGTH];
     char arr_size, ind;
-    SmallVector(vector<T> &v) : arr_size(v.size()), ind(0) {
+    SmallVector(vector<T> &v) : arr_size((char)v.size()), ind(0) {
         // arr = new T[arr_size];
         for (T &elt : v) {
             arr[ind++] = elt;

@@ -6,6 +6,7 @@
 #include <set>
 #include <sparsehash/dense_hash_map>
 #include <unordered_set>
+#include <iostream>
 #include <vector>
 using google::dense_hash_map;
 

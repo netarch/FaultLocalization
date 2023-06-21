@@ -201,6 +201,7 @@ void LocalizeScoreITA(vector<pair<string, string>> &in_topo_traces,
         GetDataFromLogFileParallel(trace_f, topo_f, &data[ii], nopenmp_threads);
         GetDroppedFlows(data[ii], dropped_flows[ii]);
     }
+    cout  << "Done reading " <<endl;
     string fail_file = in_topo_traces[0].second + ".fails";
     set<Link> removed_links;
     map<int, set<Flow *>> flows_by_device_agg;

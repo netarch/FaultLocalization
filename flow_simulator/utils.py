@@ -55,6 +55,19 @@ class Topology(object):
     def SetOutFile(self, outfile):
         self.outfile = outfile
 
+    def IsNodeToR(self, node):
+        return (node in self.racks)
+
+    # Aggregation layer switch if connected to a ToR
+    def IsNodeAgg(self, node):
+        nbrs = self.G.neighbors(node) 
+        tor_nbr = any([(nbr in self.racks) for nbr in nbrs])
+        return tor_nbr
+        
+    def IsNodeCore(self, node):
+        return not (self.IsNodeAgg(node) or self.IsNodeToR(node))
+
+
     def ReadGraphFromFile(self, network_file):
         self.G = nx.Graph()
         with open(network_file) as nf:
@@ -63,7 +76,9 @@ class Topology(object):
                     tokens = line.split("->")
                     host = int(tokens[0])
                     rack = int(tokens[1])
-                    # self.G.add_edge(host+HOST_OFFSET, rack)
+                    if host < HOST_OFFSET:
+                        # host += HOST_OFFSET
+                        assert (False)
                     self.G.add_edge(host, rack)
                     self.nservers += 1
                     self.host_rack_map[host] = rack
@@ -269,7 +284,7 @@ class Topology(object):
         # failed_link = random.choice(list(links))
         # failed_component = (failed_link, src, dst)
         # !TODO
-        devices = [d for d in devices if d >= 100]
+        devices = [d for d in devices if self.IsNodeCore(d) or self.IsNodeAgg(d)]
         if len(devices) > 0:
             failed_device = random.choice(list(devices))
             failed_component = (failed_device, src, dst)

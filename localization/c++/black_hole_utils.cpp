@@ -92,6 +92,8 @@ set<int> GetEquivalentDevices(map<int, set<Flow *>> &flows_by_device) {
 void AggLogData(LogData *data, int ntraces, LogData &result,
                 int nopenmp_threads) {
     result.memoized_paths.clear();
+    result.inverse_links = data[0].inverse_links;
+    result.links_to_ids = data[0].links_to_ids;
     for (int ii = 0; ii < ntraces; ii++) {
         typedef vector<Path *> PathVec;
         unordered_map<Path *, Path *> path_mapping;
@@ -115,7 +117,7 @@ void AggLogData(LogData *data, int ntraces, LogData &result,
         for (Flow *f : data[ii].flows) {
             Flow *fnew = new Flow(f->src, f->srcport, f->dest, f->destport,
                                   f->nbytes, f->start_time_ms);
-            for (FlowSnapshot* fs: f->snapshots)
+            for (FlowSnapshot *fs : f->snapshots)
                 fnew->snapshots.push_back(new FlowSnapshot(*fs));
 
             // !TODO: add paths
@@ -127,6 +129,11 @@ void AggLogData(LogData *data, int ntraces, LogData &result,
                 assert(f->reverse_paths->size() > 1);
                 fnew->reverse_paths = pathvec_mapping[f->reverse_paths];
             }
+
+            fnew->first_link_id =
+                data[0].links_to_ids[data[ii].inverse_links[f->first_link_id]];
+            fnew->last_link_id =
+                data[0].links_to_ids[data[ii].inverse_links[f->last_link_id]];
 
             assert(f->path_taken_vector.size() == 1);
             fnew->path_taken_vector.push_back(
@@ -147,8 +154,42 @@ void AggLogData(LogData *data, int ntraces, LogData &result,
     }
 }
 
+set<int> LocalizeViaFlock(LogData *data, int ntraces, string fail_file,
+                      double min_start_time_ms, double max_finish_time_ms,
+                      int nopenmp_threads) {
+    BayesianNet estimator;
+    vector<double> params = {1.0 - 2.0e-1, 1.0e-2, -10.0};
+    estimator.SetParams(params);
+    PATH_KNOWN = false;
+    TRACEROUTE_BAD_FLOWS = false;
+    INPUT_FLOW_TYPE = APPLICATION_FLOWS;
+
+    LogData agg;
+    AggLogData(data, ntraces, agg, nopenmp_threads);
+    estimator.SetLogData(&agg, max_finish_time_ms, nopenmp_threads);
+
+    //! TODO: set failed components
+
+    Hypothesis localized_links;
+    auto start_localization_time = chrono::high_resolution_clock::now();
+    estimator.LocalizeFailures(min_start_time_ms, max_finish_time_ms,
+                               localized_links, nopenmp_threads);
+    cout << "Output Hypothesis: " << agg.IdsToLinks(localized_links)
+         << endl;
+    cout << "Finished localization in "
+         << GetTimeSinceSeconds(start_localization_time) << " seconds" << endl;
+    cout << "****************************" << endl << endl << endl;
+    
+    set<int> equivalent_devices;
+    for (int link_id: localized_links){ 
+        equivalent_devices.insert(data[0].inverse_links[link_id].first);
+    }
+    return equivalent_devices;
+}
+
 void LocalizeScoreITA(vector<pair<string, string>> &in_topo_traces,
-                      double max_finish_time_ms, int nopenmp_threads) {
+                      double min_start_time_ms, double max_finish_time_ms,
+                      int nopenmp_threads) {
     int ntraces = in_topo_traces.size();
     vector<Flow *> dropped_flows[ntraces];
     LogData data[ntraces];
@@ -160,16 +201,19 @@ void LocalizeScoreITA(vector<pair<string, string>> &in_topo_traces,
         GetDataFromLogFileParallel(trace_f, topo_f, &data[ii], nopenmp_threads);
         GetDroppedFlows(data[ii], dropped_flows[ii]);
     }
-
-    LogData agg;
-    AggLogData(data, ntraces, agg, nopenmp_threads);
-    return;
-
+    string fail_file = in_topo_traces[0].second + ".fails";
     set<Link> removed_links;
     map<int, set<Flow *>> flows_by_device_agg;
     BinFlowsByDeviceAgg(data, dropped_flows, ntraces, removed_links,
                         flows_by_device_agg, max_finish_time_ms);
-    set<int> equivalent_devices = GetEquivalentDevices(flows_by_device_agg);
+
+    set<int> equivalent_devices;
+    /* Use a fault localization algorithm to obtain equivalent set of localized devices
+    */
+    // equivalent_devices = GetEquivalentDevices(flows_by_device_agg);
+    equivalent_devices = LocalizeViaFlock(data, ntraces, fail_file, min_start_time_ms,
+                                          max_finish_time_ms, nopenmp_threads);
+
     cout << "equivalent devices " << equivalent_devices << " size "
          << equivalent_devices.size() << endl;
 

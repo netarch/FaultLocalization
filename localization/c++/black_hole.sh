@@ -1,6 +1,7 @@
-logdir=black_hole_logs
+logdir=$1
 
-topofile=../../ns3/topology/ft_k10_os3/ns3ft_deg10_sw125_svr250_os3_i1.edgelist
+#topofile=../../ns3/topology/ft_k10_os3/ns3ft_deg10_sw125_svr250_os3_i1.edgelist
+topofile=../../ns3/topology/ft_k12_os3/ns3ft_deg12_sw180_svr432_os3_i1.edgelist
 
 nfails=1
 
@@ -17,8 +18,9 @@ time python3 ../../flow_simulator/flow_simulator.py \
     # --failed_flows_only \
 echo "flow sim done"
 
+
 make -j8
-max_links=5
+max_links=1
 fail_file=${outfile_sim}.fails
 
 > ${logdir}/input
@@ -26,7 +28,7 @@ inputs=`echo "${fail_file} ${topofile} ${outfile_sim}"`
 echo "Inputs "${inputs}
 
 iter=1
-while [ ${iter} -le 3 ]
+while [ ${iter} -le 15 ]
 do
     echo ${inputs}
     echo ${inputs} >> ${logdir}/input
@@ -35,7 +37,7 @@ do
     while read p q; do
         echo "$p $q"
         suffix=iter${iter}_r${p}_${q}
-        topofile_mod=${logdir}/ns3ft_deg10_sw125_svr250_os3_i1_${suffix}.edgelist
+        topofile_mod=${logdir}/ns3ft_deg12_sw180_svr432_os3_i1_${suffix}.edgelist
         echo ${topofile_mod}
         cat ${topofile} | grep -v "${p} ${q}" | grep -v "${q} ${p}"  > ${topofile_mod}
         time python3 ../../flow_simulator/flow_simulator.py \

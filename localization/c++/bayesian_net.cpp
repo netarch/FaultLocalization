@@ -264,6 +264,7 @@ void BayesianNet::SearchHypothesesJle(
     double max_likelihood_this_stage = 0; // empty hypothesis
     double max_likelihood_previous_stage = -1.0e10;
     while (max_likelihood_this_stage > max_likelihood_previous_stage) {
+        // if (nfails >= 3) break;
         max_likelihood_previous_stage = max_likelihood_this_stage;
         max_likelihood_this_stage = -1.0e10; //-inf
         auto start_stage_time = chrono::high_resolution_clock::now();
@@ -1123,7 +1124,7 @@ void BayesianNet::PrintScores(double min_start_time_ms,
                     nflows_threads[thread_num][cmp] +=
                         ((double)naffected) / npaths;
                     scores1[thread_num][cmp] +=
-                        (double)(weight.first * naffected) / npaths;
+                        (double)((weight.first + weight.second) * naffected) / npaths;
                     scores2[thread_num][cmp] += weight.second;
                 }
                 // Reset counter so that likelihood for cmp isn't counted again
@@ -1147,7 +1148,7 @@ void BayesianNet::PrintScores(double min_start_time_ms,
         //! TODO: Try changing likelihoods 2d array from (threads X links) to
         //! (links X threads)
         auto [score2, score1] = GetScore(cmp);
-        drops_per_component[cmp] = score2 / max(1.0e-30, (score1 + score2));
+        drops_per_component[cmp] = score2 / max(1.0e-30, score1);
         double f = 0.0;
         for (int t = 0; t < nopenmp_threads; t++) {
             f += nflows_threads[t][cmp];
@@ -1161,7 +1162,7 @@ void BayesianNet::PrintScores(double min_start_time_ms,
                     ? false
                     : (drops_per_component[i1] < drops_per_component[i2]));
     });
-    for (int ii = max(0, (int)idx.size() - 50); ii < idx.size(); ii++) {
+    for (int ii = max(0, (int)idx.size() - 1000); ii < idx.size(); ii++) {
         int cmp = idx[ii];
         auto [score2, score1] = GetScore(cmp);
         if (flows_per_component[cmp] > 0) {

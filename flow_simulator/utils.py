@@ -284,7 +284,7 @@ class Topology(object):
         # failed_link = random.choice(list(links))
         # failed_component = (failed_link, src, dst)
         # !TODO
-        devices = [d for d in devices if self.IsNodeCore(d) or self.IsNodeAgg(d)]
+        devices = [d for d in devices if self.IsNodeAgg(d)]
         if len(devices) > 0:
             failed_device = random.choice(list(devices))
             failed_component = (failed_device, src, dst)
@@ -464,7 +464,7 @@ class Topology(object):
         self.PrintPaths(all_rack_pair_paths)
         # flows = self.GetFlowsDistBH(nflows)
         fail_prob = self.GetDropProbBlackHole(args, all_rack_pair_paths)
-        nflows_per_failed_pair = 1000
+        nflows_per_failed_pair = 2000
         flows = self.GetFlowsBlackHole(nflows_per_failed_pair)
         print("Nflows", len(flows), "nservers", self.nservers, fail_prob)
         # print("Fail prob", fail_prob)

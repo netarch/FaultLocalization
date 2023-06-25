@@ -1,9 +1,14 @@
 logdir=$1
 
-#topofile=../../ns3/topology/ft_k10_os3/ns3ft_deg10_sw125_svr250_os3_i1.edgelist
-topofile=../../ns3/topology/ft_k12_os3/ns3ft_deg12_sw180_svr432_os3_i1.edgelist
+topodir=../../ns3/topology/ft_k12_os3
+topoprefix=ns3ft_deg12_sw180_svr432_os3_i1
+
+#topoprefix=ns3ft_deg10_sw125_svr250_os3_i1
+topofile=${topodir}/${topoprefix}.edgelist
 
 nfails=1
+nthreads=8
+maxiter=10
 
 # for the simulator
 outfile_sim=${logdir}/plog_${nfails}
@@ -28,16 +33,17 @@ inputs=`echo "${fail_file} ${topofile} ${outfile_sim}"`
 echo "Inputs "${inputs}
 
 iter=1
-while [ ${iter} -le 15 ]
+while [ ${iter} -le ${maxiter} ]
 do
     echo ${inputs}
     echo ${inputs} >> ${logdir}/input
-    time ./black_hole_estimator_agg 0.0 1000000.01 16 ${inputs} > ${logdir}/temp_agg_${iter}
-    cat ${logdir}/temp_agg_${iter} | grep "Best link to remove" | sed 's/(\|,\|)//g' | awk '{print $5" "$6}' | head -n${max_links} > ${logdir}/links_to_remove_${iter}
+    time ./black_hole_estimator_agg 0.0 1000000.01 ${nthreads} ${inputs} > ${logdir}/temp_agg_${iter}
+    # cat ${logdir}/temp_agg_${iter} | grep "Best link to remove" | sed 's/(\|,\|)//g' | awk '{print $5" "$6}' | head -n${max_links} > ${logdir}/links_to_remove_${iter}
+    cat ${logdir}/temp_agg_${iter} | grep "Best link to remove" | sed 's/(//'g | sed 's/)//'g | sed 's/,//'g | awk '{print $5" "$6}' | head -n${max_links} > ${logdir}/links_to_remove_${iter}
     while read p q; do
         echo "$p $q"
         suffix=iter${iter}_r${p}_${q}
-        topofile_mod=${logdir}/ns3ft_deg12_sw180_svr432_os3_i1_${suffix}.edgelist
+        topofile_mod=${logdir}/${topoprefix}_${suffix}.edgelist
         echo ${topofile_mod}
         cat ${topofile} | grep -v "${p} ${q}" | grep -v "${q} ${p}"  > ${topofile_mod}
         time python3 ../../flow_simulator/flow_simulator.py \

@@ -158,7 +158,7 @@ set<int> LocalizeViaFlock(LogData *data, int ntraces, string fail_file,
                       double min_start_time_ms, double max_finish_time_ms,
                       int nopenmp_threads) {
     BayesianNet estimator;
-    vector<double> params = {1.0 - 2.0e-1, 1.0e-2, -10.0};
+    vector<double> params = {1.0 - 2.0e-1, 2.0e-2, -10.0};
     estimator.SetParams(params);
     PATH_KNOWN = false;
     TRACEROUTE_BAD_FLOWS = false;

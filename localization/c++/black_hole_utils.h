@@ -54,8 +54,8 @@ Link GetMostUsedLink(LogData *data, vector<Flow *> *dropped_flows, int ntraces,
                      int nopenmp_threads);
 
 set<int> LocalizeViaFlock(LogData *data, int ntraces, string fail_file,
-                      double min_start_time_ms, double max_finish_time_ms,
-                      int nopenmp_threads);
+                          double min_start_time_ms, double max_finish_time_ms,
+                          int nopenmp_threads);
 
 /*
   Coloring based scheme
@@ -76,19 +76,21 @@ double GetEqDeviceSetsMeasureITA(LogData *data, vector<Flow *> *dropped_flows,
                                  Link removed_link, double max_finish_time_ms,
                                  set<set<int>> &eq_device_sets);
 
+set<Link> GetUsedLinks(LogData *data, int ntraces, double min_start_time_ms,
+                       double max_finish_time_ms);
+
 pair<Link, double>
 GetBestLinkToRemoveITA(LogData *data, vector<Flow *> *dropped_flows,
                        int ntraces, set<int> &equivalent_devices,
-                       set<set<int>> &eq_device_sets, double max_finish_time_ms,
-                       int nopenmp_threads);
+                       set<set<int>> &eq_device_sets, set<Link> &used_links,
+                       double max_finish_time_ms, int nopenmp_threads);
 
 void GetEqDevicesInFlowPaths(LogData &data, Flow *flow,
                              set<int> &equivalent_devices,
                              Hypothesis &removed_links,
                              double max_finish_time_ms, set<int> &result);
 
-bool RunFlock(LogData &data, string fail_file,
-                    double min_start_time_ms, double max_finish_time_ms,
-                    vector<double> &params,
-                    int nopenmp_threads);
+bool RunFlock(LogData &data, string fail_file, double min_start_time_ms,
+              double max_finish_time_ms, vector<double> &params,
+              int nopenmp_threads);
 #endif

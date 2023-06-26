@@ -192,7 +192,7 @@ set<int> LocalizeViaFlock(LogData *data, int ntraces, string fail_file,
                           double min_start_time_ms, double max_finish_time_ms,
                           int nopenmp_threads) {
     BayesianNet estimator;
-    vector<double> params = {1.0 - 0.5, 1.0e-2, -2.0};
+    vector<double> params = {1.0 - 0.41, 1.0e-3, -10.0};
     estimator.SetParams(params);
     PATH_KNOWN = false;
     TRACEROUTE_BAD_FLOWS = false;
@@ -220,6 +220,25 @@ set<int> LocalizeViaFlock(LogData *data, int ntraces, string fail_file,
     return equivalent_devices;
 }
 
+set<Link> GetUsedLinks(LogData *data, int ntraces, double min_start_time_ms,
+                       double max_finish_time_ms) {
+    set<Link> used_links;
+    for (int ii = 0; ii < ntraces; ii++) {
+        for (Flow *flow : data[ii].flows) {
+            vector<Path *> *flow_paths = flow->GetPaths(max_finish_time_ms);
+            for (Path *path : *flow_paths) {
+                for (int link_id : *path) {
+                    Link link = data[ii].inverse_links[link_id];
+                    used_links.insert(link);
+                }
+            }
+            used_links.insert(data[ii].inverse_links[flow->first_link_id]);
+            used_links.insert(data[ii].inverse_links[flow->last_link_id]);
+        }
+    }
+    return used_links;
+}
+
 void LocalizeScoreITA(vector<pair<string, string>> &in_topo_traces,
                       double min_start_time_ms, double max_finish_time_ms,
                       int nopenmp_threads) {
@@ -241,28 +260,30 @@ void LocalizeScoreITA(vector<pair<string, string>> &in_topo_traces,
     BinFlowsByDeviceAgg(data, dropped_flows, ntraces, removed_links,
                         flows_by_device_agg, max_finish_time_ms);
 
-    set<int> equivalent_devices;
+    set<int> eq_devices;
     /* Use a fault localization algorithm to obtain equivalent set of localized
      * devices
      */
     // equivalent_devices = GetEquivalentDevices(flows_by_device_agg);
-    equivalent_devices =
-        LocalizeViaFlock(data, ntraces, fail_file, min_start_time_ms,
-                         max_finish_time_ms, nopenmp_threads);
+    eq_devices = LocalizeViaFlock(data, ntraces, fail_file, min_start_time_ms,
+                                  max_finish_time_ms, nopenmp_threads);
 
-    cout << "equivalent devices " << equivalent_devices << " size "
-         << equivalent_devices.size() << endl;
+    cout << "equivalent devices " << eq_devices << " size " << eq_devices.size()
+         << endl;
 
     GetExplanationEdgesFromMap(flows_by_device_agg);
     cout << "Explaining drops" << endl;
 
     int max_iter = 10;
     double last_information = 0.0;
-    set<set<int>> eq_device_sets({equivalent_devices});
+    set<set<int>> eq_device_sets({eq_devices});
+    set<Link> used_links =
+        GetUsedLinks(data, ntraces, min_start_time_ms, max_finish_time_ms);
+    cout << "Used links " << used_links.size() << " : " << used_links << endl;
     while (1) {
         auto [best_link_to_remove, information] = GetBestLinkToRemoveITA(
-            data, dropped_flows, ntraces, equivalent_devices, eq_device_sets,
-            max_finish_time_ms, nopenmp_threads);
+            data, dropped_flows, ntraces, eq_devices, eq_device_sets,
+            used_links, max_finish_time_ms, nopenmp_threads);
         if (information - last_information < 1.0e-3 or max_iter == 0)
             break;
         cout << "Best link to remove " << best_link_to_remove << " information "
@@ -513,11 +534,11 @@ double GetEqDeviceSetsMeasureITA(LogData *data, vector<Flow *> *dropped_flows,
 pair<Link, double>
 GetBestLinkToRemoveITA(LogData *data, vector<Flow *> *dropped_flows,
                        int ntraces, set<int> &equivalent_devices,
-                       set<set<int>> &eq_device_sets, double max_finish_time_ms,
-                       int nopenmp_threads) {
+                       set<set<int>> &eq_device_sets, set<Link> &used_links,
+                       double max_finish_time_ms, int nopenmp_threads) {
     double max_information = 0.0;
     Link best_link_to_remove = Link(-1, -1);
-    for (Link link : data[0].inverse_links) {
+    for (Link link : used_links) {
         int link_id = data[0].links_to_ids[link];
         Link rlink = Link(link.second, link.first);
         if (data[0].IsNodeSwitch(link.first) and

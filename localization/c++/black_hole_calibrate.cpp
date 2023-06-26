@@ -1,8 +1,8 @@
 #include "bayesian_net.h"
 #include "bayesian_net_continuous.h"
 #include "bayesian_net_sherlock.h"
-#include "common_testing_system.h"
 #include "black_hole_utils.h"
+#include "common_testing_system.h"
 #include "doubleO7.h"
 #include "net_bouncer.h"
 #include "utils.h"
@@ -16,18 +16,15 @@ using namespace std;
 bool USE_DIFFERENT_TOPOLOGIES = false;
 vector<string> __trace_files__;
 
-vector<string> GetFilesHelper() {
-    return __trace_files__;
-}
+vector<string> GetFilesHelper() { return __trace_files__; }
 pair<vector<string>, vector<string>> GetFilesTopologiesHelper() {
-    assert (false);
+    assert(false);
     return pair<vector<string>, vector<string>>();
 }
 
 vector<string> (*GetFiles)() = GetFilesHelper;
 pair<vector<string>, vector<string>> (*GetFilesTopologies)() =
     GetFilesTopologiesHelper;
-
 
 vector<vector<double>> GetFlockParams() {
     vector<vector<double>> params;
@@ -66,18 +63,19 @@ void CalibrateFlock(vector<pair<string, string>> topo_traces,
     INPUT_FLOW_TYPE = APPLICATION_FLOWS;
     VERBOSE = false;
 
-    for (auto &pss: topo_traces) __trace_files__.push_back(pss.second);
+    for (auto &pss : topo_traces)
+        __trace_files__.push_back(pss.second);
     GetPrecisionRecallParamsFiles(topo_traces[0].first, min_start_time_ms,
-                                 max_finish_time_ms, params, results,
-                                 &estimator, nopenmp_threads);
-    for (int i=0; i<params.size(); i++) {
+                                  max_finish_time_ms, params, results,
+                                  &estimator, nopenmp_threads);
+    for (int i = 0; i < params.size(); i++) {
         cout << "Calibrate " << params[i] << " " << results[i] << endl;
     }
 }
 
 void CalibrateFlock1(vector<pair<string, string>> topo_traces,
-                    double min_start_time_ms, double max_finish_time_ms,
-                    int nopenmp_threads) {
+                     double min_start_time_ms, double max_finish_time_ms,
+                     int nopenmp_threads) {
     vector<vector<double>> params = GetFlockParams();
     cout << "Num params" << params.size() << endl;
 
@@ -95,15 +93,17 @@ void CalibrateFlock1(vector<pair<string, string>> topo_traces,
 
         vector<PDD> result;
         GetPrecisionRecallParamsFile(topo_f, trace_f, min_start_time_ms,
-                                     max_finish_time_ms, params,
-                                     &estimator, result, nopenmp_threads);
+                                     max_finish_time_ms, params, &estimator,
+                                     result, nopenmp_threads);
         results.push_back(result);
         cout << "Done" << endl;
     }
-    for (int i=0; i<params.size(); i++) {
+    for (int i = 0; i < params.size(); i++) {
         int npresent = 0;
-        for (int k=0; k<topo_traces.size(); k++) npresent += (results[k][i].second > 0.999);
-        cout << "Calibrate " << params[i] << " " << npresent << " " << topo_traces.size() << endl;
+        for (int k = 0; k < topo_traces.size(); k++)
+            npresent += (results[k][i].second > 0.999);
+        cout << "Calibrate " << params[i] << " " << npresent << " "
+             << topo_traces.size() << endl;
     }
 }
 

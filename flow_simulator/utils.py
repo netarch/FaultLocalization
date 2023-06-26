@@ -285,6 +285,7 @@ class Topology(object):
         # failed_component = (failed_link, src, dst)
         # !TODO
         devices = [d for d in devices if self.IsNodeCore(d) or self.IsNodeAgg(d)]
+        random.shuffle(devices)
         if len(devices) > 0:
             failed_device = random.choice(list(devices))
             failed_component = (failed_device, src, dst)

@@ -32,6 +32,9 @@ inputs=`echo "${fail_file} ${topofile} ${outfile_sim}"`
 echo "Inputs "${inputs}
 
 iter=1
+
+eq_devices=""
+
 while [ ${iter} -le ${maxiter} ]
 do
     echo ${inputs}
@@ -39,6 +42,16 @@ do
     time ./black_hole_estimator_agg 0.0 1000000.01 ${nthreads} ${inputs} > ${logdir}/temp_agg_${iter}
     # cat ${logdir}/temp_agg_${iter} | grep "Best link to remove" | sed 's/(\|,\|)//g' | awk '{print $5" "$6}' | head -n${max_links} > ${logdir}/links_to_remove_${iter}
     cat ${logdir}/temp_agg_${iter} | grep "Best link to remove" | sed 's/(//'g | sed 's/)//'g | sed 's/,//'g | awk '{print $5" "$6}' | head -n${max_links} > ${logdir}/links_to_remove_${iter}
+    new_eq_devices=`cat ${logdir}/temp_agg_${iter} | grep "equivalent devices" | grep "equivalent devices" | sed 's/equivalent devices //' | sed 's/size.*//'`
+    if [[ "${new_eq_devices}" == "${eq_devices}" ]]
+    then
+        eq_size=`echo ${eq_devices} | sed 's/]//'g | sed 's/\[//'g | awk -F',' '{print NF}'`
+        if [[ ${eq_size} -le 1 ]]
+        then 
+            break
+        fi
+    fi
+    eq_devices=${new_eq_devices}
     while read p q; do
         echo "$p $q"
         suffix=iter${iter}_r${p}_${q}

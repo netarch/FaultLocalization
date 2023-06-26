@@ -192,7 +192,8 @@ set<int> LocalizeViaFlock(LogData *data, int ntraces, string fail_file,
                           double min_start_time_ms, double max_finish_time_ms,
                           int nopenmp_threads) {
     BayesianNet estimator;
-    vector<double> params = {1.0 - 0.41, 1.0e-3, -10.0};
+    // vector<double> params = {1.0 - 0.41, 1.0e-3, -10.0};
+    vector<double> params = {1.0 - 0.49, 1.0e-3, -10.0};
     estimator.SetParams(params);
     PATH_KNOWN = false;
     TRACEROUTE_BAD_FLOWS = false;
@@ -208,7 +209,15 @@ set<int> LocalizeViaFlock(LogData *data, int ntraces, string fail_file,
     auto start_localization_time = chrono::high_resolution_clock::now();
     estimator.LocalizeFailures(min_start_time_ms, max_finish_time_ms,
                                localized_links, nopenmp_threads);
-    cout << "Output Hypothesis: " << agg.IdsToLinks(localized_links) << endl;
+
+    Hypothesis failed_links_set;
+    data[0].GetFailedLinkIds(failed_links_set);
+    PDD precision_recall =
+        GetPrecisionRecall(failed_links_set, localized_links, &data[0]);
+
+    cout << "Output Hypothesis: " << agg.IdsToLinks(localized_links)
+         << " precision_recall " << precision_recall.first << " "
+         << precision_recall.second << endl;
     cout << "Finished localization in "
          << GetTimeSinceSeconds(start_localization_time) << " seconds" << endl;
     cout << "****************************" << endl << endl << endl;

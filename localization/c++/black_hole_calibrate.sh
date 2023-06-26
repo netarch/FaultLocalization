@@ -4,8 +4,13 @@ nfails=1
 nthreads=8
 maxiter=16
 
-topodir=../../ns3/topology/ft_k12_os3
-topoprefix=ns3ft_deg12_sw180_svr432_os3_i1
+topodir=../../ns3/topology/ft_k10_os3
+topoprefix=ns3ft_deg10_sw125_svr250_os3_i1
+
+#topodir=../../ns3/topology/ft_k12_os3
+#topoprefix=ns3ft_deg12_sw180_svr432_os3_i1
+
+
 topofile=${topodir}/${topoprefix}.edgelist
 echo ${nfails}" "${topofile}
 
@@ -31,6 +36,7 @@ do
 
     inputs=`echo "${inputs} ${topofile} ${tracefile}"`
     (( iter++ ))
+    sleep 3
 done
 
 echo ${inputs}

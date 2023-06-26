@@ -1,14 +1,16 @@
 logdir=$1
 
-topodir=../../ns3/topology/ft_k12_os3
-topoprefix=ns3ft_deg12_sw180_svr432_os3_i1
+#topodir=../../ns3/topology/ft_k12_os3
+#topoprefix=ns3ft_deg12_sw180_svr432_os3_i1
 
-#topoprefix=ns3ft_deg10_sw125_svr250_os3_i1
+topodir=../../ns3/topology/ft_k10_os3
+topoprefix=ns3ft_deg10_sw125_svr250_os3_i1
+
 topofile=${topodir}/${topoprefix}.edgelist
 
 nfails=1
 nthreads=8
-maxiter=10
+maxiter=25
 
 # for the simulator
 outfile_sim=${logdir}/plog_${nfails}

@@ -10,7 +10,7 @@ ESTIMATOR_MAINS = black_hole_estimator black_hole_estimator_agg loss_estimator m
 
 OBJS = flow.o logdata.o utils.o black_hole_utils.o $(ESTIMATOR_OBJS)
 
-all: $(ESTIMATOR_MAINS) loss_estimator_trend reduced_estimator
+all: $(ESTIMATOR_MAINS) loss_estimator_trend black_hole_calibrate reduced_estimator
 
 libflock.a: $(OBJS)
 	ar crf libflock.a $(OBJS)
@@ -23,6 +23,9 @@ $(ESTIMATOR_MAINS): %: %.cpp $(OBJS)
 
 loss_estimator_trend: $(OBJS) common_testing_system.o reduced_utils.o loss_estimator_trend.cpp
 	$(CC) $(INCLUDE) $(CFLAGS) $(OBJS) common_testing_system.o reduced_utils.o -o loss_estimator_trend loss_estimator_trend.cpp
+
+black_hole_calibrate: $(OBJS) common_testing_system.o black_hole_calibrate.cpp
+	$(CC) $(INCLUDE) $(CFLAGS) $(OBJS) common_testing_system.o -o black_hole_calibrate black_hole_calibrate.cpp
 
 flow.o: flow.cpp utils.cpp flow.h defs.h utils.h
 	$(CC) $(INCLUDE) $(CFLAGS) -c flow.cpp
@@ -46,4 +49,4 @@ $(ESTIMATOR_OBJS): %.o: %.cpp %.h estimator.h flow.h utils.h logdata.h defs.h ut
 	$(CC) $(INCLUDE) $(CFLAGS) -c $< $(LIBDIR) -o $@ 
 
 clean:	
-	rm -f *.o reduced_estimator loss_estimator_trend libflock.a $(ESTIMATOR_MAINS)
+	rm -f *.o reduced_estimator loss_estimator_trend libflock.a $(ESTIMATOR_MAINS) black_hole_calibrate

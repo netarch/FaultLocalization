@@ -86,4 +86,9 @@ void GetEqDevicesInFlowPaths(LogData &data, Flow *flow,
                              set<int> &equivalent_devices,
                              Hypothesis &removed_links,
                              double max_finish_time_ms, set<int> &result);
+
+bool RunFlock(LogData &data, string fail_file,
+                    double min_start_time_ms, double max_finish_time_ms,
+                    vector<double> &params,
+                    int nopenmp_threads);
 #endif

@@ -23,7 +23,6 @@ time python3 ../../flow_simulator/flow_simulator.py \
     # --failed_flows_only \
 echo "flow sim done"
 
-
 make -j8
 max_links=1
 fail_file=${outfile_sim}.fails

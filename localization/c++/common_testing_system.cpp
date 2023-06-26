@@ -155,7 +155,6 @@ void GetPrecisionRecallParamsFile(string topology_file, string trace_file,
         }
     }
     delete (data);
-    delete (estimator);
 }
 
 void GetPrecisionRecallParamsFiles(
@@ -193,6 +192,7 @@ void GetPrecisionRecallParamsFiles(
                                      min_start_time_ms, max_finish_time_ms,
                                      params, estimator, intermediate_result,
                                      nthreads2);
+        delete (estimator);
         assert(intermediate_result.size() == result.size());
         lock.lock();
         for (int i = 0; i < intermediate_result.size(); i++)

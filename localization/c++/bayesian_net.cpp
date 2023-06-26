@@ -281,7 +281,7 @@ void BayesianNet::SearchHypothesesJle(
             assert(likelihood_scores[ii].size() == ncomponents);
             GetIndicesOfTopK(likelihood_scores[ii],
                              NUM_TOP_HYPOTHESIS_AT_EACH_STAGE, top_components,
-                             base_hypothesis);
+                             base_hypothesis, true); //!TODO: remove true
             for (int cmp : top_components) {
                 assert(base_hypothesis->find(cmp) == base_hypothesis->end());
                 base_hypothesis->insert(cmp);
@@ -619,11 +619,11 @@ bool BayesianNet::VerifyLikelihoodComputation(
 }
 
 void BayesianNet::GetIndicesOfTopK(vector<double> &scores, int k,
-                                   vector<int> &result, Hypothesis *exclude) {
+                                   vector<int> &result, Hypothesis *exclude, bool device_only) {
     typedef pair<double, int> PDI;
     priority_queue<PDI, vector<PDI>, greater<PDI>> min_q;
     for (int i = 0; i < scores.size(); ++i) {
-        if (exclude->find(i) == exclude->end()) {
+        if (exclude->find(i) == exclude->end() and (!device_only or data->IsLinkDevice(i))) {
             min_q.push(PDI(scores[i], i));
         }
         if (min_q.size() > k) {
@@ -1786,11 +1786,10 @@ double BayesianNet::ComputeLogLikelihoodDevice(
 double BayesianNet::ComputeLogPrior(int link_id) {
     if (REDUCED_ANALYSIS)
         return log(num_reduced_links_map->at(link_id)) + PRIOR;
-    else if (CONSIDER_DEVICE_LINK) {
+    else {
         int multiplier = (data->IsLinkDevice(link_id) ? 5 : 1);
         return multiplier * PRIOR;
-    } else
-        return PRIOR;
+    }
 }
 
 double BayesianNet::ComputeLogPrior(Hypothesis *hypothesis) {

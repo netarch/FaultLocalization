@@ -154,11 +154,45 @@ void AggLogData(LogData *data, int ntraces, LogData &result,
     }
 }
 
-set<int> LocalizeViaFlock(LogData *data, int ntraces, string fail_file,
-                      double min_start_time_ms, double max_finish_time_ms,
-                      int nopenmp_threads) {
+bool RunFlock(LogData &data, string fail_file, double min_start_time_ms,
+              double max_finish_time_ms, vector<double> &params,
+              int nopenmp_threads) {
     BayesianNet estimator;
-    vector<double> params = {1.0 - 2.0e-1, 2.0e-2, -10.0};
+    estimator.SetParams(params);
+    PATH_KNOWN = false;
+    TRACEROUTE_BAD_FLOWS = false;
+    INPUT_FLOW_TYPE = APPLICATION_FLOWS;
+
+    estimator.SetLogData(&data, max_finish_time_ms, nopenmp_threads);
+
+    // map[(src, dst)] = (failed_component(link/device), failparam)
+    map<PII, pair<int, double>> failed_comps = ReadFailuresBlackHole(fail_file);
+
+    Hypothesis localized_links;
+    auto start_localization_time = chrono::high_resolution_clock::now();
+    estimator.LocalizeFailures(min_start_time_ms, max_finish_time_ms,
+                               localized_links, nopenmp_threads);
+
+    vector<int> failed_device_links;
+    for (auto &[k, v] : failed_comps) {
+        int d = v.first;
+        int d_id = data.links_to_ids[PII(d, d)];
+        failed_device_links.push_back(d_id);
+    }
+
+    bool all_present = true;
+    for (int d : failed_device_links) {
+        all_present =
+            all_present & (localized_links.find(d) != localized_links.end());
+    }
+    return all_present;
+}
+
+set<int> LocalizeViaFlock(LogData *data, int ntraces, string fail_file,
+                          double min_start_time_ms, double max_finish_time_ms,
+                          int nopenmp_threads) {
+    BayesianNet estimator;
+    vector<double> params = {1.0 - 0.5, 1.0e-2, -2.0};
     estimator.SetParams(params);
     PATH_KNOWN = false;
     TRACEROUTE_BAD_FLOWS = false;
@@ -174,14 +208,13 @@ set<int> LocalizeViaFlock(LogData *data, int ntraces, string fail_file,
     auto start_localization_time = chrono::high_resolution_clock::now();
     estimator.LocalizeFailures(min_start_time_ms, max_finish_time_ms,
                                localized_links, nopenmp_threads);
-    cout << "Output Hypothesis: " << agg.IdsToLinks(localized_links)
-         << endl;
+    cout << "Output Hypothesis: " << agg.IdsToLinks(localized_links) << endl;
     cout << "Finished localization in "
          << GetTimeSinceSeconds(start_localization_time) << " seconds" << endl;
     cout << "****************************" << endl << endl << endl;
-    
+
     set<int> equivalent_devices;
-    for (int link_id: localized_links){ 
+    for (int link_id : localized_links) {
         equivalent_devices.insert(data[0].inverse_links[link_id].first);
     }
     return equivalent_devices;
@@ -201,7 +234,7 @@ void LocalizeScoreITA(vector<pair<string, string>> &in_topo_traces,
         GetDataFromLogFileParallel(trace_f, topo_f, &data[ii], nopenmp_threads);
         GetDroppedFlows(data[ii], dropped_flows[ii]);
     }
-    cout  << "Done reading " <<endl;
+    cout << "Done reading " << endl;
     string fail_file = in_topo_traces[0].second + ".fails";
     set<Link> removed_links;
     map<int, set<Flow *>> flows_by_device_agg;
@@ -209,11 +242,13 @@ void LocalizeScoreITA(vector<pair<string, string>> &in_topo_traces,
                         flows_by_device_agg, max_finish_time_ms);
 
     set<int> equivalent_devices;
-    /* Use a fault localization algorithm to obtain equivalent set of localized devices
-    */
+    /* Use a fault localization algorithm to obtain equivalent set of localized
+     * devices
+     */
     // equivalent_devices = GetEquivalentDevices(flows_by_device_agg);
-    equivalent_devices = LocalizeViaFlock(data, ntraces, fail_file, min_start_time_ms,
-                                          max_finish_time_ms, nopenmp_threads);
+    equivalent_devices =
+        LocalizeViaFlock(data, ntraces, fail_file, min_start_time_ms,
+                         max_finish_time_ms, nopenmp_threads);
 
     cout << "equivalent devices " << equivalent_devices << " size "
          << equivalent_devices.size() << endl;

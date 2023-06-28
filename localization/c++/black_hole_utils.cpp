@@ -188,12 +188,92 @@ bool RunFlock(LogData &data, string fail_file, double min_start_time_ms,
     return all_present;
 }
 
+void OperatorScheme(vector<pair<string, string>> in_topo_traces,
+                    double min_start_time_ms, double max_finish_time_ms,
+                    int nopenmp_threads) {
+    int ntraces = in_topo_traces.size();
+    LogData data[ntraces];
+    for (int ii = 0; ii < ntraces; ii++) {
+        string topo_f = in_topo_traces[ii].first;
+        string trace_f = in_topo_traces[ii].second;
+        cout << "calling GetDataFromLogFileParallel on " << topo_f << ", "
+             << trace_f << endl;
+        GetDataFromLogFileParallel(trace_f, topo_f, &data[ii], nopenmp_threads);
+    }
+    cout << "Done reading " << endl;
+
+    set<Link> failed_links;
+    for (auto [l, failparam]: data[0].failed_links) failed_links.insert(l);
+
+
+    set<Link> used_links_orig =
+        GetUsedLinks(data, ntraces, min_start_time_ms, max_finish_time_ms);
+
+    set<Link> used_links;
+
+
+    int total_iter = 0, max_iter=20;
+    for (int ii=0; ii < max_iter; ii++){
+        used_links = used_links_orig;
+        int niter=0;
+        int unchanged=0;
+        while (niter<200 and unchanged<3) {
+            niter++;
+            // pick a random link
+            vector<Link> used_links_vec(used_links.begin(), used_links.end());
+            Link l = used_links_vec[rand() % used_links_vec.size()];
+
+            // remove l and other links that pariticipate in paths that all have l
+            set<Link> remove_links = used_links;
+            for (int ii = 0; ii < ntraces; ii++) {
+                for (Flow *flow : data[ii].flows) {
+                    vector<Path *> *flow_paths = flow->GetPaths(max_finish_time_ms);
+                    for (Path *path : *flow_paths) {
+                        int l_id = data[0].links_to_ids[l];
+                        if (path->find(l_id) == path->end()
+                                and flow->first_link_id != l_id
+                                and flow->last_link_id != l_id) {
+                            for (int link_id : *path) {
+                                Link link = data[ii].inverse_links[link_id];
+                                if (remove_links.find(link) != remove_links.end()) {
+                                    remove_links.erase(link);
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            bool covered=true;
+            for (Link fl: failed_links) {
+                covered = covered and (remove_links.find(fl) != remove_links.end());
+            }
+
+            //cout << l << " remove_links " << remove_links << " " << covered << " " << used_links.size() << endl;
+
+            if (covered) {
+                if (used_links==remove_links) unchanged++;
+                else unchanged=0;
+                used_links = remove_links;
+            }
+            else{
+                for (Link rl : remove_links)
+                    used_links.erase(rl);
+                unchanged=0;
+            }
+        }
+        cout << "iterations for localization " << niter << endl;
+        total_iter += niter;
+    }
+    cout << "Operator avg. iterations " << double(total_iter)/max_iter << endl;
+}
+
 set<int> LocalizeViaFlock(LogData *data, int ntraces, string fail_file,
                           double min_start_time_ms, double max_finish_time_ms,
                           int nopenmp_threads) {
     BayesianNet estimator;
-    // vector<double> params = {1.0 - 0.41, 1.0e-3, -10.0};
-    vector<double> params = {1.0 - 0.49, 1.0e-3, -10.0};
+    vector<double> params = {1.0 - 0.41, 1.0e-3, -10.0}; // ft_k12
+    //vector<double> params = {1.0 - 0.49, 5.0e-3, -10.0}; //ft_k10
     estimator.SetParams(params);
     PATH_KNOWN = false;
     TRACEROUTE_BAD_FLOWS = false;
@@ -215,17 +295,16 @@ set<int> LocalizeViaFlock(LogData *data, int ntraces, string fail_file,
     PDD precision_recall =
         GetPrecisionRecall(failed_links_set, localized_links, &data[0]);
 
-    cout << "Output Hypothesis: " << agg.IdsToLinks(localized_links)
-         << " precision_recall " << precision_recall.first << " "
-         << precision_recall.second << endl;
-    cout << "Finished localization in "
-         << GetTimeSinceSeconds(start_localization_time) << " seconds" << endl;
-    cout << "****************************" << endl << endl << endl;
-
     set<int> equivalent_devices;
     for (int link_id : localized_links) {
         equivalent_devices.insert(data[0].inverse_links[link_id].first);
     }
+
+    cout << "Output Hypothesis: " << equivalent_devices << " precision_recall "
+         << precision_recall.first << " " << precision_recall.second << endl;
+    cout << "Finished localization in "
+         << GetTimeSinceSeconds(start_localization_time) << " seconds" << endl;
+    cout << "****************************" << endl << endl << endl;
     return equivalent_devices;
 }
 
@@ -240,10 +319,15 @@ set<Link> GetUsedLinks(LogData *data, int ntraces, double min_start_time_ms,
                     Link link = data[ii].inverse_links[link_id];
                     used_links.insert(link);
                 }
+                // Path device_path;
+                // data[ii].GetDeviceLevelPath(flow, *path, device_path);
+                // cout << "path " << device_path << endl;
             }
+            // assert (ii == 0);
             used_links.insert(data[ii].inverse_links[flow->first_link_id]);
             used_links.insert(data[ii].inverse_links[flow->last_link_id]);
         }
+        cout << "GetUsedLinks: finished iteration " << ii << endl;
     }
     return used_links;
 }

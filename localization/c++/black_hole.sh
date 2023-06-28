@@ -1,10 +1,10 @@
 logdir=$1
 
-#topodir=../../ns3/topology/ft_k12_os3
-#topoprefix=ns3ft_deg12_sw180_svr432_os3_i1
+topodir=../../ns3/topology/ft_k12_os3
+topoprefix=ns3ft_deg12_sw180_svr432_os3_i1
 
-topodir=../../ns3/topology/ft_k10_os3
-topoprefix=ns3ft_deg10_sw125_svr250_os3_i1
+#topodir=../../ns3/topology/ft_k10_os3
+#topoprefix=ns3ft_deg10_sw125_svr250_os3_i1
 
 topofile=${topodir}/${topoprefix}.edgelist
 
@@ -36,6 +36,7 @@ echo "Inputs "${inputs}
 iter=1
 
 eq_devices=""
+eq_size=0
 
 while [ ${iter} -le ${maxiter} ]
 do
@@ -45,15 +46,29 @@ do
     # cat ${logdir}/temp_agg_${iter} | grep "Best link to remove" | sed 's/(\|,\|)//g' | awk '{print $5" "$6}' | head -n${max_links} > ${logdir}/links_to_remove_${iter}
     cat ${logdir}/temp_agg_${iter} | grep "Best link to remove" | sed 's/(//'g | sed 's/)//'g | sed 's/,//'g | awk '{print $5" "$6}' | head -n${max_links} > ${logdir}/links_to_remove_${iter}
     new_eq_devices=`cat ${logdir}/temp_agg_${iter} | grep "equivalent devices" | grep "equivalent devices" | sed 's/equivalent devices //' | sed 's/size.*//'`
-    if [[ "${new_eq_devices}" == "${eq_devices}" ]]
+    new_eq_size=`echo ${new_eq_devices} | sed 's/]//'g | sed 's/\[//'g | awk -F',' '{print NF}'`
+    if [[ "${new_eq_size}" == "${eq_size}" ]]
     then
-        eq_size=`echo ${eq_devices} | sed 's/]//'g | sed 's/\[//'g | awk -F',' '{print NF}'`
-        if [[ ${eq_size} -le 1 ]]
+        if [[ ${new_eq_size} -le 2 ]]
         then 
             break
         fi
     fi
+
+    if [[ "${new_eq_devices}" == "${eq_devices}" ]]
+    then 
+        (( unchanged++ ))
+    else
+        unchanged=0
+    fi
+
+    if [[ ${unchanged} -gt 2 ]]
+    then
+        break
+    fi
+
     eq_devices=${new_eq_devices}
+    eq_size=${new_eq_size}
     while read p q; do
         echo "$p $q"
         suffix=iter${iter}_r${p}_${q}

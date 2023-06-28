@@ -56,17 +56,16 @@ class Topology(object):
         self.outfile = outfile
 
     def IsNodeToR(self, node):
-        return (node in self.racks)
+        return node in self.racks
 
     # Aggregation layer switch if connected to a ToR
     def IsNodeAgg(self, node):
-        nbrs = self.G.neighbors(node) 
+        nbrs = self.G.neighbors(node)
         tor_nbr = any([(nbr in self.racks) for nbr in nbrs])
         return tor_nbr
-        
+
     def IsNodeCore(self, node):
         return not (self.IsNodeAgg(node) or self.IsNodeToR(node))
-
 
     def ReadGraphFromFile(self, network_file):
         self.G = nx.Graph()
@@ -78,7 +77,7 @@ class Topology(object):
                     rack = int(tokens[1])
                     if host < HOST_OFFSET:
                         # host += HOST_OFFSET
-                        assert (False)
+                        assert False
                     self.G.add_edge(host, rack)
                     self.nservers += 1
                     self.host_rack_map[host] = rack
@@ -458,12 +457,34 @@ class Topology(object):
             all_rack_pair_paths[src_rack] = src_paths
         return all_rack_pair_paths
 
+    def AddDuplicatePaths(self, all_rack_pair_paths, duplicate_link):
+        duplicate_link = (duplicate_link[0], duplicate_link[1])
+        print("Adding duplicate paths for link", duplicate_link)
+        for src_sw, src_paths in all_rack_pair_paths.items():
+            for dst_sw, paths in src_paths.items():
+                duplicate_paths = []
+                for path in paths:
+                    if len(path) > 0:
+                        pairs = [(path[i], path[i + 1]) for i in range(len(path) - 1)]
+                        pairs += [(path[i + 1], path[i]) for i in range(len(path) - 1)]
+                        if duplicate_link in pairs:
+                            duplicate_paths.append(path)
+                for dup_path in duplicate_paths:
+                    print("Duplicating path", dup_path)
+                    for __ in range(2):
+                        paths.append(dup_path)
+
     def PrintLogsBlackHole(self, args):
         # TODO: increase nflows to 500 x nservers
         nflows = 120000 * self.nservers
         all_rack_pair_paths = self.GetAllSwitchPairPaths2()
         # flows = self.GetFlowsDistBH(nflows)
         fail_prob = self.GetDropProbBlackHole(args, all_rack_pair_paths)
+
+        print("Duplicate link", args.duplicate_link)
+        if len(args.duplicate_link) == 2:
+            self.AddDuplicatePaths(all_rack_pair_paths, args.duplicate_link)
+
         nflows_per_failed_pair = 2000
         flows = self.GetFlowsBlackHole(nflows_per_failed_pair)
         print("Nflows", len(flows), "nservers", self.nservers, fail_prob)

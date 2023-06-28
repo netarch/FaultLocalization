@@ -12,13 +12,16 @@ from utils import *
 
 parser = argparse.ArgumentParser()
 
-parser.add_argument('--network_file', type=str, required=True)
-parser.add_argument('--nfailures', type=int, default=0)
-parser.add_argument('--flows_file', type=str, required=True)
-parser.add_argument('--outfile', type=str, required=True)
-parser.add_argument('--fail_file', type=str)
-parser.add_argument('--fails_from_file', action='store_true', default=False)
-parser.add_argument('--failed_flows_only', action='store_true', default=False)
+parser.add_argument("--network_file", type=str, required=True)
+parser.add_argument("--nfailures", type=int, default=0)
+parser.add_argument("--flows_file", type=str, required=True)
+parser.add_argument("--outfile", type=str, required=True)
+parser.add_argument("--fail_file", type=str)
+parser.add_argument("--fails_from_file", action="store_true", default=False)
+parser.add_argument("--failed_flows_only", action="store_true", default=False)
+parser.add_argument(
+    "--duplicate_link", nargs=2, metavar=("l1", "l2"), type=int, default=(-1, -1)
+)
 
 args = parser.parse_args()
 
@@ -26,8 +29,8 @@ args = parser.parse_args()
 HOST_OFFSET = 10000
 BLACK_HOLE = True
 
-#random.seed(42)
-#np.random.seed(42)
+# random.seed(42)
+# np.random.seed(42)
 
 print("Random witness", random.randint(1, 100000))
 

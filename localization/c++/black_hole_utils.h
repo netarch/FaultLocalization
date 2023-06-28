@@ -90,6 +90,10 @@ void GetEqDevicesInFlowPaths(LogData &data, Flow *flow,
                              Hypothesis &removed_links,
                              double max_finish_time_ms, set<int> &result);
 
+void OperatorScheme(vector<pair<string, string>> in_topo_traces,
+                    double min_start_time_ms, double max_finish_time_ms,
+                    int nopenmp_threads);
+
 bool RunFlock(LogData &data, string fail_file, double min_start_time_ms,
               double max_finish_time_ms, vector<double> &params,
               int nopenmp_threads);

@@ -39,7 +39,7 @@ int main(int argc, char *argv[]) {
     VERBOSE = true;
 
     // GetExplanationEdges(in_topo_traces, max_finish_time_ms, nopenmp_threads);
-    OperatorScheme(in_topo_traces, min_start_time_ms, max_finish_time_ms, nopenmp_threads);
-    // LocalizeScoreITA(in_topo_traces, min_start_time_ms, max_finish_time_ms, nopenmp_threads);
+    // OperatorScheme(in_topo_traces, min_start_time_ms, max_finish_time_ms, nopenmp_threads);
+    LocalizeScoreITA(in_topo_traces, min_start_time_ms, max_finish_time_ms, nopenmp_threads);
     return 0;
 }

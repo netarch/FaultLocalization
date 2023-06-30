@@ -1,10 +1,13 @@
 logdir=$1
 
-topodir=../../ns3/topology/ft_k12_os3
-topoprefix=ns3ft_deg12_sw180_svr432_os3_i1
-
 #topodir=../../ns3/topology/ft_k10_os3
 #topoprefix=ns3ft_deg10_sw125_svr250_os3_i1
+
+#topodir=../../ns3/topology/ft_k12_os3
+#topoprefix=ns3ft_deg12_sw180_svr432_os3_i1
+
+topodir=../../ns3/topology/ft_k14_os3
+topoprefix=ns3ft_deg14_sw245_svr686_os3_i1
 
 topofile=${topodir}/${topoprefix}.edgelist
 

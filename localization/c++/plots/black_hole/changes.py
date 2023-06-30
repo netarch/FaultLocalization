@@ -37,7 +37,7 @@ def plot_lines(xs, ys, yerrs, labels, xlabel, ylabel, outfile):
         pcolor = pcolors[i]
         markerfacecolor = pcolor
         linestyle = '-'
-        if "AutoLoc" in labels[i]:
+        if "Micro" in labels[i]:
             linestyle = ':'
         elif "Operator" in labels[i]:
             linestyle = '-.'
@@ -48,10 +48,10 @@ def plot_lines(xs, ys, yerrs, labels, xlabel, ylabel, outfile):
         #ax.scatter(xs[i], ys[i], s=70, color=pcolor, alpha=1.0, marker='x', label=labels[i])
         #ax.errorbar(xs[i], ys[i],  yerr=yerrs[i], color=pcolor,  lw=3.0,  dash_capstyle='round', label=labels[i], fmt='-')
     label_fontsize=25
-    plt.xlim(xmin=400,xmax=2500)
-    plt.ylim(ymin=0, ymax=20)
+    plt.xlim(xmin=400,xmax=3500)
+    plt.ylim(ymin=0, ymax=33)
     ticklabelcolor = 'black'
-    xticks = np.array([500, 1000, 1500, 2000, 2500])
+    xticks = np.array([500, 1500, 2500, 3500])
     ax.xaxis.set_ticks(xticks)
     xticks = np.array([str(x) for x in xticks])
     ax.set_xticklabels(xticks, color=ticklabelcolor)
@@ -63,17 +63,14 @@ def plot_lines(xs, ys, yerrs, labels, xlabel, ylabel, outfile):
     xticks = ax.xaxis.get_major_ticks()
     #xticks[0].label1.set_visible(False)
     #ax.set_xticklabels(xlabels)
-    #print("xs", xs)
-    #print(max([max(x) for x in xs]))
-    #plt.xlim(xmin=2,xmax=12.0)
     ax.grid(linestyle=':', linewidth=1, color='grey')
     label_fontsize=25
     #if True or not SKEWED:
     #    handles, labels = plt.gca().get_legend_handles_labels()
     #    order = [0,1,2,3,4,5,6]
     #    leg = ax.legend([handles[idx] for idx in order],[labels[idx] for idx in order], bbox_to_anchor=(0.4, 0.65), borderaxespad=0, loc=2, numpoints=2, handlelength=3, prop=gs_font, fontsize=label_fontsize)
-    bbox_x, bbox_y = 0.37, 0.38
-    leg = ax.legend(bbox_to_anchor=(bbox_x, bbox_y), borderaxespad=0, loc=2, numpoints=2, handlelength=2, prop=gs_font, fontsize=label_fontsize)
+    bbox_x, bbox_y = 0.03, 0.99
+    leg = ax.legend(bbox_to_anchor=(bbox_x, bbox_y), borderaxespad=0, loc=2, numpoints=1, handlelength=2, prop=gs_font, fontsize=label_fontsize)
     leg.get_frame().set_linewidth(0.0)
     ax.set_xlabel(xlabel, fontproperties=gs_font, fontsize=label_fontsize)
     ax.set_ylabel(ylabel, fontproperties=gs_font, fontsize=label_fontsize)
@@ -121,11 +118,14 @@ outfile = sys.argv[1]
 
 ftk = [10, 12, 14, 16]
 svrs = [3*int(k**3/4) for k in ftk]
-autoloc = [7.2, 9.4, 100, 100]
-operator = [14.55, 17.6, 100, 100]
+micro = [7.2, 9.4, 10.1, 9.5]
+operator = [14.55, 17.6, 19.6, 24.6]
 
-ys = [autoloc, operator]
-labels = ["AutoLoc", "Operator"]
+avg_x = [operator[i]/micro[i] for i in range(len(micro))]
+print("Average reduction in steps", np.mean(avg_x), np.mean(micro), np.mean(operator))
+
+ys = [micro, operator]
+labels = ["MicroTel", "Operator"]
 xs = [svrs for x in ys]
 yerrs = []
 ylabel = "Num steps"

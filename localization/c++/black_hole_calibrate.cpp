@@ -29,11 +29,11 @@ pair<vector<string>, vector<string>> (*GetFilesTopologies)() =
 vector<vector<double>> GetFlockParams() {
     vector<vector<double>> params;
     double eps = 1.0e-10;
-    for (double p1c = 1.0e-2; p1c <= 50.0e-2 + eps; p1c += 4.0e-2) {
-        for (double p2 = 1.0e-3; p2 <= 50.0e-3 + eps; p2 += 4.0e-3) {
+    for (double p1c = 1.0e-2; p1c <= 75.0e-2 + eps; p1c += 8.0e-2) {
+        for (double p2 = 0.01e-3; p2 <= 1.5e-3 + eps; p2 += 0.25e-3) {
             if (p2 >= p1c - 0.5e-3)
                 continue;
-            for (double nprior : {10, 20, 30, 40})
+            for (double nprior : {10, 20})
                 params.push_back(vector<double>{1.0 - p1c, p2, -nprior});
         }
     }

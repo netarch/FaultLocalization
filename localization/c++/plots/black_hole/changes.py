@@ -125,9 +125,9 @@ avg_x = [operator[i]/micro[i] for i in range(len(micro))]
 print("Average reduction in steps", np.mean(avg_x), np.mean(micro), np.mean(operator))
 
 ys = [micro, operator]
-labels = ["MicroTel", "Operator"]
+labels = ["FaultFerence", "Operator"]
 xs = [svrs for x in ys]
 yerrs = []
 ylabel = "Num steps"
-xlabel = "Hosts in topology"
+xlabel = "Topology size (#hosts)"
 plot_lines(xs, ys, yerrs, labels, xlabel, ylabel, outfile)

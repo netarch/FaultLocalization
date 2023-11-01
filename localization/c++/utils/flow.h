@@ -11,6 +11,7 @@ using namespace std;
 
 class LogData;
 
+// A flow snapshot captures flow statistics at a point in time
 struct FlowSnapshot {
     double snapshot_time_ms;
     int packets_sent;
@@ -79,6 +80,11 @@ class Flow {
 
     // Assign two weights to each flow : (good_weight, bad_weight)
     PII LabelWeightsFunc(double max_finish_time_ms);
+
+    /*
+       first and last links are the uplink from the
+       src and downlink to the dest respectively
+    */
 
     void SetFirstLinkId(int link_id);
     void SetLastLinkId(int link_id);

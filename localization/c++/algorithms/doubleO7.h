@@ -2,6 +2,12 @@
 #define __FAULT_LOCALIZE_007__
 #include "estimator.h"
 
+/*
+    Implementation of 007's inference algorithm as described in
+    "007: Democratically Finding the Cause of Packet Drops", NSDI 2018
+*/
+
+
 const bool USE_BUGGY_007 = false; // to match matlab script
 extern bool DEVICE_ANALYSIS_007;
 
@@ -27,15 +33,19 @@ class DoubleO7 : public Estimator {
     void SetParams(vector<double> &params);
 
   private:
-    PDD ComputeVotesDevice(vector<Flow *> &bad_flows, vector<double> &votes,
-                           Hypothesis &problematic_devices,
-                           double min_start_time_ms, double max_finish_time_ms);
 
+    // compute votes for links, the inference will then iteratively pick the 
+    // links with the most votes
     PDD ComputeVotes(vector<Flow *> &bad_flows, vector<double> &votes,
                      Hypothesis &problematic_link_ids, double min_start_time_ms,
                      double max_finish_time_ms);
 
-    // Noise parameters
+    // for computing votes for devices, use a similar inference algorithm as links
+    PDD ComputeVotesDevice(vector<Flow *> &bad_flows, vector<double> &votes,
+                           Hypothesis &problematic_devices,
+                           double min_start_time_ms, double max_finish_time_ms);
+
+    // noise parameters
     double fail_threshold = 0.0025;
     const bool ADJUST_VOTES = true;
     const bool FILTER_NOISY_DROPS = false;

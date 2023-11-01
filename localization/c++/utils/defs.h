@@ -16,6 +16,9 @@ using namespace std;
 #define MAX_PATH_LENGTH 10 // for irregular
 //#define MAX_PATH_LENGTH 5 //+1 for device level localization
 
+// An optimized class for small vectors
+//  - can accomodate a small number of elements
+//  - used for storing paths in a vector type data structure
 template <typename T> struct SmallVector {
     T arr[MAX_PATH_LENGTH];
     char arr_size, ind;

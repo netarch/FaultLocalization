@@ -11,11 +11,18 @@ using namespace std;
 
 class LogData;
 
+/* !TODO: document */
 struct FlowSnapshot {
     double snapshot_time_ms;
     int packets_sent;
     int packets_lost;
     int packets_randomly_lost;
+    FlowSnapshot(FlowSnapshot &fs) {
+        snapshot_time_ms = fs.snapshot_time_ms;
+        packets_sent = fs.packets_sent;
+        packets_lost = fs.packets_lost;
+        packets_randomly_lost = fs.packets_randomly_lost;
+    }
     FlowSnapshot(double snapshot_time_ms_, int packets_sent_, int packets_lost_,
                  int packets_randomly_lost_)
         : snapshot_time_ms(snapshot_time_ms_), packets_sent(packets_sent_),
@@ -111,8 +118,8 @@ class Flow {
     vector<FlowSnapshot *> snapshots;
     ~Flow();
 
-  private:
     int srcport, destport;
+  private:
     int curr_snapshot_ptr;
 };
 

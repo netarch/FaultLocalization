@@ -219,7 +219,7 @@ class BayesianNet : public Estimator {
         Flow *flow, vector<Path *> *flow_paths, Hypothesis *hypothesis,
         vector<short int> &device_ctrs_threads, bool *hypothesis_link_bitmap);
     void GetIndicesOfTopK(vector<double> &scores, int k, vector<int> &result,
-                          Hypothesis *exclude);
+                          Hypothesis *exclude, bool device_only=false);
 
     // Verify likelihood computation optimizations with the vanilla version
     bool VerifyLikelihoodComputation(

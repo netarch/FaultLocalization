@@ -264,6 +264,7 @@ void BayesianNet::SearchHypothesesJle(
     double max_likelihood_this_stage = 0; // empty hypothesis
     double max_likelihood_previous_stage = -1.0e10;
     while (max_likelihood_this_stage > max_likelihood_previous_stage) {
+        // if (nfails >= 3) break;
         max_likelihood_previous_stage = max_likelihood_this_stage;
         max_likelihood_this_stage = -1.0e10; //-inf
         auto start_stage_time = chrono::high_resolution_clock::now();
@@ -280,7 +281,7 @@ void BayesianNet::SearchHypothesesJle(
             assert(likelihood_scores[ii].size() == ncomponents);
             GetIndicesOfTopK(likelihood_scores[ii],
                              NUM_TOP_HYPOTHESIS_AT_EACH_STAGE, top_components,
-                             base_hypothesis);
+                             base_hypothesis, true); //!TODO: remove true
             for (int cmp : top_components) {
                 assert(base_hypothesis->find(cmp) == base_hypothesis->end());
                 base_hypothesis->insert(cmp);
@@ -618,11 +619,11 @@ bool BayesianNet::VerifyLikelihoodComputation(
 }
 
 void BayesianNet::GetIndicesOfTopK(vector<double> &scores, int k,
-                                   vector<int> &result, Hypothesis *exclude) {
+                                   vector<int> &result, Hypothesis *exclude, bool device_only) {
     typedef pair<double, int> PDI;
     priority_queue<PDI, vector<PDI>, greater<PDI>> min_q;
     for (int i = 0; i < scores.size(); ++i) {
-        if (exclude->find(i) == exclude->end()) {
+        if (exclude->find(i) == exclude->end() and (!device_only or data->IsLinkDevice(i))) {
             min_q.push(PDI(scores[i], i));
         }
         if (min_q.size() > k) {
@@ -1123,7 +1124,7 @@ void BayesianNet::PrintScores(double min_start_time_ms,
                     nflows_threads[thread_num][cmp] +=
                         ((double)naffected) / npaths;
                     scores1[thread_num][cmp] +=
-                        (double)(weight.first * naffected) / npaths;
+                        (double)((weight.first + weight.second) * naffected) / npaths;
                     scores2[thread_num][cmp] += weight.second;
                 }
                 // Reset counter so that likelihood for cmp isn't counted again
@@ -1147,7 +1148,7 @@ void BayesianNet::PrintScores(double min_start_time_ms,
         //! TODO: Try changing likelihoods 2d array from (threads X links) to
         //! (links X threads)
         auto [score2, score1] = GetScore(cmp);
-        drops_per_component[cmp] = score2 / max(1.0e-30, (score1 + score2));
+        drops_per_component[cmp] = score2 / max(1.0e-30, score1);
         double f = 0.0;
         for (int t = 0; t < nopenmp_threads; t++) {
             f += nflows_threads[t][cmp];
@@ -1161,7 +1162,7 @@ void BayesianNet::PrintScores(double min_start_time_ms,
                     ? false
                     : (drops_per_component[i1] < drops_per_component[i2]));
     });
-    for (int ii = max(0, (int)idx.size() - 50); ii < idx.size(); ii++) {
+    for (int ii = max(0, (int)idx.size() - 1000); ii < idx.size(); ii++) {
         int cmp = idx[ii];
         auto [score2, score1] = GetScore(cmp);
         if (flows_per_component[cmp] > 0) {
@@ -1785,11 +1786,10 @@ double BayesianNet::ComputeLogLikelihoodDevice(
 double BayesianNet::ComputeLogPrior(int link_id) {
     if (REDUCED_ANALYSIS)
         return log(num_reduced_links_map->at(link_id)) + PRIOR;
-    else if (CONSIDER_DEVICE_LINK) {
+    else {
         int multiplier = (data->IsLinkDevice(link_id) ? 5 : 1);
         return multiplier * PRIOR;
-    } else
-        return PRIOR;
+    }
 }
 
 double BayesianNet::ComputeLogPrior(Hypothesis *hypothesis) {

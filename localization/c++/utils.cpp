@@ -568,9 +568,11 @@ void ProcessFlowPathLines(vector<char *> &lines, LogData *result,
         char *linec = lines[ii];
         ReadPath(linec, path_nodes_t[thread_num], temp_path_t[thread_num],
                  result);
+        assert (temp_path_t[thread_num].size() >= 0);
         path_arr[ii] = Path(temp_path_t[thread_num]);
-        assert(path_nodes_t[thread_num].size() >
-               0); // No direct link for src_host to dest_host or vice_versa
+        assert (path_arr[ii].size() >= 0);
+        // No direct link for src_host to dest_host or vice_versa
+        assert (path_nodes_t[thread_num].size() > 0);
         src_dest_rack[ii] =
             PII(path_nodes_t[thread_num][0], path_nodes_t[thread_num].back());
     }

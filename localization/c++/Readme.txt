@@ -1,6 +1,10 @@
 Requirements:
     - GCC 8 or above
-    - Google sparsehash (https://github.com/sparsehash/sparsehash)
+    - Google sparsehash. To install
+        - git clone https://github.com/sparsehash/sparsehash 
+        - cd sparsehash; ./configure --prefix=`pwd`
+        - make -j8
+        - make install
 
 Directory structure
     - c++

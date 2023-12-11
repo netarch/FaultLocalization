@@ -1,22 +1,21 @@
-There are 5 top level directories in this repository
+Requirements:
+    - GCC 8 or above
+    - Google sparsehash. To install
+        - git clone https://github.com/sparsehash/sparsehash 
+        - cd sparsehash; ./configure --prefix=`pwd`
+        - make -j8
+        - make install
 
+Directory structure
+    - c++
+        - utils (general class definitions- flows, parsing of traces etc.)
+        - algorithms (inference algorithms: Flock, Sherlock, NetBouncer, 007)
+        - analysis (runs inference end-to-end for various gray failure types)
+        - collector (host-agent and the collector process for an real/emulated datacenter)
 
-- flow_simulator:
-    Contains code for generating network, flow traces
-    via custom simulator written in Python
+Compilation
+    - "make" from the top level directory
 
-- localization:
-    Contains inference algorithms for various fault localization systems
-
-- ns3:
-    Contains code for generating network/flow traces
-    via ns3 simulations
-
-- hw_traces:
-    Contains traces for failure scenarios created in a testbed
-
-- flow_probe:
-    Contains code for agent that collects flow statistics at end-host
-
-
-
+Running
+    - To reproduce paper results:
+        - cd analysis; run reproduce_results with appropriate parameters 

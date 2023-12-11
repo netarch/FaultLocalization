@@ -1,8 +1,0 @@
-tcpdump based dumping analysis tool: main.cpp
-
-To build, just run:
-$ make
-
-Then, run the following command:
-$ sudo ./main ${INTERFACE} ${LOCAL_IP_ADDRESS}
-(you may need to change the filter string in main.cpp as needed)

@@ -2,6 +2,7 @@ SECONDS=0
 sequence_mode=$1
 inference_mode=$2
 topoprefix=$3
+outfile_sim=$4
 
 topodir=./topologies/
 topofile=${topodir}/${topoprefix}.edgelist
@@ -13,7 +14,6 @@ micro_change_dir=${logdir}/micro_changes
 plog_dir=${logdir}/plog_dir
 
 mkdir -p ${logdir} ${flowsim_logs} ${modified_topo_dir} ${localization_logs} ${micro_change_dir} ${plog_dir}
-make -s clean; make -s -j8
 
 nfails=1
 nthreads=8
@@ -26,15 +26,15 @@ echo "maxiter: ${maxiter}" >> ${logdir}/config
 echo "max_links: ${max_links}" >> ${logdir}/config
 
 
-outfile_sim=${plog_dir}/initial
+# outfile_sim=${plog_dir}/initial
 fail_file=${outfile_sim}.fails
 
-python3 ../flow_simulator/flow_simulator.py \
-    --network_file ${topofile} \
-    --nfailures ${nfails} \
-    --flows_file ${logdir}/flows \
-    --outfile ${outfile_sim} > ${flowsim_logs}/initial
-echo "Flow simulation done"
+# python3 ../flow_simulator/flow_simulator.py \
+#     --network_file ${topofile} \
+#     --nfailures ${nfails} \
+#     --flows_file ${logdir}/flows \
+#     --outfile ${outfile_sim} > ${flowsim_logs}/initial
+# echo "Flow simulation done"
 
 > ${logdir}/input
 inputs=`echo "${fail_file} ${topofile} ${outfile_sim}"`

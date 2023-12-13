@@ -1,13 +1,13 @@
 sequence_mode=$1
 inference_mode=$2
 
-#topodir=../../ns3/topology/ft_k10_os3
-#topoprefix=ns3ft_deg10_sw125_svr250_os3_i1
+topodir=../../../ns3/topology/ft_k10_os3
+topoprefix=ns3ft_deg10_sw125_svr250_os3_i1
 
-topoprefix=rrg_deg14_sw100_svr250_os1_i1
-topodir=./topologies/
+#topoprefix=rrg_deg14_sw100_svr250_os1_i1
+#topodir=./topologies/
 # topoprefix=topo_rrg_deg20_sw200_svr400_os1_i0
-topoprefix=topo_ft_deg14_sw245_svr686_os3_i0
+#topoprefix=topo_ft_deg14_sw245_svr686_os3_i0
 topofile=${topodir}/${topoprefix}.edgelist
 logdir=logs/${topoprefix}_${sequence_mode}_${inference_mode}/$(date +%H-%M_%m-%d-%Y)
 
@@ -45,13 +45,14 @@ do
     cat ${logdir}/temp_agg_${iter} | grep "Best link to remove" | sed 's/(//'g | sed 's/)//'g | sed 's/,//'g | awk '{print $5" "$6}' | head -n${max_links} > ${logdir}/links_to_remove_${iter}
     new_eq_devices=`cat ${logdir}/temp_agg_${iter} | grep "equivalent devices" | grep "equivalent devices" | sed 's/equivalent devices //' | sed 's/size.*//'`
     new_eq_size=`echo ${new_eq_devices} | sed 's/]//'g | sed 's/\[//'g | awk -F',' '{print NF}'`
-    if [[ "${new_eq_size}" == "${eq_size}" ]]
-    then
-        if [[ ${new_eq_size} -le 2 ]]
-        then 
-            break
-        fi
-    fi
+
+    # if [[ "${new_eq_size}" == "${eq_size}" ]]
+    # then
+    #     if [[ ${new_eq_size} -le 2 ]]
+    #     then 
+    #         break
+    #     fi
+    # fi
 
     if [[ "${new_eq_devices}" == "${eq_devices}" ]]
     then 

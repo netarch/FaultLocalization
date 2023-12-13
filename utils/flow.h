@@ -44,7 +44,7 @@ class Flow {
          LogData &data, LogData &reduced_data);
 
     void AddPath(Path *path, bool is_path_taken = false);
-    // A reverse path is from the destination to the source
+    // A reverse path is from the destination to the source, used for acks
     void AddReversePath(Path *path, bool is_reverse_path_taken = false);
     void SetPathTaken(Path *path);
     void SetReversePathTaken(Path *path);

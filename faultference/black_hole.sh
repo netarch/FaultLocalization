@@ -51,13 +51,14 @@ do
     cat ${localization_logs}/iter_${iter} | grep "Best link to remove" | sed 's/(//'g | sed 's/)//'g | sed 's/,//'g | awk '{print $5" "$6}' | head -n${max_links} > ${micro_change_dir}/iter_${iter}
     new_eq_devices=`cat ${localization_logs}/iter_${iter} | grep "equivalent devices" | grep "equivalent devices" | sed 's/equivalent devices //' | sed 's/size.*//'`
     new_eq_size=`echo ${new_eq_devices} | sed 's/]//'g | sed 's/\[//'g | awk -F',' '{print NF}'`
-    if [[ "${new_eq_size}" == "${eq_size}" ]]
-    then
-        if [[ ${new_eq_size} -le 2 ]]
-        then 
-            break
-        fi
-    fi
+    
+    # if [[ "${new_eq_size}" == "${eq_size}" ]]
+    # then
+    #     if [[ ${new_eq_size} -le 2 ]]
+    #     then 
+    #         break
+    #     fi
+    # fi
 
     if [[ "${new_eq_devices}" == "${eq_devices}" ]]
     then 

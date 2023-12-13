@@ -63,6 +63,11 @@ set<int> LocalizeViaNobody(LogData *data, int ntraces, string fail_file,
                           double min_start_time_ms, double max_finish_time_ms,
                           int nopenmp_threads);
 
+void GetDeviceColors(set<int> &equivalent_devices, map<int, int> &device_colors,
+                     set<set<int>> &eq_device_sets);
+
+void GetColorCounts(map<int, int> &device_colors, map<int, int> &col_cnts);
+
 /*
   Coloring based scheme
   Uses information theoretic measure of sets to identify best link removal
@@ -87,6 +92,20 @@ set<Link> GetUsedLinks(LogData *data, int ntraces, double min_start_time_ms,
 
 pair<Link, double>
 GetBestLinkToRemoveITA(LogData *data, vector<Flow *> *dropped_flows,
+                       int ntraces, set<int> &equivalent_devices,
+                       set<set<int>> &eq_device_sets, set<Link> &used_links,
+                       double max_finish_time_ms, int nopenmp_threads);
+
+/*
+  Pick micro-change sequence to maximize number of pairs that can be distinguished
+*/
+int GetEqDeviceSetsMeasurePairs(LogData *data, vector<Flow *> *dropped_flows,
+                                int ntraces, set<int> &equivalent_devices,
+                                Link removed_link, double max_finish_time_ms,
+                                set<set<int>> &eq_device_sets);
+
+pair<Link, double>
+GetBestLinkToRemovePairs(LogData *data, vector<Flow *> *dropped_flows,
                        int ntraces, set<int> &equivalent_devices,
                        set<set<int>> &eq_device_sets, set<Link> &used_links,
                        double max_finish_time_ms, int nopenmp_threads);

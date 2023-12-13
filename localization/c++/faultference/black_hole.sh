@@ -1,6 +1,10 @@
 sequence_mode=$1
 inference_mode=$2
 
+#topodir=../../ns3/topology/ft_k10_os3
+#topoprefix=ns3ft_deg10_sw125_svr250_os3_i1
+
+topoprefix=rrg_deg14_sw100_svr250_os1_i1
 topodir=./topologies/
 # topoprefix=topo_rrg_deg20_sw200_svr400_os1_i0
 topoprefix=topo_ft_deg14_sw245_svr686_os3_i0
@@ -18,7 +22,7 @@ max_links=1
 outfile_sim=${logdir}/plog_${nfails}
 fail_file=${outfile_sim}.fails
 
-python3 ../../../flow_simulator/flow_simulator.py \
+time python3 ../../../flow_simulator/flow_simulator.py \
     --network_file ${topofile} \
     --nfailures ${nfails} \
     --flows_file ${logdir}/flows \
@@ -28,6 +32,7 @@ echo "Flow simulation done"
 > ${logdir}/input
 inputs=`echo "${fail_file} ${topofile} ${outfile_sim}"`
 
+echo ${nfails}" "${topofile}" "${outfile_sim}
 iter=1
 
 eq_devices=""

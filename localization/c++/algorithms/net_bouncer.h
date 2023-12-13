@@ -5,7 +5,7 @@
 /*
     The NetBouncer inference algorithm as described in
     "NetBouncer: Active Device and Link Failure Localization in
-                 Data Center Networks", NSDI 2019
+     Data Center Networks", NSDI 2019
 */
 
 class NetBouncer : public Estimator {

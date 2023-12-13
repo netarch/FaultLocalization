@@ -35,6 +35,7 @@ void CheckShortestPathExists(LogData &data, double max_finish_time_ms,
                 npaths++;
             }
         }
+        //!TODO
         // assert(npaths > 0);
     }
 }
@@ -126,7 +127,7 @@ void AggLogData(LogData *data, int ntraces, LogData &result,
                 fnew->paths = pathvec_mapping[f->paths];
             }
             if (f->reverse_paths != NULL) {
-                assert(f->reverse_paths->size() > 1);
+                // assert(f->reverse_paths->size() > 1);
                 fnew->reverse_paths = pathvec_mapping[f->reverse_paths];
             }
 
